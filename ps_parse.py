@@ -56,7 +56,6 @@ import ply.yacc as yacc
          python grammar_gen.py  < grammar > gend
 
 """
-
 def p_Document(t):
    '''Document  : IRIMETA_opt KW_Document LPAREN Base_opt Prefix_star Import_star Group_opt RPAREN '''
    pass
@@ -117,10 +116,10 @@ def p_FORMULA(t):
 
 def p_ATOMIC(t):
    '''ATOMIC         : IRIMETA_opt Atom
-| IRIMETA Equal
-| IRIMETA Member
-| IRIMETA Subclass
-| IRIMETA Frame '''
+| IRIMETA_opt Equal
+| IRIMETA_opt Member
+| IRIMETA_opt Subclass
+| IRIMETA_opt Frame '''
    pass
 
 
@@ -233,12 +232,6 @@ def p_FORMULA_star(t):
 
 def p_Frame_star(t):
    '''Frame_star : Frame_star Frame 
-    | '''
-   pass
-
-
-def p_Group_star(t):
-   '''Group_star : Group_star Group 
     | '''
    pass
 
@@ -357,7 +350,6 @@ tokens = (
    'LBRACKET'      ,  # stands for text '['
    'RBRACKET'      ,  # stands for text ']'
    )
-
 
 
 ################################################################

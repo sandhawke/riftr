@@ -70,7 +70,7 @@ for line in sys.stdin:
 
 print
 print "# Kleene star (*) expansion productions"
-for x in sorted(('Prefix', 'Import', 'Group', 'RULE_or_Group', 'Frame',
+for x in sorted(('Prefix', 'Import', 'RULE_or_Group', 'Frame',
           'Name_arrow_TERM', 'ATOMIC', 'FORMULA', 'TERM', 'Var',
           'TERM_arrow_TERM')):
     handle("%s_star : %s_star %s \n    |" % (x,x,x))
