@@ -1,0 +1,82 @@
+# RIF BLD grammar in an intermediate form, not as high level as in
+# spec, but not ready for ply.   grammar_gen takes this as input and
+# produces something ply can use.
+#
+#
+
+Document  : IRIMETA_opt 'Document' '(' Base_opt Prefix_star Import_star Group_opt ')'
+
+Base      : 'Base' '(' IRI ')'
+
+Prefix    : 'Prefix' '(' Name IRI ')'
+
+Import    : IRIMETA_opt 'Import' '(' IRICONST PROFILE_opt ')'
+
+Group     : IRIMETA_opt 'Group' '(' RULE_or_Group_star ')'
+
+RULE      : IRIMETA_opt 'Forall' Var_plus '(' CLAUSE ')'
+          | CLAUSE
+
+CLAUSE    : Implies 
+	  | ATOMIC
+
+Implies   : IRIMETA_opt ATOMIC  ':-' FORMULA
+	  | IRIMETA_opt 'And' '(' ATOMIC_star ')' ':-' FORMULA
+
+PROFILE   : TERM
+
+FORMULA        : IRIMETA_opt 'And' '(' FORMULA_star ')' 
+	       | IRIMETA_opt 'Or' '(' FORMULA_star ')' 
+	       | IRIMETA_opt 'Exists' Var_plus '(' FORMULA ')' 
+	       | ATOMIC 
+	       | IRIMETA_opt 'External' '(' Atom ')'
+	       | IRIMETA_opt 'External' '(' Frame ')'
+
+ATOMIC         : IRIMETA_opt Atom 
+	       | IRIMETA Equal 
+	       | IRIMETA Member 
+	       | IRIMETA Subclass 
+	       | IRIMETA Frame
+
+Atom           : UNITERM
+
+UNITERM        : Const '(' TERM_star ')'
+	       | Const '(' Name_arrow_TERM_star ')'
+
+Equal          : TERM '=' TERM
+
+Member         : TERM '#' TERM
+
+Subclass       : TERM '##' TERM
+
+Frame          : TERM '[' TERM_arrow_TERM_star ']'
+
+TERM           : IRIMETA_opt Const 
+	       | IRIMETA_opt Var 
+	       | IRIMETA_opt Expr 
+	       | IRIMETA_opt 'External' '(' Expr ')'
+
+Expr           : UNITERM
+
+Const          : '"' UNICODESTRING '"^^' SYMSPACE 
+	       | CONSTSHORT
+
+Name           : UNICODESTRING
+
+Var            : '?' UNICODESTRING
+
+SYMSPACE       : ANGLEBRACKIRI 
+	       | CURIE
+ 
+IRIMETA        : '(*' IRICONST_opt Frame_or_AndFrame_opt '*)'
+
+TERM_arrow_TERM : TERM '->' TERM
+
+RULE_or_Group : RULE
+	      | Group
+
+Name_arrow_TERM : Name '->' TERM
+
+Frame_or_AndFrame : Frame 
+		  | 'And' '(' Frame_star ')'
+
