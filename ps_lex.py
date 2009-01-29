@@ -2,163 +2,135 @@
 #      -*-mode: python -*-    -*- coding: utf-8 -*-
 """
 
-This is (eventually to be) a lexer for the the RIF Presentation Syntax.
-
-I'm starting with the ply example lexer for ANSI C, and modifying from
-there.
+Lexer for BLD, not really/totally in line with the spec...
 
 """
 
+import sys
+sys.path.insert(0,"/usr/share/python-support/python-ply/")
+
 import ply.lex as lex
 
-# Reserved words
-reserved = (
-    'AUTO', 'BREAK', 'CASE', 'CHAR', 'CONST', 'CONTINUE', 'DEFAULT', 'DO', 'DOUBLE',
-    'ELSE', 'ENUM', 'EXTERN', 'FLOAT', 'FOR', 'GOTO', 'IF', 'INT', 'LONG', 'REGISTER',
-    'RETURN', 'SHORT', 'SIGNED', 'SIZEOF', 'STATIC', 'STRUCT', 'SWITCH', 'TYPEDEF',
-    'UNION', 'UNSIGNED', 'VOID', 'VOLATILE', 'WHILE',
-    )
+reserved = {
+    'And': 'KW_And',
+    'Base': 'KW_Base',
+    'Document': 'KW_Document',
+    'Exists': 'KW_Exists',
+    'External': 'KW_External',
+    'Forall': 'KW_Forall',
+    'Group': 'KW_Group',
+    'Import': 'KW_Import',
+    'Or': 'KW_Or',
+    'Prefix': 'KW_Prefix',
+}
 
-tokens = reserved + (
-    # Literals (identifier, integer constant, float constant, string constant, char const)
-    'ID', 'TYPEID', 'ICONST', 'FCONST', 'SCONST', 'CCONST',
+ops = [
+   'HASH'          ,  # stands for text '#'
+   'HASHHASH'      ,  # stands for text '##'
+   'ARROW'         ,  # stands for text '->'
+   'COLONDASH'     ,  # stands for text ':-'
+   'EQUALS'        ,  # stands for text '='
+   'QUESTION'      ,  # stands for text '?'
 
-    # Operators (+,-,*,/,%,|,&,~,^,<<,>>, ||, &&, !, <, <=, >, >=, ==, !=)
-    'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MOD',
-    'OR', 'AND', 'NOT', 'XOR', 'LSHIFT', 'RSHIFT',
-    'LOR', 'LAND', 'LNOT',
-    'LT', 'LE', 'GT', 'GE', 'EQ', 'NE',
-    
-    # Assignment (=, *=, /=, %=, +=, -=, <<=, >>=, &=, ^=, |=)
-    'EQUALS', 'TIMESEQUAL', 'DIVEQUAL', 'MODEQUAL', 'PLUSEQUAL', 'MINUSEQUAL',
-    'LSHIFTEQUAL','RSHIFTEQUAL', 'ANDEQUAL', 'XOREQUAL', 'OREQUAL',
+   # NOT IN BLD, but ...?
+   'LT',
+   'LE',
+   'GT',
+   'GE',
+   ]
 
-    # Increment/decrement (++,--)
-    'PLUSPLUS', 'MINUSMINUS',
+delims = [
+   'LPAREN'        ,  # stands for text '('
+   'LMETA'         ,  # stands for text '(*'
+   'RPAREN'        ,  # stands for text ')'
+   'RMETA'         ,  # stands for text '*)'
+   'LBRACKET'      ,  # stands for text '['
+   'RBRACKET'      ,  # stands for text ']'
+]
 
-    # Structure dereference (->)
-    'ARROW',
+ids = ['CURIE', 'ANGLEBRACKIRI', 
+       'STRING_HAT_HAT',
+       'STRING', 'NUMBER', 
+       'LOCALNAME']
 
-    # Conditional operator (?)
-    'CONDOP',
-    
-    # Delimeters ( ) [ ] { } , . ; :
-    'LPAREN', 'RPAREN',
-    'LBRACKET', 'RBRACKET',
-    'LBRACE', 'RBRACE',
-    'COMMA', 'PERIOD', 'SEMI', 'COLON',
+# ISSUE: can the LOCALNAME in XML not contain a space?
 
-    # Ellipsis (...)
-    'ELLIPSIS',
-    )
+tokens = ids + delims + ops + reserved.values()
+
+def t_CURIE(t):
+    r'[a-zA-Z_][a-zA-Z_0-9]*:[a-zA-Z_][a-zA-Z_0-9]*'
+    t.value = t.value.split(":", 1)
+    return t
+
+def t_LOCALNAME(t):
+    r'[a-zA-Z_][a-zA-Z_0-9]*'
+    t.type = reserved.get(t.value,'LOCALNAME')    # Check for reserved words
+    return t
+
+def t_ANGLEBRACKIRI(t):
+    r'<[^<> ]*>'
+    t.value = t.value[1:-1]
+    return t
+
+def t_STRING_HAT_HAT(t):
+    r'"[^"]*"\^\^'
+    t.value = t.value[1:-3]
+    return t
+
+def t_STRING(t):
+    r'"[^"]*"'
+    t.value = t.value[1:-1]
+    return t
+
+def t_NUMBER(t):
+    r'\d+(\.\d+)?'
+    return t
 
 # Completely ignored characters
 t_ignore           = ' \t\x0c'
 
-# Newlines
-def t_NEWLINE(t):
-    r'\n+'
-    t.lexer.lineno += t.value.count("\n")
-    
-# Operators
-t_PLUS             = r'\+'
-t_MINUS            = r'-'
-t_TIMES            = r'\*'
-t_DIVIDE           = r'/'
-t_MOD              = r'%'
-t_OR               = r'\|'
-t_AND              = r'&'
-t_NOT              = r'~'
-t_XOR              = r'\^'
-t_LSHIFT           = r'<<'
-t_RSHIFT           = r'>>'
-t_LOR              = r'\|\|'
-t_LAND             = r'&&'
-t_LNOT             = r'!'
-t_LT               = r'<'
-t_GT               = r'>'
-t_LE               = r'<='
-t_GE               = r'>='
-t_EQ               = r'=='
-t_NE               = r'!='
-
-# Assignment operators
-
-t_EQUALS           = r'='
-t_TIMESEQUAL       = r'\*='
-t_DIVEQUAL         = r'/='
-t_MODEQUAL         = r'%='
-t_PLUSEQUAL        = r'\+='
-t_MINUSEQUAL       = r'-='
-t_LSHIFTEQUAL      = r'<<='
-t_RSHIFTEQUAL      = r'>>='
-t_ANDEQUAL         = r'&='
-t_OREQUAL          = r'\|='
-t_XOREQUAL         = r'^='
-
-# Increment/decrement
-t_PLUSPLUS         = r'\+\+'
-t_MINUSMINUS       = r'--'
-
-# ->
-t_ARROW            = r'->'
-
-# ?
-t_CONDOP           = r'\?'
-
-# Delimeters
+#t_DQUOTE           = r'"'
+#t_DQUOTEHATHAT     = r'"^^'
+t_HASH             = r'\#'
+t_HASHHASH         = r'\#\#'
 t_LPAREN           = r'\('
+t_LMETA            = r'\(\*'
 t_RPAREN           = r'\)'
+t_RMETA            = r'\*\)'
+t_ARROW            = r'->'
+t_COLONDASH        = r':-'
+t_EQUALS           = r'='
+t_QUESTION         = r'\?'
 t_LBRACKET         = r'\['
 t_RBRACKET         = r'\]'
-t_LBRACE           = r'\{'
-t_RBRACE           = r'\}'
-t_COMMA            = r','
-t_PERIOD           = r'\.'
-t_SEMI             = r';'
-t_COLON            = r':'
-t_ELLIPSIS         = r'\.\.\.'
 
-# Identifiers and reserved words
+t_LE = r'<='
+t_LT = r'<'
+t_GT = r'>'
+t_GE = r'>='
 
-reserved_map = { }
-for r in reserved:
-    reserved_map[r.lower()] = r
 
-def t_ID(t):
-    r'[A-Za-z_][\w_]*'
-    t.type = reserved_map.get(t.value,"ID")
-    return t
+##
+##  sorta standard stuff
+##
 
-# Integer literal
-t_ICONST = r'\d+([uU]|[lL]|[uU][lL]|[lL][uU])?'
-
-# Floating literal
-t_FCONST = r'((\d+)(\.\d+)(e(\+|-)?(\d+))? | (\d+)e(\+|-)?(\d+))([lL]|[fF])?'
-
-# String literal
-t_SCONST = r'\"([^\\\n]|(\\.))*?\"'
-
-# Character constant 'c' or L'c'
-t_CCONST = r'(L)?\'([^\\\n]|(\\.))*?\''
-
-# Comments
 def t_comment(t):
     r'/\*(.|\n)*?\*/'
     t.lexer.lineno += t.value.count('\n')
 
-# Preprocessor directive (ignored)
-def t_preprocessor(t):
-    r'\#(.)*?\n'
-    t.lexer.lineno += 1
-    
 def t_error(t):
     print "Illegal character %s" % repr(t.value[0])
-    t.lexer.skip(1)
+    # t.lexer.skip(1)
+    pass
+    
+foo = 0
+
+def t_NEWLINE(t):
+    r'\n+'
+    t.lexer.lineno += t.value.count("\n")
     
 lexer = lex.lex(optimize=1)
+
+# lexer = lex.lex(debug=1)
 if __name__ == "__main__":
     lex.runmain(lexer)
-
-    
-

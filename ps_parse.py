@@ -9,7 +9,13 @@ there.
 
 """
 
+import sys
+sys.path.insert(0,"/usr/share/python-support/python-ply/")
+
 import ply.yacc as yacc
+import ps_lex
+
+tokens = ps_lex.tokens
 
 
 """
@@ -62,17 +68,17 @@ def p_Document(t):
 
 
 def p_Base(t):
-   '''Base      : KW_Base LPAREN IRI RPAREN '''
+   '''Base      : KW_Base LPAREN STRING RPAREN '''   
    pass
 
 
 def p_Prefix(t):
-   '''Prefix    : KW_Prefix LPAREN Name IRI RPAREN '''
+   '''Prefix    : KW_Prefix LPAREN LOCALNAME ANGLEBRACKIRI RPAREN '''
    pass
 
 
 def p_Import(t):
-   '''Import    : IRIMETA_opt KW_Import LPAREN IRICONST PROFILE_opt RPAREN '''
+   '''Import    : IRIMETA_opt KW_Import LPAREN ANGLEBRACKIRI PROFILE_opt RPAREN '''
    pass
 
 
@@ -80,22 +86,20 @@ def p_Group(t):
    '''Group     : IRIMETA_opt KW_Group LPAREN RULE_or_Group_star RPAREN '''
    pass
 
-
 def p_RULE(t):
    '''RULE      : IRIMETA_opt KW_Forall Var_plus LPAREN CLAUSE RPAREN
-| CLAUSE '''
+                | CLAUSE '''
    pass
-
 
 def p_CLAUSE(t):
    '''CLAUSE    : Implies
-| ATOMIC '''
+                | ATOMIC '''
    pass
 
 
 def p_Implies(t):
    '''Implies   : IRIMETA_opt ATOMIC  COLONDASH FORMULA
-| IRIMETA_opt KW_And LPAREN ATOMIC_star RPAREN COLONDASH FORMULA '''
+                | IRIMETA_opt KW_And LPAREN ATOMIC_star RPAREN COLONDASH FORMULA '''
    pass
 
 
@@ -130,7 +134,7 @@ def p_Atom(t):
 
 def p_UNITERM(t):
    '''UNITERM        : Const LPAREN TERM_star RPAREN
-| Const LPAREN Name_arrow_TERM_star RPAREN '''
+                     | Const LPAREN Name_arrow_TERM_star RPAREN '''
    pass
 
 
@@ -168,24 +172,43 @@ def p_Expr(t):
 
 
 def p_Const(t):
-   '''Const          : DQUOTE UNICODESTRING DQUOTEHATHAT SYMSPACE
-| CONSTSHORT '''
+   '''Const          : STRING_HAT_HAT SYMSPACE
+                     | CONSTSHORT '''
+   pass
+
+# MINE
+def p_CONSTSHORT(t):
+   '''CONSTSHORT    : STRING
+                    | NUMBER
+                    | ANGLEBRACKIRI
+                    | CURIE  '''
+   #   the ANGLEBRACKIRI/CURIE is needed for import-profiles
+   #       (among other things.   it's short for the rif:iri symspace)
    pass
 
 
+
 def p_Name(t):
-   '''Name           : UNICODESTRING '''
+   '''Name           : STRING
+                     | LOCALNAME '''
    pass
 
 
 def p_Var(t):
-   '''Var            : QUESTION UNICODESTRING '''
+   '''Var            : QUESTION STRING 
+                     | QUESTION LOCALNAME '''
    pass
 
 
 def p_SYMSPACE(t):
    '''SYMSPACE       : ANGLEBRACKIRI
-| CURIE '''
+                     | CURIE '''
+   pass
+
+# MINE
+def p_IRICONST(t):
+   '''IRICONST       : ANGLEBRACKIRI
+                     | CURIE '''
    pass
 
 
@@ -201,7 +224,7 @@ def p_TERM_arrow_TERM(t):
 
 def p_RULE_or_Group(t):
    '''RULE_or_Group : RULE
-| Group '''
+                    | Group '''
    pass
 
 
@@ -256,7 +279,7 @@ def p_Prefix_star(t):
 
 def p_RULE_or_Group_star(t):
    '''RULE_or_Group_star : RULE_or_Group_star RULE_or_Group 
-    | '''
+                         | '''
    pass
 
 
@@ -281,7 +304,7 @@ def p_Var_star(t):
 
 # Kleene plus (+) expansion productions
 def p_Var_plus(t):
-   '''Var_plus : Var_star Var 
+   '''Var_plus : Var_plus Var 
     | Var '''
    pass
 
@@ -308,13 +331,13 @@ def p_Group_opt(t):
 
 def p_IRICONST_opt(t):
    '''IRICONST_opt : IRICONST 
-    | '''
+                   | '''
    pass
 
 
 def p_IRIMETA_opt(t):
    '''IRIMETA_opt : IRIMETA 
-    | '''
+                  |          '''
    pass
 
 
@@ -324,47 +347,29 @@ def p_PROFILE_opt(t):
    pass
 
 
-tokens = (
-   'DQUOTE'        ,  # stands for text '"'
-   'DQUOTEHATHAT'  ,  # stands for text '"^^'
-   'HASH'          ,  # stands for text '#'
-   'HASHHASH'      ,  # stands for text '##'
-   'LPAREN'        ,  # stands for text '('
-   'LMETA'         ,  # stands for text '(*'
-   'RPAREN'        ,  # stands for text ')'
-   'RMETA'         ,  # stands for text '*)'
-   'ARROW'         ,  # stands for text '->'
-   'COLONDASH'     ,  # stands for text ':-'
-   'EQUALS'        ,  # stands for text '='
-   'QUESTION'      ,  # stands for text '?'
-   'KW_And'        ,  # stands for text 'And'
-   'KW_Base'       ,  # stands for text 'Base'
-   'KW_Document'   ,  # stands for text 'Document'
-   'KW_Exists'     ,  # stands for text 'Exists'
-   'KW_External'   ,  # stands for text 'External'
-   'KW_Forall'     ,  # stands for text 'Forall'
-   'KW_Group'      ,  # stands for text 'Group'
-   'KW_Import'     ,  # stands for text 'Import'
-   'KW_Or'         ,  # stands for text 'Or'
-   'KW_Prefix'     ,  # stands for text 'Prefix'
-   'LBRACKET'      ,  # stands for text '['
-   'RBRACKET'      ,  # stands for text ']'
-   )
-
-
 ################################################################
 
-def p_error(t):
-    raise RuntimeError
+class SyntaxError (RuntimeError):
 
-tokens = tokens + (
-    'IRI',
-    'IRICONST',
-    'UNICODESTRING',
-    'CONSTSHORT',
-    'ANGLEBRACKIRI',
-    'CURIE',
-)
+   def __init__(self, line, pos):
+      self.line = line
+      self.pos = pos
+
+def p_error(t):
+   if t is None:
+      raise SyntaxError(0, 0)
+   else:
+      raise SyntaxError(t.lineno, t.lexpos)
+
+
+# from PLY docs
+def find_column(input,pos):
+    i = pos
+    while i > 0:
+        if input[i] == '\n': break
+        i -= 1
+    column = (pos - i)+1
+    return column
 
 # Build the grammar
 
@@ -372,8 +377,17 @@ yacc.yacc()
 
 import sys
 s = sys.stdin.read()
-result = yacc.parse(s)
-print 'Parse Tree:', result
+result = None
+try:
+   result = yacc.parse(s, debug=4)
+except SyntaxError, e:
+   col = find_column(s, e.pos)
+   print "syntax error, line %d, col %d" % (e.line, e.pos)
+   print "==> "+s.split("\n")[e.line-1]
+   print "   "+(" "*col)+"^---- near here"
+
+if result:
+   print 'Parse Tree:', result
 
 #>>> with open('/tmp/workfile', 'r') as f:
 #...     read_data = f.read()

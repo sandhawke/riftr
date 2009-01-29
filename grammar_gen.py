@@ -78,7 +78,7 @@ for x in sorted(('Prefix', 'Import', 'RULE_or_Group', 'Frame',
 print
 print "# Kleene plus (+) expansion productions"
 for x in ('Var',):
-    handle("%s_plus : %s_star %s \n    | %s" % (x,x,x,x))
+    handle("%s_plus : %s_plus %s \n    | %s" % (x,x,x,x))
 
 print
 print "# Kleene opt (?) expansion productions"
@@ -93,3 +93,9 @@ print "tokens = ("
 for (key, value) in sorted(token_for.items()):
     print "   %-16s,  # stands for text '%s'" % (`value`, key)
 print "   )"
+
+print " "
+print "# For the lexer..."
+print " "
+for (key, value) in sorted(token_for.items()):
+    print "t_%-16s = r%s" % (value, `key`)
