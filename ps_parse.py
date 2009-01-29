@@ -97,8 +97,10 @@ def p_CLAUSE(t):
    pass
 
 
+# GRAMMAR BUG: there was an IRIMETA_opt here, but it was ambiguous with the
+# one on the ATOMIC
 def p_Implies(t):
-   '''Implies   : IRIMETA_opt ATOMIC  COLONDASH FORMULA
+   '''Implies   : ATOMIC COLONDASH FORMULA
                 | IRIMETA_opt KW_And LPAREN ATOMIC_star RPAREN COLONDASH FORMULA '''
    pass
 
@@ -120,10 +122,10 @@ def p_FORMULA(t):
 
 def p_ATOMIC(t):
    '''ATOMIC         : IRIMETA_opt Atom
-| IRIMETA_opt Equal
-| IRIMETA_opt Member
-| IRIMETA_opt Subclass
-| IRIMETA_opt Frame '''
+                     | IRIMETA_opt Equal
+                     | IRIMETA_opt Member
+                     | IRIMETA_opt Subclass
+                     | IRIMETA_opt Frame '''
    pass
 
 
@@ -379,7 +381,7 @@ import sys
 s = sys.stdin.read()
 result = None
 try:
-   result = yacc.parse(s, debug=4)
+   result = yacc.parse(s, debug=0)
 except SyntaxError, e:
    col = find_column(s, e.pos)
    print "syntax error, line %d, col %d" % (e.line, e.pos)
