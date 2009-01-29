@@ -72,8 +72,9 @@ def p_Base(t):
    pass
 
 
-def p_Prefix(t):
-   '''Prefix    : KW_Prefix LPAREN LOCALNAME ANGLEBRACKIRI RPAREN '''
+def p_Prefix(t):    # BUG?  BARE_IRI is like in BLD, but what about some chars?
+   '''Prefix    : KW_Prefix LPAREN LOCALNAME ANGLEBRACKIRI RPAREN 
+                | KW_Prefix LPAREN LOCALNAME BARE_IRI RPAREN '''
    pass
 
 

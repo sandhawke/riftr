@@ -11,17 +11,20 @@ sys.path.insert(0,"/usr/share/python-support/python-ply/")
 
 import ply.lex as lex
 
+def k(x):
+    return x.lower()
+
 reserved = {
-    'And': 'KW_And',
-    'Base': 'KW_Base',
-    'Document': 'KW_Document',
-    'Exists': 'KW_Exists',
-    'External': 'KW_External',
-    'Forall': 'KW_Forall',
-    'Group': 'KW_Group',
-    'Import': 'KW_Import',
-    'Or': 'KW_Or',
-    'Prefix': 'KW_Prefix',
+    k('And'): 'KW_And',
+    k('Base'): 'KW_Base',
+    k('Document'): 'KW_Document',
+    k('Exists'): 'KW_Exists',
+    k('External'): 'KW_External',
+    k('Forall'): 'KW_Forall',
+    k('Group'): 'KW_Group',
+    k('Import'): 'KW_Import',
+    k('Or'): 'KW_Or',
+    k('Prefix'): 'KW_Prefix',
 }
 
 ops = [
@@ -48,7 +51,7 @@ delims = [
    'RBRACKET'      ,  # stands for text ']'
 ]
 
-ids = ['CURIE', 'ANGLEBRACKIRI', 
+ids = ['CURIE', 'ANGLEBRACKIRI', 'BARE_IRI',
        'STRING_HAT_HAT',
        'STRING', 'NUMBER', 
        'LOCALNAME']
@@ -62,9 +65,16 @@ def t_CURIE(t):
     t.value = t.value.split(":", 1)
     return t
 
+def t_BARE_IRI(t):
+    # This isn't really right.  Close-paren is valid in an IRI, but
+    # must be excluded for this to work right in the BLD LC-draft examples.
+    #r'http:.*'
+    r'[a-zA-Z_][a-zA-Z_0-9]*:[^ \n<>()]*'
+    return t
+
 def t_LOCALNAME(t):
     r'[a-zA-Z_][a-zA-Z_0-9]*'
-    t.type = reserved.get(t.value,'LOCALNAME')    # Check for reserved words
+    t.type = reserved.get(t.value.lower(),'LOCALNAME')    # Check for reserved words
     return t
 
 def t_ANGLEBRACKIRI(t):
