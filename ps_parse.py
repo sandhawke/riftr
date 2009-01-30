@@ -2,10 +2,10 @@
 #      -*-mode: python -*-    -*- coding: utf-8 -*-
 """
 
-This is (eventually to be) a parser for the the RIF Presentation Syntax.
+TODO:
+   runtime --debug
+   runtime --start_symbol
 
-I'm starting with the ply example parser for ANSI C, and modifying from
-there.
 
 """
 
@@ -13,10 +13,12 @@ import sys
 sys.path.insert(0,"/usr/share/python-support/python-ply/")
 
 import ply.yacc as yacc
+
+from objects import *
+
 import ps_lex
 
 tokens = ps_lex.tokens
-
 
 """
 
@@ -62,10 +64,10 @@ tokens = ps_lex.tokens
          python grammar_gen.py  < grammar > gend
 
 """
+
 def p_Document(t):
    '''Document  : IRIMETA_opt KW_Document LPAREN Base_opt Prefix_star Import_star Group_opt RPAREN '''
-   pass
-
+   t[0] = Document(meta=t[1], base=t[4], prefix=t[5], imports=t[6], group=t[7])
 
 def p_Base(t):
    '''Base      : KW_Base LPAREN STRING RPAREN '''   
@@ -113,16 +115,17 @@ def p_PROFILE(t):
 
 def p_FORMULA(t):
    '''FORMULA        : IRIMETA_opt KW_And LPAREN FORMULA_star RPAREN
-| IRIMETA_opt KW_Or LPAREN FORMULA_star RPAREN
-| IRIMETA_opt KW_Exists Var_plus LPAREN FORMULA RPAREN
-| ATOMIC
-| IRIMETA_opt KW_External LPAREN Atom RPAREN
-| IRIMETA_opt KW_External LPAREN Frame RPAREN '''
+                     | IRIMETA_opt KW_Or LPAREN FORMULA_star RPAREN
+                     | IRIMETA_opt KW_Exists Var_plus LPAREN FORMULA RPAREN
+                     | ATOMIC
+                     | IRIMETA_opt KW_External LPAREN Atom RPAREN
+                     '''
+   # taken out, I think:   | IRIMETA_opt KW_External LPAREN Frame RPAREN '''
    pass
 
 
 def p_ATOMIC(t):
-   '''ATOMIC         : IRIMETA_opt Atom
+   '''ATOMIC         : IRIMETA_opt KW_Atom Atom
                      | IRIMETA_opt Equal
                      | IRIMETA_opt Member
                      | IRIMETA_opt Subclass
@@ -136,8 +139,8 @@ def p_Atom(t):
 
 
 def p_UNITERM(t):
-   '''UNITERM        : Const LPAREN TERM_star RPAREN
-                     | Const LPAREN Name_arrow_TERM_star RPAREN '''
+   '''UNITERM        : Const LPAREN TERM_star RPAREN 
+                     | Const LPAREN Name_arrow_TERM_plus RPAREN '''
    pass
 
 
@@ -163,9 +166,9 @@ def p_Frame(t):
 
 def p_TERM(t):
    '''TERM           : IRIMETA_opt Const
-| IRIMETA_opt Var
-| IRIMETA_opt Expr
-| IRIMETA_opt KW_External LPAREN Expr RPAREN '''
+                     | IRIMETA_opt Var
+                     | IRIMETA_opt Expr
+                     | IRIMETA_opt KW_External LPAREN Expr RPAREN '''
    pass
 
 
@@ -184,6 +187,7 @@ def p_CONSTSHORT(t):
    '''CONSTSHORT    : STRING
                     | NUMBER
                     | ANGLEBRACKIRI
+                    | BARE_IRI
                     | CURIE  '''
    #   the ANGLEBRACKIRI/CURIE is needed for import-profiles
    #       (among other things.   it's short for the rif:iri symspace)
@@ -191,10 +195,10 @@ def p_CONSTSHORT(t):
 
 
 
-def p_Name(t):
-   '''Name           : STRING
-                     | LOCALNAME '''
-   pass
+#def p_Name(t):
+#   '''Name           : STRING
+#                     | LOCALNAME '''
+#   pass
 
 
 def p_Var(t):
@@ -215,8 +219,11 @@ def p_IRICONST(t):
    pass
 
 
-def p_IRIMETA(t):
-   '''IRIMETA        : LMETA IRICONST_opt Frame_or_AndFrame_opt RMETA '''
+def p_IRIMETA_opt(t):
+   '''IRIMETA_opt     : LMETA IRICONST Frame_or_AndFrame_opt RMETA 
+                      | LMETA Frame_or_AndFrame_opt RMETA  
+                      | 
+   '''
    pass
 
 
@@ -232,7 +239,7 @@ def p_RULE_or_Group(t):
 
 
 def p_Name_arrow_TERM(t):
-   '''Name_arrow_TERM : Name ARROW TERM '''
+   '''Name_arrow_TERM : NAME_ARROW TERM '''
    pass
 
 
@@ -268,9 +275,9 @@ def p_Import_star(t):
    pass
 
 
-def p_Name_arrow_TERM_star(t):
-   '''Name_arrow_TERM_star : Name_arrow_TERM_star Name_arrow_TERM 
-    | '''
+def p_Name_arrow_TERM_plus(t):
+   '''Name_arrow_TERM_plus : Name_arrow_TERM_plus Name_arrow_TERM 
+                           | Name_arrow_TERM '''
    pass
 
 
@@ -294,12 +301,6 @@ def p_TERM_star(t):
 
 def p_TERM_arrow_TERM_star(t):
    '''TERM_arrow_TERM_star : TERM_arrow_TERM_star TERM_arrow_TERM 
-    | '''
-   pass
-
-
-def p_Var_star(t):
-   '''Var_star : Var_star Var 
     | '''
    pass
 
@@ -332,16 +333,16 @@ def p_Group_opt(t):
    pass
 
 
-def p_IRICONST_opt(t):
-   '''IRICONST_opt : IRICONST 
-                   | '''
-   pass
+#def p_IRICONST_opt(t):
+#   '''IRICONST_opt : IRICONST 
+#                   | '''
+#  pass
 
-
-def p_IRIMETA_opt(t):
-   '''IRIMETA_opt : IRIMETA 
-                  |          '''
-   pass
+#    integrate it
+#def p_IRIMETA_opt(t):
+#   '''IRIMETA_opt : IRIMETA 
+#                  |          '''
+#   pass
 
 
 def p_PROFILE_opt(t):
@@ -382,7 +383,7 @@ import sys
 s = sys.stdin.read()
 result = None
 try:
-   result = yacc.parse(s, debug=0)
+   result = yacc.parse(s, debug=1)
 except SyntaxError, e:
    col = find_column(s, e.pos)
    print "syntax error, line %d, col %d" % (e.line, e.pos)
