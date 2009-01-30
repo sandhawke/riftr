@@ -217,15 +217,39 @@ def p_SYMSPACE(t):
 # MINE
 def p_IRICONST(t):
    '''IRICONST       : ANGLEBRACKIRI
-                     | CURIE '''
+                     | CURIE 
+                     | STRING_HAT_HAT SYMSPACE
+   '''      #   check to make sure it's the right symspace!
    t[0] = t[1]
 
 
-def p_IRIMETA_opt(t):
-   '''IRIMETA_opt     : LMETA IRICONST Frame_or_AndFrame_opt RMETA 
-                      | LMETA Frame_or_AndFrame_opt RMETA  
-                      | 
-   '''
+def p_IRIMETA_opt_1(t):
+   '''IRIMETA_opt     : LMETA RMETA '''
+   pass
+def p_IRIMETA_opt_2(t):
+   '''IRIMETA_opt     : LMETA IRICONST RMETA '''
+   t[0] = (t[2], [])
+def p_IRIMETA_opt_3(t):
+   '''IRIMETA_opt     : LMETA IRICONST KW_And LPAREN Frame_star RPAREN RMETA '''
+   t[0] = (t[2], t[5])
+# These two are tricky; we need both of them to work around the
+# ambiguity here.
+def p_IRIMETA_opt_4(t):
+   '''IRIMETA_opt     : LMETA IRICONST LBRACKET TERM_arrow_TERM_star RBRACKET RMETA '''
+   t[0] = (None, [rif.Frame(object=t[2], slot=t[4]) ])
+def p_IRIMETA_opt_5(t):
+   '''IRIMETA_opt     : LMETA TERM LBRACKET TERM_arrow_TERM_star RBRACKET RMETA '''
+   t[0] = (None, [rif.Frame(object=t[2], slot=t[4]) ])
+def p_IRIMETA_opt_6(t):
+   '''IRIMETA_opt     : LMETA IRICONST TERM LBRACKET TERM_arrow_TERM_star RBRACKET  RMETA'''
+   t[0] = (t[2], [rif.Frame(object=t[3], slot=t[5]) ])
+
+# This rule produces all our shift/reduce conflicts.   Sigh.
+# Because there are several places you could put meta, there are
+# several different ways to have it be missing -- to use this rule.
+# These should be totally harmless.
+def p_IRIMETA_opt_7(t):
+   '''IRIMETA_opt    :  '''
    pass
 
 

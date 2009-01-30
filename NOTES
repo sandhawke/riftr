@@ -142,3 +142,18 @@ bld-4:
 
    (* <a> <b>[...] *)
    (* <b>[...] *)
+
+
+  -- quoting strings
+  -- no bare IRIs  (even in prefix and base)
+  -- do allow null prefix (somehow)
+  -- _:foo as shortcut for local?   or SOMETHING
+
+
+****************************************************************
+
+The only thing I think I needed to mess with on BLD documents
+is at the annotation frame objects are LOCALNAMES and I don't
+allow those.
+
+****************************************************************

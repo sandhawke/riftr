@@ -26,8 +26,8 @@ reserved = {
     k('Import'): 'KW_Import',
     k('Or'): 'KW_Or',
     k('Prefix'): 'KW_Prefix',
-    k('Atom'): 'KW_Atom',   # just messing around
-    k('metasep'): 'METASEP',   # just messing around   -- saves two conflicts
+#    k('Atom'): 'KW_Atom',   # just messing around
+#    k('metasep'): 'METASEP',   # just messing around   -- saves two conflicts
 }
 
 ops = [

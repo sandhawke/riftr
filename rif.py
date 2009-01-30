@@ -29,6 +29,14 @@ def as_ps(obj, newline="\n"):
     if hasattr(obj, 'as_ps'):
         return obj.as_ps(newline)
     else:
+
+        # @HACK
+        try:
+            (pre,rest) = obj
+            return pre+":"+rest
+        except:
+            pass
+        
         raise RuntimeError("dont know how to serialized %s in ps" % obj)
 
 def ps_quoted_string(s):
@@ -41,7 +49,6 @@ class SmartObj:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
-    
     def __str__(self):
         return self.as_debug()
 
@@ -70,15 +77,35 @@ class SmartObj:
                 s += "%s\n%s" % (as_debug(value, newline), newline)
         return self.__class__.__name__ + "("+newline + s + ")"
 
-    def as_ps(self, newline="\n"):
+    def do_meta_ps(self, newline):
         try:
-            s = self.ps_name
+            (id, frames) = self.meta
         except:
-            s = self.__class__.__name__
+            return ""
+        s = "(* "
+        if id:
+            s += "<"+id+">"
+        if len(frames) == 0:
+            pass
+        elif len(frames) == 1:
+            s += " "+frames[0].as_ps(newline+"    ")
+        else:
+            s += "And("+newline
+            newline += "    "
+            for f in frames:
+                s += "    " +  frames[0].as_ps(newline) + newline
+            s += ")"
+        s += " *) " + newline
+        return s
+
+    def as_ps(self, newline="\n"):
+
+        s = self.do_meta_ps(newline)
+        try:
+            s += self.ps_name
+        except:
+            s += self.__class__.__name__
         s += " ("
-
-        # @@@ do meta here
-
         s += self.ps_heart(newline+'    ')
         if s.endswith('    '):
             s = s[:-4]
@@ -182,7 +209,7 @@ class Const(SmartObj):
         return (ps_quoted_string(self.lexrep) + 
                 "^^" + 
                 # needs qname smarts -- prefix and stuff!
-                self.datatype.as_ps(newline))
+                as_ps(self.datatype, newline))
 
     def determine_lexrep(self):
         try:
@@ -227,7 +254,24 @@ class Slot(SmartObj):
     pass
 
 class Frame(SmartObj):
-    pass
+    
+    def as_ps(self, newline):
+        s = as_ps(self.object, newline)
+        if len(self.slot) == 1:
+            s += "[%s -> %s]" % (
+                as_ps(slot.key, newline+"    "),
+                as_ps(slot.value, newline+"    "),
+                )
+        else:
+            newline += "    "
+            s += "["+newline
+            for slot in self.slot:
+                s += "%s -> %s%s" % (
+                    as_ps(slot.key, newline),
+                    as_ps(slot.value, newline),
+                    newline)
+            s += "] "
+        return s
 
 
 class Equal(SmartObj):
