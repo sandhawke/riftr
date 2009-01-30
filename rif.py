@@ -81,12 +81,9 @@ class Document(SmartObj):
             for (short, long) in self.prefix:
                 s += 'Prefix(%s %s)%s' % (short, long, newline)
             s += newline
-        # @@@ import
-        if self.group:
-            for g in group:
-                s += g.as_ps(newline)
-            s += newline
+        # @@@ import, group
         return s
+    
 
 class Group(SmartObj):
     pass
