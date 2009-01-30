@@ -27,7 +27,7 @@ reserved = {
     k('Or'): 'KW_Or',
     k('Prefix'): 'KW_Prefix',
     k('Atom'): 'KW_Atom',   # just messing around
-#    k('metasep'): 'METASEP',   # just messing around   -- saves two conflicts
+    k('metasep'): 'METASEP',   # just messing around   -- saves two conflicts
 }
 
 ops = [
@@ -65,7 +65,7 @@ ids = ['CURIE', 'ANGLEBRACKIRI', 'BARE_IRI',
 tokens = ids + delims + ops + reserved.values()
 
 def t_CURIE(t):
-    r'[a-zA-Z_][a-zA-Z_0-9]*:[a-zA-Z_][a-zA-Z_0-9]*'
+    r'[a-zA-Z_][-a-zA-Z_0-9]*:[a-zA-Z_][-a-zA-Z_0-9]*'
     t.value = t.value.split(":", 1)
     return t
 
@@ -73,16 +73,16 @@ def t_BARE_IRI(t):
     # This isn't really right.  Close-paren and close-bracket are valid in 
     # an IRI, but
     # must be excluded for this to work right in the BLD LC-draft examples.
-    r'[a-zA-Z_][a-zA-Z_0-9]*:[^] \n<>()]*'
+    r'[a-zA-Z_][-a-zA-Z_0-9]*:[^] \n<>()]*'
     return t
 
 def t_NAME_ARROW(t):
-    r'[a-zA-Z_][a-zA-Z_0-9]*[ \t\x0c]*->'
+    r'[a-zA-Z_][-a-zA-Z_0-9]*[ \t\x0c]*->'
     t.value = t.value[0:-2].strip()
     return t
 
 def t_LOCALNAME(t):
-    r'[a-zA-Z_][a-zA-Z_0-9]*'
+    r'[a-zA-Z_][-a-zA-Z_0-9]*'
     t.type = reserved.get(t.value.lower(),'LOCALNAME')    # Check for reserved words
     return t
 

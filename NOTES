@@ -135,3 +135,10 @@ see all the commented bits!
 
 ****************
 
+
+bld-4:
+
+   (* "http://sample.org"^^rif:iri x:pd[dc:publish...
+
+   (* <a> <b>[...] *)
+   (* <b>[...] *)

@@ -13,6 +13,7 @@ import sys
 sys.path.insert(0,"/usr/share/python-support/python-ply/")
 
 import ply.yacc as yacc
+import ply.lex as lex
 
 import rif
 
@@ -76,8 +77,9 @@ def p_Implies_1(t):
 
 def p_Implies_2(t):
    # is the metadata on the AND or the Rule?
-   '''Implies   : IRIMETA_opt KW_And LPAREN ATOMIC_star RPAREN COLONDASH FORMULA '''
-   t[0] = rif.Implies(meta=t[1], then=rif.And(formula=t[4]), if_=t[7])
+   # ...remove IRIMETA_opt
+   '''Implies   : KW_And LPAREN ATOMIC_star RPAREN COLONDASH FORMULA '''
+   t[0] = rif.Implies(then=rif.And(formula=t[3]), if_=t[6])
 
 
 def p_PROFILE(t):
@@ -161,14 +163,14 @@ def p_TERM_1(t):
    
 def p_TERM_2(t):
    '''TERM           : IRIMETA_opt KW_External LPAREN Expr RPAREN '''
-   t[0] = rif.ExternalExpr(meta=t[1], content=[4])
+   t[0] = rif.ExternalExpr(meta=t[1], content=t[4])
 
 # was UNITERM
 def p_Expr_1(t):
    '''Expr           : Const LPAREN TERM_star RPAREN '''
    t[0] = rif.Expr(op=t[1], args=t[3])
 
-def p_Expr_1(t):
+def p_Expr_2(t):
    '''Expr           : Const LPAREN Name_arrow_TERM_plus RPAREN '''
    t[0] = rif.NamedArgsExpr(op=t[1], slot=t[3])
 
@@ -393,12 +395,20 @@ import sys
 s = sys.stdin.read()
 result = None
 try:
-   result = yacc.parse(s, debug=0)
+   result = yacc.parse(s, debug=10)
 except SyntaxError, e:
    col = find_column(s, e.pos)
-   print "syntax error, line %d, col %d" % (e.line, e.pos)
+   print "syntax error, line %d, col %d, unexpected token" % (e.line, col)
    print "==> "+s.split("\n")[e.line-1]
-   print "   "+(" "*col)+"^---- near here"
+   print "  "+(" "*col)+"^---- near here"
+except lex.LexError, e:
+   pos = len(s) - len(e.text)
+   col = find_column(s, pos)
+   line = lex.lexer.lineno
+   print "syntax error, line %d, col %d, unexpected character" % (line, col)
+   print "==> "+s.split("\n")[line-1]
+   print "  "+(" "*col)+"^---- near here"
+   
 
 #if result:
 #   print 'Parse Tree:\n', result.as_debug()

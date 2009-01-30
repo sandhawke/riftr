@@ -2,6 +2,21 @@
 #      -*-mode: python -*-    -*- coding: utf-8 -*-
 """
 
+To do...
+
+    --- qnames/curies/prefix
+    --- meta
+    --- real datatype handling, with PS/APS flag
+           (third arg, FLAGS, or more cleverly 
+           a state object?     ctl.newline += "   "
+           ctl.forcehathat, ctl.width, ...
+           maybe even ctl.oneline --- although, 
+           perhaps newline can just come in as ""?
+    --- to XML
+    --- some kind of from XML
+    --- to RDF
+    --- from RDF
+
 """
 
 def as_debug(obj, newline="\n"):
@@ -12,7 +27,7 @@ def as_debug(obj, newline="\n"):
 
 def as_ps(obj, newline="\n"):
     if hasattr(obj, 'as_ps'):
-        return obj.as_debug(newline)
+        return obj.as_ps(newline)
     else:
         raise RuntimeError("dont know how to serialized %s in ps" % obj)
 
@@ -96,7 +111,12 @@ class Group(SmartObj):
         return s
 
 class And(SmartObj):
-    pass
+
+    def ps_heart(self, newline):
+        s = newline
+        for sent in self.formula:
+            s += sent.as_ps(newline) + newline
+        return s
 
 class Atom(SmartObj):
     
@@ -106,20 +126,54 @@ class Atom(SmartObj):
             sa.append(arg.as_ps(newline))
         return self.op.as_ps(newline) + "(" + " ".join(sa) + ")"
 
+class Expr(SmartObj):
+
+    def as_ps(self, newline):
+        sa = []
+        for arg in self.args:
+            sa.append(arg.as_ps(newline))
+        return self.op.as_ps(newline) + "(" + " ".join(sa) + ")"
+
+
 class ExternalExpr(SmartObj):
-    pass
+
+    ps_name = "External"
+        
+    def ps_heart(self, newline):
+        return as_ps(self.content, newline)
+        
 
 class ExternalAtom(SmartObj):
-    pass
+
+    ps_name = "External"
+        
+    def ps_heart(self, newline):
+        return as_ps(self.content, newline)
 
 class Const(SmartObj):
     
     def as_ps(self, newline):
         
+        # hack for now
+        try:
+            s = self.value
+            if isinstance(s, basestring):
+                return s
+        except:
+            pass
+            
         # hack for now!
         try:
             (pre,rest) = self.value
             return pre+":"+rest
+        except:
+            pass
+
+        # hack for now
+        try:
+            i = self.value
+            if isinstance(i, int):
+                return str(i)
         except:
             pass
 
@@ -168,3 +222,16 @@ class Forall(SmartObj):
         newline += "    "
         s += "("+newline+self.formula.as_ps(newline)+newline[:-4]+")"
         return s
+
+class Slot(SmartObj):
+    pass
+
+class Frame(SmartObj):
+    pass
+
+
+class Equal(SmartObj):
+
+    def as_ps(self, newline):
+        return self.left.as_ps(newline) + "=" + self.right.as_ps(newline)
+
