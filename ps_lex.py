@@ -20,11 +20,14 @@ reserved = {
     k('Document'): 'KW_Document',
     k('Exists'): 'KW_Exists',
     k('External'): 'KW_External',
+#    k('ExternalF'): 'KW_ExternalF',
     k('Forall'): 'KW_Forall',
     k('Group'): 'KW_Group',
     k('Import'): 'KW_Import',
     k('Or'): 'KW_Or',
     k('Prefix'): 'KW_Prefix',
+    k('Atom'): 'KW_Atom',   # just messing around
+#    k('metasep'): 'METASEP',   # just messing around   -- saves two conflicts
 }
 
 ops = [
@@ -36,10 +39,10 @@ ops = [
    'QUESTION'      ,  # stands for text '?'
 
    # NOT IN BLD, but ...?
-   'LT',
-   'LE',
-   'GT',
-   'GE',
+ #  'LT',
+ #  'LE',
+ #  'GT',
+ #  'GE',
    ]
 
 delims = [
@@ -54,6 +57,7 @@ delims = [
 ids = ['CURIE', 'ANGLEBRACKIRI', 'BARE_IRI',
        'STRING_HAT_HAT',
        'STRING', 'NUMBER', 
+       'NAME_ARROW', 
        'LOCALNAME']
 
 # ISSUE: can the LOCALNAME in XML not contain a space?
@@ -66,10 +70,15 @@ def t_CURIE(t):
     return t
 
 def t_BARE_IRI(t):
-    # This isn't really right.  Close-paren is valid in an IRI, but
+    # This isn't really right.  Close-paren and close-bracket are valid in 
+    # an IRI, but
     # must be excluded for this to work right in the BLD LC-draft examples.
-    #r'http:.*'
-    r'[a-zA-Z_][a-zA-Z_0-9]*:[^ \n<>()]*'
+    r'[a-zA-Z_][a-zA-Z_0-9]*:[^] \n<>()]*'
+    return t
+
+def t_NAME_ARROW(t):
+    r'[a-zA-Z_][a-zA-Z_0-9]*[ \t\x0c]*->'
+    t.value = t.value[0:-2].strip()
     return t
 
 def t_LOCALNAME(t):

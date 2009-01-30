@@ -1,4 +1,4 @@
 
 
 clean:
-	rm lextab.py parsetab.py *.pyc parser.out
+	rm -f lextab.py parsetab.py *.pyc parser.out

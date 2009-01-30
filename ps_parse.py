@@ -20,50 +20,6 @@ import ps_lex
 
 tokens = ps_lex.tokens
 
-"""
-
-- cut and paste grammar from 
-  http://www.w3.org/TR/2008/WD-rif-bld-20080730/#EBNF_for_the_Rule_Language
-
-- Change EBNF to BNF
-
-   - replace parenthesized phrases with named phrases, as needed:
-       (RULE | Group)                    RULE_or_Group
-       (Name '->' TERM)                  Name_arrow_TERM
-       (TERM '->' TERM)                  TERM_arrow_TERM
-       (Frame | 'And' '(' Frame* ')')    Frame_or_AndFrame
-
-   - replace Kleene operators:
-        '* '      '_star '
-        '? '      '_opt '
-        '+ '      '_plus '
-
-   - add Kleene operator rules (run grammar_gen.py)
-
-- Remove parens...
-
-- Split some disjunctive productions into multiple productions
-
-    (just a random judgement call?)
-
-- Trivial syntax changes
-
-   - left align the text
-
-   - turn "::=" into ":"
-
-   - wrap lines in rule 
-
-         def p_X_N(t):
-            'X : ...'
-            pass
-     
-      (where N is branch N -- if there's more than one)
-
-      IE use:
-         python grammar_gen.py  < grammar > gend
-
-"""
 
 def p_Document(t):
    '''Document  : IRIMETA_opt KW_Document LPAREN Base_opt Prefix_star Import_star Group_opt RPAREN '''

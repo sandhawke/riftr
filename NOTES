@@ -1,0 +1,137 @@
+
+****************************************************************
+
+
+- cut and paste grammar from 
+  http://www.w3.org/TR/2008/WD-rif-bld-20080730/#EBNF_for_the_Rule_Language
+
+- Change EBNF to BNF
+
+   - replace parenthesized phrases with named phrases, as needed:
+       (RULE | Group)                    RULE_or_Group
+       (Name '->' TERM)                  Name_arrow_TERM
+       (TERM '->' TERM)                  TERM_arrow_TERM
+       (Frame | 'And' '(' Frame* ')')    Frame_or_AndFrame
+
+   - replace Kleene operators:
+        '* '      '_star '
+        '? '      '_opt '
+        '+ '      '_plus '
+
+   - add Kleene operator rules (run grammar_gen.py)
+
+- Remove parens...
+
+- Split some disjunctive productions into multiple productions
+
+    (just a random judgement call?)
+
+- Trivial syntax changes
+
+   - left align the text
+
+   - turn "::=" into ":"
+
+   - wrap lines in rule 
+
+         def p_X_N(t):
+            'X : ...'
+            pass
+     
+      (where N is branch N -- if there's more than one)
+
+      IE use:
+         python grammar_gen.py  < grammar > gend
+
+****************************************************************
+
+
+lots of dirty work....
+see all the commented bits!
+
+
+****************************************************************
+
+
+
+# EXISTING TEST CASES don't quote URIs in Prefix, even given close-paren
+
+
+****************
+   in bld 4:
+
+        x:pd[dc:publisher -> http://www.w3.org/
+
+    BAD IDEA.   BARE_IRI
+
+****************
+  
+    two reduce/reduce conflicts around name_arrow_term_star
+
+      1.  solved by making the lexer find NAME_ARROW
+
+      2.  solved by making it name_arrow_term_plus, since
+          it was ambiguous which kind of uniterm it was when
+	  both were absent.
+
+****************
+
+    shift/reduce:
+
+       -- integrate the _opt logic into the main meta_opt rule
+
+       -- remove external frames
+
+       -- different keyword for external terms and external formulas
+
+              state 109
+
+                without this, we have:
+
+               (18) FORMULA -> IRIMETA_opt . KW_External LPAREN Atom RPAREN
+              vs
+               (20) ATOMIC -> IRIMETA_opt . Equal
+               (27) Equal -> . TERM EQUALS TERM
+               (34) TERM -> . IRIMETA_opt KW_External LPAREN Expr RPAREN
+
+               So when we get a KW_External, we don't know whether
+               we're on the first branch or the second one; on the second,
+               we're skipping a null IRIMETA_opt
+
+       -- an ATOM keyword to prefix atoms
+
+              without it, it's unclear to what the metadata applies.
+
+              (* ... *)  p(a) = q(a)
+
+              which should it be?
+                p
+                p(a)
+                p(a)=q(a)
+
+          (* metadata 
+          ***
+          stuff
+          *)
+
+
+
+       -- a metasep keyword
+
+              state 2
+
+               given this:  (* a:b 
+
+               was there an omitted metadata oportunity in there?
+               if it turns out the a:b is the beginning of a frame,
+               then there was.  If it turns out to be the ID in the
+	       metadata, then there was not.    Of course, we don't
+               care about missed metadata opportunities.
+
+
+      ALL S/R conflicts are against this rule:
+                rule 53 (IRIMETA_opt -> .)
+      so that should be okay to go either way.
+
+****************
+
