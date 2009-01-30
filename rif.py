@@ -61,6 +61,9 @@ class SmartObj:
         except:
             s = self.__class__.__name__
         s += " ("
+
+        # @@@ do meta here
+
         s += self.ps_heart(newline+'    ')
         if s.endswith('    '):
             s = s[:-4]
@@ -71,9 +74,6 @@ class Document(SmartObj):
     
     def ps_heart(self, newline):
         s = newline
-        if self.meta:
-            s += as_ps(self.meta, newline)
-            s += newline
         if self.base:
             s += 'Base('+ps_quoted_string(self.base)+')'+newline
             s += newline
@@ -81,18 +81,30 @@ class Document(SmartObj):
             for (short, long) in self.prefix:
                 s += 'Prefix(%s %s)%s' % (short, long, newline)
             s += newline
-        # @@@ import, group
+        # @@@ import
+        if self.group:
+            s += self.group.as_ps(newline)
+            s += newline
         return s
-    
 
 class Group(SmartObj):
-    pass
+
+    def ps_heart(self, newline):
+        s = newline
+        for sent in self.sentence:
+            s += sent.as_ps(newline) + newline
+        return s
 
 class And(SmartObj):
     pass
 
 class Atom(SmartObj):
-    pass
+    
+    def as_ps(self, newline):
+        sa = []
+        for arg in self.args:
+            sa.append(arg.as_ps(newline))
+        return self.op.as_ps(newline) + "(" + " ".join(sa) + ")"
 
 class ExternalExpr(SmartObj):
     pass
@@ -101,13 +113,58 @@ class ExternalAtom(SmartObj):
     pass
 
 class Const(SmartObj):
-    pass
+    
+    def as_ps(self, newline):
+        
+        # hack for now!
+        try:
+            (pre,rest) = self.value
+            return pre+":"+rest
+        except:
+            pass
 
+        # want a flag about whether to use APS !?
+        self.determine_lexrep()
+        return (ps_quoted_string(self.lexrep) + 
+                "^^" + 
+                # needs qname smarts -- prefix and stuff!
+                self.datatype.as_ps(newline))
+
+    def determine_lexrep(self):
+        try:
+            x = self.lexrep
+            return
+        except AttributeError:
+            pass
+        try:
+            value = self.value
+        except AttributeError:
+            raise RuntimeError('Cant serialize Const without value')
+        
+        if isinstance(value, int):
+            self.lexrep = str(value)
+            self.datatype = XSD_INT
+
+        raise RuntimeError('Dont know how to serialize %s' % `value`)
+            
+            
+            
 class Var(SmartObj):
-    pass
+    
+    def as_ps(self, newline):
+        return "?"+self.name
 
 class Implies(SmartObj):
-    pass
+
+    def as_ps(self, newline):
+        return self.then.as_ps(newline) + " :- " + self.if_.as_ps(newline)
 
 class Forall(SmartObj):
-    pass
+    
+    def as_ps(self, newline):
+        s = "Forall "
+        for v in self.declare:
+            s += v.as_ps(newline)+" "
+        newline += "    "
+        s += "("+newline+self.formula.as_ps(newline)+newline[:-4]+")"
+        return s

@@ -115,14 +115,11 @@ def p_ATOMIC(t):
                      '''
    t[0] = t[2]
    t[0].meta = t[1]   #  I think...?   What if it has metadata from inside?
-   print "*** p_ATOMIC"
 
 def p_Atom_1(t):
    # was UNITERM
    '''Atom           : Const LPAREN TERM_star RPAREN'''
    t[0] = rif.Atom(op=t[1], args=t[3])
-   print "*** p_Atom_1"
-
 
 def p_Atom_2(t):
    # was UNITERM
@@ -396,19 +393,19 @@ import sys
 s = sys.stdin.read()
 result = None
 try:
-   result = yacc.parse(s, debug=10)
+   result = yacc.parse(s, debug=0)
 except SyntaxError, e:
    col = find_column(s, e.pos)
    print "syntax error, line %d, col %d" % (e.line, e.pos)
    print "==> "+s.split("\n")[e.line-1]
    print "   "+(" "*col)+"^---- near here"
 
-if result:
-   print 'Parse Tree:\n', result.as_debug()
+#if result:
+#   print 'Parse Tree:\n', result.as_debug()
 
 
 if result:
-   print 'As PS::\n', result.as_ps()
+   print result.as_ps()
 
 #>>> with open('/tmp/workfile', 'r') as f:
 #...     read_data = f.read()
