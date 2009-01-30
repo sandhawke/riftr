@@ -14,7 +14,7 @@ sys.path.insert(0,"/usr/share/python-support/python-ply/")
 
 import ply.yacc as yacc
 
-from objects import *
+import rif
 
 import ps_lex
 
@@ -23,120 +23,165 @@ tokens = ps_lex.tokens
 
 def p_Document(t):
    '''Document  : IRIMETA_opt KW_Document LPAREN Base_opt Prefix_star Import_star Group_opt RPAREN '''
-   t[0] = Document(meta=t[1], base=t[4], prefix=t[5], imports=t[6], group=t[7])
+   t[0] = rif.Document(meta=t[1], base=t[4], prefix=t[5], imports=t[6], group=t[7])
 
 def p_Base(t):
    '''Base      : KW_Base LPAREN STRING RPAREN '''   
-   pass
-
+   t.parser.my_base = t[3]
+   t[0] = t[3]
 
 def p_Prefix(t):    # BUG?  BARE_IRI is like in BLD, but what about some chars?
    '''Prefix    : KW_Prefix LPAREN LOCALNAME ANGLEBRACKIRI RPAREN 
                 | KW_Prefix LPAREN LOCALNAME BARE_IRI RPAREN '''
-   pass
-
+   short = t[3]
+   long = t[4]
+   try:
+      # check to prevent over-writes?
+      t.parser.my_prefixes[short] = long
+   except AttributeError:
+      t.parser.my_prefixes = { short: long }
+   t[0] = (short, long)
 
 def p_Import(t):
    '''Import    : IRIMETA_opt KW_Import LPAREN ANGLEBRACKIRI PROFILE_opt RPAREN '''
-   pass
-
+   location = t[4]
+   profile = t[5]
+   t[0] = (location, profile)
 
 def p_Group(t):
    '''Group     : IRIMETA_opt KW_Group LPAREN RULE_or_Group_star RPAREN '''
-   pass
+   t[0] = rif.Group(meta=t[1], sentence=t[4])
 
-def p_RULE(t):
-   '''RULE      : IRIMETA_opt KW_Forall Var_plus LPAREN CLAUSE RPAREN
-                | CLAUSE '''
-   pass
+def p_RULE_1(t):
+   '''RULE      : IRIMETA_opt KW_Forall Var_plus LPAREN CLAUSE RPAREN'''
+   t[0] = rif.Forall(meta=t[1], declare=t[3], formula=t[5])
 
-def p_CLAUSE(t):
-   '''CLAUSE    : Implies
-                | ATOMIC '''
-   pass
+def p_RULE_2(t):
+   '''RULE      : CLAUSE '''
+   t[0] = t[1]
+
+def p_CLAUSE_1(t):
+   '''CLAUSE    : Implies '''
+   t[0] = t[1]
+
+def p_CLAUSE_2(t):
+   '''CLAUSE    : ATOMIC '''
+   t[0] = t[1]
 
 
-# GRAMMAR BUG: there was an IRIMETA_opt here, but it was ambiguous with the
-# one on the ATOMIC
-def p_Implies(t):
-   '''Implies   : ATOMIC COLONDASH FORMULA
-                | IRIMETA_opt KW_And LPAREN ATOMIC_star RPAREN COLONDASH FORMULA '''
-   pass
+
+def p_Implies_1(t):
+   '''Implies   :  ATOMIC COLONDASH FORMULA'''
+   t[0] = rif.Implies(then=t[1], if_=t[3])
+
+def p_Implies_2(t):
+   # is the metadata on the AND or the Rule?
+   '''Implies   : IRIMETA_opt KW_And LPAREN ATOMIC_star RPAREN COLONDASH FORMULA '''
+   t[0] = rif.Implies(meta=t[1], then=rif.And(formula=t[4]), if_=t[7])
 
 
 def p_PROFILE(t):
    '''PROFILE   : TERM '''
-   pass
+   t[0] = t[1]
 
+def p_FORMULA_1(t):
+   '''FORMULA        :  IRIMETA_opt KW_And LPAREN FORMULA_star RPAREN'''
+   t[0] = rif.And(meta=t[1], formula=t[4])
+def p_FORMULA_2(t):
+   '''FORMULA        :  IRIMETA_opt KW_Or LPAREN FORMULA_star RPAREN'''
+   t[0] = rif.Or(meta=t[1], formula=t[4])
+def p_FORMULA_3(t):
+   '''FORMULA        :  IRIMETA_opt KW_Exists Var_plus LPAREN FORMULA RPAREN'''
+   t[0] = rif.Exists(meta=t[1], declare=t[3], formula=t[5])
+def p_FORMULA_4(t):
+   '''FORMULA        :  ATOMIC'''
+   t[0] = t[1]
+def p_FORMULA_5(t):
+   '''FORMULA        :  IRIMETA_opt KW_External LPAREN Atom RPAREN'''
+   t[0] = rif.ExternalAtom(meta=t[1], content=t[4])
 
-def p_FORMULA(t):
-   '''FORMULA        : IRIMETA_opt KW_And LPAREN FORMULA_star RPAREN
-                     | IRIMETA_opt KW_Or LPAREN FORMULA_star RPAREN
-                     | IRIMETA_opt KW_Exists Var_plus LPAREN FORMULA RPAREN
-                     | ATOMIC
-                     | IRIMETA_opt KW_External LPAREN Atom RPAREN
-                     '''
-   # taken out, I think:   | IRIMETA_opt KW_External LPAREN Frame RPAREN '''
-   pass
+#   -- being removed from Spec
+#def p_FORMULA_5(t):
+#   '''FORMULA        :  IRIMETA_opt KW_External LPAREN Frame RPAREN'''
+#   t[0] = rif.
 
 
 def p_ATOMIC(t):
-   '''ATOMIC         : IRIMETA_opt KW_Atom Atom
+   '''ATOMIC         : IRIMETA_opt Atom
                      | IRIMETA_opt Equal
                      | IRIMETA_opt Member
                      | IRIMETA_opt Subclass
-                     | IRIMETA_opt Frame '''
-   pass
+                     | IRIMETA_opt Frame 
+                     '''
+   t[0] = t[2]
+   t[0].meta = t[1]   #  I think...?   What if it has metadata from inside?
+   print "*** p_ATOMIC"
+
+def p_Atom_1(t):
+   # was UNITERM
+   '''Atom           : Const LPAREN TERM_star RPAREN'''
+   t[0] = rif.Atom(op=t[1], args=t[3])
+   print "*** p_Atom_1"
 
 
-def p_Atom(t):
-   '''Atom           : UNITERM '''
-   pass
+def p_Atom_2(t):
+   # was UNITERM
+   '''Atom           : Const LPAREN Name_arrow_TERM_plus RPAREN '''
+   t[0] = rif.NamedArgsAtom(op=t[1], slot=t[3])
 
-
-def p_UNITERM(t):
-   '''UNITERM        : Const LPAREN TERM_star RPAREN 
-                     | Const LPAREN Name_arrow_TERM_plus RPAREN '''
-   pass
+# put in-line
+#def p_UNITERM(t):
+#   '''UNITERM        : Const LPAREN TERM_star RPAREN 
+#                     | Const LPAREN Name_arrow_TERM_plus RPAREN '''
+#   pass
 
 
 def p_Equal(t):
    '''Equal          : TERM EQUALS TERM '''
-   pass
+   t[0] = rif.Equal(left=t[1], right=t[3])
 
 
 def p_Member(t):
    '''Member         : TERM HASH TERM '''
-   pass
+   t[0] = rif.Member(instance=t[1], class_=t[3])
 
 
 def p_Subclass(t):
    '''Subclass       : TERM HASHHASH TERM '''
-   pass
+   t[0] = rif.Subclass(sub=t[1], super=t[3])
 
 
 def p_Frame(t):
    '''Frame          : TERM LBRACKET TERM_arrow_TERM_star RBRACKET '''
-   pass
+   t[0] = rif.Frame(object=t[1], slot=t[3])
 
-
-def p_TERM(t):
+def p_TERM_1(t):
    '''TERM           : IRIMETA_opt Const
                      | IRIMETA_opt Var
-                     | IRIMETA_opt Expr
-                     | IRIMETA_opt KW_External LPAREN Expr RPAREN '''
-   pass
+                     | IRIMETA_opt Expr '''
+   t[0] = t[2]
+   t[0].meta = t[1]   #  I think...?   What if it has metadata from inside?
+   
+def p_TERM_2(t):
+   '''TERM           : IRIMETA_opt KW_External LPAREN Expr RPAREN '''
+   t[0] = rif.ExternalExpr(meta=t[1], content=[4])
 
+# was UNITERM
+def p_Expr_1(t):
+   '''Expr           : Const LPAREN TERM_star RPAREN '''
+   t[0] = rif.Expr(op=t[1], args=t[3])
 
-def p_Expr(t):
-   '''Expr           : UNITERM '''
-   pass
+def p_Expr_1(t):
+   '''Expr           : Const LPAREN Name_arrow_TERM_plus RPAREN '''
+   t[0] = rif.NamedArgsExpr(op=t[1], slot=t[3])
 
+def p_Const_1(t):
+   '''Const          : CONSTSHORT '''
+   t[0] = t[1]
 
-def p_Const(t):
-   '''Const          : STRING_HAT_HAT SYMSPACE
-                     | CONSTSHORT '''
-   pass
+def p_Const_2(t):
+   '''Const          : STRING_HAT_HAT SYMSPACE '''
+   t[0] = rif.Const(lexrep=t[1], datatype=t[2])
 
 # MINE
 def p_CONSTSHORT(t):
@@ -147,7 +192,8 @@ def p_CONSTSHORT(t):
                     | CURIE  '''
    #   the ANGLEBRACKIRI/CURIE is needed for import-profiles
    #       (among other things.   it's short for the rif:iri symspace)
-   pass
+
+   t[0] = rif.Const(value=t[1])   # except CURIE  @@@@
 
 
 
@@ -160,19 +206,20 @@ def p_CONSTSHORT(t):
 def p_Var(t):
    '''Var            : QUESTION STRING 
                      | QUESTION LOCALNAME '''
-   pass
+   t[0] = rif.Var(name=t[2])
+
 
 
 def p_SYMSPACE(t):
    '''SYMSPACE       : ANGLEBRACKIRI
                      | CURIE '''
-   pass
+   t[0] = t[1]
 
 # MINE
 def p_IRICONST(t):
    '''IRICONST       : ANGLEBRACKIRI
                      | CURIE '''
-   pass
+   t[0] = t[1]
 
 
 def p_IRIMETA_opt(t):
@@ -185,109 +232,117 @@ def p_IRIMETA_opt(t):
 
 def p_TERM_arrow_TERM(t):
    '''TERM_arrow_TERM : TERM ARROW TERM '''
-   pass
+   t[0] = rif.Slot(key=t[1], value=t[3])
 
 
 def p_RULE_or_Group(t):
    '''RULE_or_Group : RULE
                     | Group '''
-   pass
+   t[0] = t[1]
 
 
 def p_Name_arrow_TERM(t):
    '''Name_arrow_TERM : NAME_ARROW TERM '''
-   pass
+   t[0] = rif.Slot(key=t[1], value=t[3])
 
 
-def p_Frame_or_AndFrame(t):
-   '''Frame_or_AndFrame : Frame
-| KW_And LPAREN Frame_star RPAREN '''
-   pass
+def p_Frame_or_AndFrame_1(t):
+   '''Frame_or_AndFrame : Frame'''
+   t[0] = t[1]
 
+def p_Frame_or_AndFrame_2(t):
+   '''Frame_or_AndFrame : KW_And LPAREN Frame_star RPAREN '''
+   t[0] = rif.And(formula=t[3])
 
 
 # Kleene star (*) expansion productions
+def build_list(t):
+   """Used at the action for our standard "star" productions
+   """
+   if (len(t)>1):
+      t[0] = t[1] + [t[2]]
+   else:
+      t[0] = []
+
+
 def p_ATOMIC_star(t):
    '''ATOMIC_star : ATOMIC_star ATOMIC 
     | '''
-   pass
-
+   build_list(t)
 
 def p_FORMULA_star(t):
    '''FORMULA_star : FORMULA_star FORMULA 
     | '''
-   pass
+   build_list(t)
 
 
 def p_Frame_star(t):
    '''Frame_star : Frame_star Frame 
     | '''
-   pass
-
+   build_list(t)
 
 def p_Import_star(t):
    '''Import_star : Import_star Import 
-    | '''
-   pass
-
+                  | '''
+   build_list(t)
 
 def p_Name_arrow_TERM_plus(t):
    '''Name_arrow_TERM_plus : Name_arrow_TERM_plus Name_arrow_TERM 
                            | Name_arrow_TERM '''
-   pass
+   build_list(t)
 
 
 def p_Prefix_star(t):
    '''Prefix_star : Prefix_star Prefix 
-    | '''
-   pass
-
+                  | '''
+   build_list(t)
 
 def p_RULE_or_Group_star(t):
    '''RULE_or_Group_star : RULE_or_Group_star RULE_or_Group 
                          | '''
-   pass
+   build_list(t)
 
 
 def p_TERM_star(t):
    '''TERM_star : TERM_star TERM 
     | '''
-   pass
+   build_list(t)
 
 
 def p_TERM_arrow_TERM_star(t):
    '''TERM_arrow_TERM_star : TERM_arrow_TERM_star TERM_arrow_TERM 
     | '''
-   pass
-
+   build_list(t)
 
 
 # Kleene plus (+) expansion productions
 def p_Var_plus(t):
    '''Var_plus : Var_plus Var 
     | Var '''
-   pass
-
+   if (len(t)>2):
+      t[0] = t[1] + [t[2]]
+   else:
+      t[0] = [t[1]]
 
 
 # Kleene opt (?) expansion productions
 def p_Base_opt(t):
    '''Base_opt : Base 
     | '''
-   pass
-
+   if (len(t)>1):
+      t[0] = t[1]
 
 def p_Frame_or_AndFrame_opt(t):
    '''Frame_or_AndFrame_opt : Frame_or_AndFrame 
     | '''
-   pass
-
+   if (len(t)>1):
+      t[0] = t[1]
 
 def p_Group_opt(t):
    '''Group_opt : Group 
     | '''
-   pass
-
+   if (len(t)>1):
+      t[0] = t[1]
 
 #def p_IRICONST_opt(t):
 #   '''IRICONST_opt : IRICONST 
@@ -303,8 +358,10 @@ def p_Group_opt(t):
 
 def p_PROFILE_opt(t):
    '''PROFILE_opt : PROFILE 
-    | '''
-   pass
+                  | '''
+   if len(t)>1:
+      t[0] = t[1]
+   
 
 
 ################################################################
@@ -339,7 +396,7 @@ import sys
 s = sys.stdin.read()
 result = None
 try:
-   result = yacc.parse(s, debug=1)
+   result = yacc.parse(s, debug=10)
 except SyntaxError, e:
    col = find_column(s, e.pos)
    print "syntax error, line %d, col %d" % (e.line, e.pos)
@@ -347,7 +404,11 @@ except SyntaxError, e:
    print "   "+(" "*col)+"^---- near here"
 
 if result:
-   print 'Parse Tree:', result
+   print 'Parse Tree:\n', result.as_debug()
+
+
+if result:
+   print 'As PS::\n', result.as_ps()
 
 #>>> with open('/tmp/workfile', 'r') as f:
 #...     read_data = f.read()
