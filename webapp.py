@@ -90,7 +90,7 @@ def cgiMain():
     if input is None or input == "":
         prompt()
     else:
-        ensure_safety(input)
+        #ensure_safety(input)
         run(input)
 
 
