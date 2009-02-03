@@ -13,8 +13,11 @@ import os
 
 import html as h
 
-import ps_lex
+import ply.yacc as yacc
+import ply.lex as lex
+
 import ps_parse
+import lex
 import rif
 
 #
