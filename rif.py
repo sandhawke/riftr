@@ -19,6 +19,23 @@ To do...
 
 """
 
+webdata_ns = 'http://www.w3.org/2007/rif#'
+
+"""
+ schema.classes
+ schmea.superclasses(class)
+ schema.is_class(class)
+ schema.properties(class)
+ schema.property(class, propname)
+
+ schema.cls(clsname).prop(propname).PROP ?
+
+ p.min_occurs = (0/1)
+ p.max_occurs = (0/1) 
+       if max_occurs > 1 then list-valued
+
+"""
+
 def as_debug(obj, newline="\n"):
     if hasattr(obj, 'as_debug'):
         return obj.as_debug(newline)
@@ -44,7 +61,7 @@ def ps_quoted_string(s):
         raise RuntimeError("no way to serialize a string with a double-quote in it")
     return '"'+s+'"'
 
-class SmartObj:
+class SmartObj(object):
     
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -161,21 +178,18 @@ class Expr(SmartObj):
             sa.append(arg.as_ps(newline))
         return self.op.as_ps(newline) + "(" + " ".join(sa) + ")"
 
-
-class ExternalExpr(SmartObj):
-
-    ps_name = "External"
-        
-    def ps_heart(self, newline):
-        return as_ps(self.content, newline)
-        
-
-class ExternalAtom(SmartObj):
+class External(SmartObj):
 
     ps_name = "External"
         
     def ps_heart(self, newline):
         return as_ps(self.content, newline)
+        
+class ExternalExpr(External):
+    pass
+
+class ExternalAtom(External):
+    pass
 
 class Const(SmartObj):
     
@@ -279,3 +293,14 @@ class Equal(SmartObj):
     def as_ps(self, newline):
         return self.left.as_ps(newline) + "=" + self.right.as_ps(newline)
 
+
+class Annotation(SmartObj):
+
+    pass
+
+
+bld_schema = {
+    Document : 
+    [  "payload" : Group,
+        ],
+}

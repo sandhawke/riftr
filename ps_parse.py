@@ -228,21 +228,21 @@ def p_IRIMETA_opt_1(t):
    pass
 def p_IRIMETA_opt_2(t):
    '''IRIMETA_opt     : LMETA IRICONST RMETA '''
-   t[0] = (t[2], [])
+   t[0] = rif.Annotation(iri=t[2], sentence=[])
 def p_IRIMETA_opt_3(t):
    '''IRIMETA_opt     : LMETA IRICONST KW_And LPAREN Frame_star RPAREN RMETA '''
-   t[0] = (t[2], t[5])
+   t[0] = rif.Annotation(iri=t[2], sentence=t[5])
 # These two are tricky; we need both of them to work around the
 # ambiguity here.
 def p_IRIMETA_opt_4(t):
    '''IRIMETA_opt     : LMETA IRICONST LBRACKET TERM_arrow_TERM_star RBRACKET RMETA '''
-   t[0] = (None, [rif.Frame(object=t[2], slot=t[4]) ])
+   t[0] = rif.Annotation(sentence=[rif.Frame(object=t[2], slot=t[4]) ])
 def p_IRIMETA_opt_5(t):
    '''IRIMETA_opt     : LMETA TERM LBRACKET TERM_arrow_TERM_star RBRACKET RMETA '''
-   t[0] = (None, [rif.Frame(object=t[2], slot=t[4]) ])
+   t[0] = rif.Annotation(sentence=[rif.Frame(object=t[2], slot=t[4]) ])
 def p_IRIMETA_opt_6(t):
    '''IRIMETA_opt     : LMETA IRICONST TERM LBRACKET TERM_arrow_TERM_star RBRACKET  RMETA'''
-   t[0] = (t[2], [rif.Frame(object=t[3], slot=t[5]) ])
+   t[0] = rif.Annotation(iri=t[2], sentence=[rif.Frame(object=t[3], slot=t[5]) ])
 
 # This rule produces all our shift/reduce conflicts.   Sigh.
 # Because there are several places you could put meta, there are
@@ -415,34 +415,41 @@ def find_column(input,pos):
 
 yacc.yacc()
 
-import sys
-s = sys.stdin.read()
-result = None
-try:
-   result = yacc.parse(s, debug=10)
-except SyntaxError, e:
-   col = find_column(s, e.pos)
-   print "syntax error, line %d, col %d, unexpected token" % (e.line, col)
-   print "==> "+s.split("\n")[e.line-1]
-   print "  "+(" "*col)+"^---- near here"
-except lex.LexError, e:
-   pos = len(s) - len(e.text)
-   col = find_column(s, pos)
-   line = lex.lexer.lineno
-   print "syntax error, line %d, col %d, unexpected character" % (line, col)
-   print "==> "+s.split("\n")[line-1]
-   print "  "+(" "*col)+"^---- near here"
-   
+def parse(str):
 
-#if result:
-#   print 'Parse Tree:\n', result.as_debug()
+   global yacc
+   return yacc.parse(str, debug=0)
+
+if __name__ == "__main__":
+
+   import sys
+   s = sys.stdin.read()
+   result = None
+   try:
+      result = parse(s)
+   except SyntaxError, e:
+      col = find_column(s, e.pos)
+      print "syntax error, line %d, col %d, unexpected token" % (e.line, col)
+      print "==> "+s.split("\n")[e.line-1]
+      print "  "+(" "*col)+"^---- near here"
+   except lex.LexError, e:
+      pos = len(s) - len(e.text)
+      col = find_column(s, pos)
+      line = lex.lexer.lineno
+      print "syntax error, line %d, col %d, unexpected character" % (line, col)
+      print "==> "+s.split("\n")[line-1]
+      print "  "+(" "*col)+"^---- near here"
 
 
-if result:
-   print result.as_ps()
+   #if result:
+   #   print 'Parse Tree:\n', result.as_debug()
 
-#>>> with open('/tmp/workfile', 'r') as f:
-#...     read_data = f.read()
-#
-#>>> for line in f:
-#        print line,
+
+   if result:
+      print result.as_ps()
+
+   #>>> with open('/tmp/workfile', 'r') as f:
+   #...     read_data = f.read()
+   #
+   #>>> for line in f:
+   #        print line,

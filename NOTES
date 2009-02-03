@@ -157,3 +157,12 @@ is at the annotation frame objects are LOCALNAMES and I don't
 allow those.
 
 ****************************************************************
+
+Need:
+    - run on wiki test cases
+    - lots of little syntax tests
+    - XML reading, writing
+    - write a PLY -> html, for nicely seeing the resulting grammar
+      (maybe remove the useless productions?)
+
+
