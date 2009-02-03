@@ -16,7 +16,7 @@ import ply.yacc as yacc
 import ply.lex as lex
 
 import rif
-
+import error
 import ps_lex
 
 tokens = ps_lex.tokens
@@ -389,17 +389,11 @@ def p_PROFILE_opt(t):
 
 ################################################################
 
-class SyntaxError (RuntimeError):
-
-   def __init__(self, line, pos):
-      self.line = line
-      self.pos = pos
-
 def p_error(t):
    if t is None:
-      raise SyntaxError(0, 0)
+      raise error.ParserError(0, 0)
    else:
-      raise SyntaxError(t.lineno, t.lexpos)
+      raise error.ParserError(t.lineno, t.lexpos)
 
 
 # from PLY docs
@@ -413,12 +407,20 @@ def find_column(input,pos):
 
 # Build the grammar
 
-yacc.yacc()
+parser = yacc.yacc(outputdir="ps_ply_generated")
 
 def parse(str):
 
-   global yacc
-   return yacc.parse(str, debug=0)
+   global parser
+   try:
+      return parser.parse(str, debug=0, lexer=ps_lex.lexer)
+   except error.ParserError, e:
+      e.input_text = str
+      raise e
+   except lex.LexError, e:
+      raise error.LexerError(ps_lex.lexer.lineno,
+                             len(str) - len(e.text),
+                             input_text = str)
 
 if __name__ == "__main__":
 
@@ -427,26 +429,14 @@ if __name__ == "__main__":
    result = None
    try:
       result = parse(s)
-   except SyntaxError, e:
-      col = find_column(s, e.pos)
-      print "syntax error, line %d, col %d, unexpected token" % (e.line, col)
-      print "==> "+s.split("\n")[e.line-1]
-      print "  "+(" "*col)+"^---- near here"
-   except lex.LexError, e:
-      pos = len(s) - len(e.text)
-      col = find_column(s, pos)
-      line = lex.lexer.lineno
-      print "syntax error, line %d, col %d, unexpected character" % (line, col)
-      print "==> "+s.split("\n")[line-1]
-      print "  "+(" "*col)+"^---- near here"
-
-
-   #if result:
-   #   print 'Parse Tree:\n', result.as_debug()
-
+   except error.SyntaxError, e:
+      print 
+      print "syntax error, line %d, col %d, %s" % (e.line, e.col, e.msg)
+      print e.illustrate_position()
 
    if result:
       print result.as_ps()
+
 
    #>>> with open('/tmp/workfile', 'r') as f:
    #...     read_data = f.read()

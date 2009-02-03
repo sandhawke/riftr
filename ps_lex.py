@@ -123,10 +123,10 @@ t_QUESTION         = r'\?'
 t_LBRACKET         = r'\['
 t_RBRACKET         = r'\]'
 
-t_LE = r'<='
-t_LT = r'<'
-t_GT = r'>'
-t_GE = r'>='
+#t_LE = r'<='
+#t_LT = r'<'
+#t_GT = r'>'
+#t_GE = r'>='
 
 
 ##
@@ -148,7 +148,8 @@ def t_NEWLINE(t):
     r'\n+'
     t.lexer.lineno += t.value.count("\n")
     
-lexer = lex.lex(optimize=1)
+#lexer = lex.lex(optimize=1)
+lexer = lex.lex(outputdir="ps_ply_generated")
 
 # lexer = lex.lex(debug=1)
 if __name__ == "__main__":
