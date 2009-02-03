@@ -166,3 +166,72 @@ Need:
       (maybe remove the useless productions?)
 
 
+
+****************************************************************
+
+Where the RIF XML syntax differs from pure striping:
+
+     - maybe in annotations, depending how you model them
+         i gues "id",and "meta", work fine.   Nothing special there.
+     - slot
+     - args
+     - const
+     - var
+
+   var->  something with text is taken as an implicit "label" ?
+   args->   ordered=yes is like parsetype=collection
+   slots->  same -- it's list-valued-per slot, BUT there are ALSO
+            multiple slots.
+
+                  type = [TERM]     (list of terms?)
+
+   Const.
+
+        so it's where we have  type=   and   ordered=yes
+        and Var with its weird having-content.
+
+
+<Var>x</Var>
+
+      <Var><name>x</name></Var>
+
+<Const type="x">y</Const>
+
+      <Const>
+          <datatype>x</datatype>
+          <lexrep>y</lexrep>
+      </Const>
+
+<args ordered="yes">
+     a b c
+</args>
+
+      <args>
+          <Sequence>
+              a b c
+          </Sequence>
+      <args>
+
+<slot ordered="yes">
+    a b
+</slot>
+
+      <slot>
+           <Sequence>
+             a b
+           </Sequence>
+      </slot>
+
+   OR
+
+      <slot>
+          <Slot>
+            <key>a</key>
+            <value>b</value>
+          </Slot>
+      </slot>
+
+?
+
+Better go with "Sequence", I think.
+   in the RIF model.
