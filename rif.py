@@ -20,6 +20,7 @@ To do...
 """
 from debugtools import debug
 
+import plugin
 
 """
  schema.classes
@@ -420,3 +421,17 @@ bld_schema = {
 #   required == minOccurs 0/1
 #   list_valued == maxOccurs 1, >1 
 #                  AND ALSO how python handles it.
+
+
+
+
+class Plugin (plugin.OutputPlugin):
+   """RIF Presentation Syntax"""
+
+   id="ps"
+   spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#EBNF_Grammar_for_the_Presentation_Syntax_of_RIF-BLD"
+   
+   def serialize(self, doc):
+       return ("", as_ps(doc))
+ 
+plugin.register(Plugin())

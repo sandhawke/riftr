@@ -11,6 +11,7 @@ import xml.etree.cElementTree as ET
 import inspect
 
 import rif
+import plugin
 
 from debugtools import debug
 import debugtools
@@ -167,6 +168,21 @@ class Parser:
             return [ (e.tag, value) ]
 
         
+
+class Plugin (plugin.InputPlugin):
+   """RIF XML Syntax"""
+
+   id="xml"
+   spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#XML_Serialization_Syntax_for_RIF-BLD"
+   
+   def parse(self, str):
+       p = Parser(rif.bld_schema)
+       p.root = ET.fromstring(s)
+       doc = p.instance_from_XML(p.root)
+       return doc
+
+plugin.register(Plugin())
+
 if __name__ == "__main__":
     
     import sys

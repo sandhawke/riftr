@@ -6,6 +6,7 @@
 
 import sys
 import serializer
+import plugin
 
 class Serializer(serializer.General):
 
@@ -51,6 +52,22 @@ _default_serializer = Serializer()
 
 def do(obj):
     _default_serializer.do(obj)
+
+
+class Plugin (plugin.OutputPlugin):
+   """RIF XML Syntax"""
+
+   id="xml"
+   spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#XML_Serialization_Syntax_for_RIF-BLD"
+   
+   def serialize(self, str):
+       buffer = StringIO()
+       ser  = bld_xml_out.Serializer(stream=buffer)
+       ser.do(doc)
+       return (notes, buffer.getvalue())
+ 
+plugin.register(Plugin())
+
         
 if __name__ == "__main__":
     

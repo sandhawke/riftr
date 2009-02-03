@@ -1,5 +1,6 @@
 #!/usr/bin/env python2.5
-# coding: utf-8
+#      -*-mode: python -*-    -*- coding: utf-8 -*-
+
 """
 
 This is crufty old code that has been repurposed many times, and not
@@ -19,6 +20,7 @@ import html as h
 #import ply.yacc as yacc
 #import ply.lex as lex
 
+import plugin
 import ps_parse
 import ps_lex
 import xml_in
@@ -47,45 +49,53 @@ def startPage(title):
 def main_page(args):
     global page
 
-    startPage("RIF (Highly Experimental) Demonstration Page")	
-    page << h.h2("RIF (Highly Experimental) Demonstration Page")
+    startPage("Highly Experimental RIF Demonstration Page")	
+    page << h.h2("Highly Experimental RIF Demonstration Page")
     page << h.p("This page currently only does translations between RIF XML and RIF PS, but the idea is to have various non-RIF languages supported as well")
 
     form = h.form(method="GET", class_="f")	
-    form << h.h3("Input Text...") 
+    
+    form << h.h3("Step 1: Select Input Processor") 
+    select_input_processor(form, args)
 
-    input=args.getfirst("input") or default_input()
-    input = input.replace("\r\n", "\n")
+    form << h.h3("Step 2: Provide Input") 
+    select_input(form, args)
 
-    if input is None:
-        input = default_input()
-    form << h.textarea(input,
-                       cols="90", rows="20", name="input")
+    form << h.h3("Step 3: Select Output Processor") 
+    select_output_processor(form, args)
+
+    form << h.h3("Step 4: Begin Processing") 
+
     form << h.br()
-    form <<  h.input(type="submit",  name="action", value="PS to PS")
-    form <<  h.input(type="submit",  name="action", value="PS to XML")
-    form <<  h.input(type="submit",  name="action", value="XML to XML")
-    form <<  h.input(type="submit",  name="action", value="XML to PS")
+    form <<  h.input(type="submit",  name="action", value="Generate Output Below")
+    form <<  h.Raw("&nbsp;")
+    form <<  h.Raw("&nbsp;")
+    form <<  h.Raw("&nbsp;")
+    form <<  h.Raw("&nbsp;")
+    form <<  h.Raw("&nbsp;")
+    form <<  h.input(type="submit",  name="action", value="Generate Output on New Page")
     page << form
 
-    page << h.h3('Translates to...')
+    if 0:
+        page << h.h3('Translates to...')
 
-    action=args.getfirst("action") 
-    if action:
-        (notes, output) = translate(input, action)
-    else:
-        notes = "select a processing option"
-        output = ""
+        input = input.replace("\r\n", "\n")
+        action=args.getfirst("action") 
+        if action:
+            (notes, output) = translate(input, action)
+        else:
+            notes = "select a processing option"
+            output = ""
 
-    if notes:
-        page << h.h4('Processor Message:')
-        page << h.pre(notes, style="padding:0.5em; border: 2px solid red;")
+        if notes:
+            page << h.h4('Processor Message:')
+            page << h.pre(notes, style="padding:0.5em; border: 2px solid red;")
 
 
-    if output:
-        page << h.pre(output, style="padding:0.5em; border: 2px solid black;")
-    else:
-        page << h.p("-- No Output --")
+        if output:
+            page << h.pre(output, style="padding:0.5em; border: 2px solid black;")
+        else:
+            page << h.p("-- No Output --")
 
     page << h.hr()
 
@@ -93,6 +103,40 @@ def main_page(args):
 
     print page
     # cgi.print_environ()    
+
+def select_input_processor(div, args):
+    select_processor(div, args, 'parse')
+
+def select_output_processor(div, args):
+    select_processor(div, args, 'serialize')
+
+def select_processor(div, args, method):
+
+    for p in plugin.registry:
+        if hasattr(p, method):
+            desc = []
+            desc.append(p.__doc__)
+            if hasattr(p, 'spec'):
+                desc.append(h.span('  (See ', h.a('language specification', 
+                                                href=p.spec), ")"))
+
+            div << h.p(
+                    h.input(type="radio",
+                            name="input_processor",
+                            value=p.id),
+                    desc)
+
+def select_input(div, args):
+
+    input_location=args.getfirst("input_location") or ""
+    div << h.p('Web Addres of Input:',
+               h.input(type="text", name="input_location",
+                       value=input_location))
+
+    div << h.p('... or input text:')
+    input_text=args.getfirst("input") or default_input()
+    div << h.textarea(input_text,
+                       cols="90", rows="10", name="input")
 
 def translate(input, action):
     
@@ -124,6 +168,21 @@ def translate(input, action):
         raise RuntimeError('not a valid output format')
 
 
+def plugins():
+
+    for (name, module) in sys.modules.items():
+        if not module:
+            continue
+
+        try:
+            info = module.plugin_info
+        except AttributeError:
+            continue
+        
+        yield (name, module, info)
+
+        
+            
 def ensure_safety(uri):
     for x in ['"', "'", " "]:
         if uri.find(x) > -1:

@@ -15,6 +15,7 @@ import ply.lex as lex
 import rif
 import error
 import ps_lex
+import plugin
 
 tokens = ps_lex.tokens
 
@@ -418,6 +419,18 @@ def parse(str):
       raise error.LexerError(ps_lex.lexer.lineno,
                              len(str) - len(e.text),
                              input_text = str)
+
+class Plugin (plugin.InputPlugin):
+   """RIF Presentation Syntax"""
+
+   id="ps"
+   spec='http://www.w3.org/TR/2008/WD-rif-bld-20080730/#EBNF_Grammar_for_the_Presentation_Syntax_of_RIF-BLD'
+   
+   def parse(self, str):
+      return parse(str)
+
+plugin.register(Plugin())
+
 
 if __name__ == "__main__":
 
