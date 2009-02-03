@@ -20,6 +20,7 @@ import ply.lex as lex
 import ps_parse
 import ps_lex
 import xml_in
+import bld_xml_out
 import rif
 
 #
