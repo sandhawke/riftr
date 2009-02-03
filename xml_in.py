@@ -14,7 +14,7 @@ import rif
 
 from debugtools import debug
 import debugtools
-debugtools.tags.add("ps_out")
+#debugtools.tags.add("ps_out")
 #debugtools.tags.add("reconstruct")
 #debugtools.tags.add("xml_in")
 

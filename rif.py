@@ -157,12 +157,12 @@ class Document(SmartObj):
 
     def get_base(self):
         if hasattr(self, 'base'):
-            return base
+            return self.base
         return None  # for now...
 
     def get_prefix(self):
         if hasattr(self, 'prefix'):
-            return prefix
+            return self.prefix
         return None  # for now...
 
 class Group(SmartObj):

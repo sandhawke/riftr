@@ -24,7 +24,7 @@ tokens = ps_lex.tokens
 
 def p_Document(t):
    '''Document  : IRIMETA_opt KW_Document LPAREN Base_opt Prefix_star Import_star Group_opt RPAREN '''
-   t[0] = rif.Document(meta=t[1], base=t[4], prefix=t[5], imports=t[6], group=t[7])
+   t[0] = rif.Document(meta=t[1], base=t[4], prefix=t[5], imports=t[6], payload=t[7])
 
 def p_Base(t):
    '''Base      : KW_Base LPAREN STRING RPAREN '''   
