@@ -37,7 +37,7 @@ def startPage(title):
         page.head << h.stylelink("http://validator.w3.org/base.css")
 
 
-def page(input=None):
+def main_page(input=None):
     global page
 
     startPage("RIF (Highly Experimental) Demonstration Page")	
@@ -95,7 +95,7 @@ def cgiMain():
 
     form = cgi.FieldStorage()
     input=form.getfirst("input")
-    page(input)
+    main_page(input)
     #if input is None or input == "":
     #    prompt()
     #else:
