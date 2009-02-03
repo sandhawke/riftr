@@ -32,7 +32,7 @@ def startPage(title):
     if page == None:
         page = h.Document()
         page.head.append(h.title(title))
-        d.head << h.stylelink("http://validator.w3.org/base.css")
+        page.head << h.stylelink("http://validator.w3.org/base.css")
 
 
 def prompt():
