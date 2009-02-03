@@ -89,7 +89,7 @@ def translate(input):
     
     s = input
     try:
-        result = parse(s)
+        result = ps_parse.parse(s)
     except SyntaxError, e:
         result = "Parser Error"
     except lex.LexError, e:
