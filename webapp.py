@@ -68,9 +68,13 @@ def main_page(input=None, action="PS to PS"):
 
     page << h.h3('Translates to...')
 
-    output = translate(input, action)
+    (notes, output) = translate(input, action)
 
     page << h.pre(output, style="padding:0.5em; border: 2px solid black;")
+
+    page << h.pre(notes, style="padding:0.5em; border: 2px solid black;")
+
+    page << h.hr()
 
     page << h.p("This page/software was developed by sandro@w3.org.   It's too buggy right now to use.   Please don't even bother to report bugs.")
 
@@ -80,10 +84,13 @@ def main_page(input=None, action="PS to PS"):
 def translate(input, action):
     
     s = input
+    notes = "Notes: "
 
     if action.startswith("PS to "):
+        notes += "from PS!"
         doc = ps_parse.parse(s)
     elif action.startswith("XML to "):
+        notes += "from XML!"
         p = xml_in.Parser(rif.bld_schema)
         p.root = ET.fromstring(s)
         doc = p.instance_from_XML(p.root)
@@ -91,9 +98,11 @@ def translate(input, action):
         raise RuntimeError('not a valid source format')
 
     if action.endswith(" to PS"):
-        return rif.as_ps(doc)
+        notes += "to ps!"
+        return (notes, rif.as_ps(doc))
     elif action.endswith("XML to "):
-        return bld_xml_out.do(doc)
+        notes += "to xml!"
+        return (notes, bld_xml_out.do(doc))
     else:
         raise RuntimeError('not a valid output format')
 
