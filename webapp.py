@@ -68,11 +68,11 @@ def main_page(input=None):
                      value="Go")
     page << form
 
-    p << h.h2('Translates to...')
+    page << h.h2('Translates to...')
 
     output = translate(input)
 
-    p << h.pre(output)
+    page << h.pre(output)
 
     print page
     # cgi.print_environ()    
