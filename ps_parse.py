@@ -10,7 +10,7 @@ TODO:
 """
 
 import sys
-sys.path.insert(0,"/usr/share/python-support/python-ply/")
+sys.path.insert(0,"ply-package")
 
 import ply.yacc as yacc
 import ply.lex as lex

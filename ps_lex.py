@@ -7,7 +7,7 @@ Lexer for BLD, not really/totally in line with the spec...
 """
 
 import sys
-sys.path.insert(0,"/usr/share/python-support/python-ply/")
+sys.path.insert(0,"ply-package")
 
 import ply.lex as lex
 
