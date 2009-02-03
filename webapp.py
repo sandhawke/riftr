@@ -73,10 +73,10 @@ def main_page(input=None):
     form << h.textarea(input,
                        cols="90", rows="20", name="input")
     form << h.br()
-    form <<  h.input(type="submit",  name="p:p", value="PS->PS")
-    form <<  h.input(type="submit",  name="p:x", value="PS->XML")
-    form <<  h.input(type="submit",  name="x:x", value="XML->XML")
-    form <<  h.input(type="submit",  name="x:p", value="XML->PS")
+    form <<  h.input(type="submit",  value="PS->PS")
+    form <<  h.input(type="submit",  value="PS->XML")
+    form <<  h.input(type="submit",  value="XML->XML")
+    form <<  h.input(type="submit",  value="XML->PS")
     page << form
 
     page << h.h3('Translates to...')
