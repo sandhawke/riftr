@@ -220,6 +220,7 @@ class ExternalAtom(External):
 class Const(SmartObj):
     
     def __str__(self):
+        self.determine_lexrep()
         return("%s^^<%s>" % (`self.lexrep`, self.datatype))
 
     def as_ps(self, newline):

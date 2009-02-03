@@ -95,7 +95,7 @@ def translate(input):
     except lex.LexError, e:
         result = "Lexer Error"
 
-    return result
+    return result.as_ps()
 
 
 
