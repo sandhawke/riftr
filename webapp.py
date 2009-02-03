@@ -13,6 +13,10 @@ import os
 
 import html as h
 
+import ps_lex
+import ps_parse
+import rif
+
 #
 # GLOBAL VARIABLES
 #
@@ -45,7 +49,7 @@ def main_page(input=None):
     page << h.p("This page currently only does translations between RIF XML and RIF PS, but the idea is to have various non-RIF languages supported as well")
 
     form = h.form(method="GET", class_="f")	
-    form << h.p("Input Text") 
+    form << h.h3("Input Text") 
     if input is None:
         input = """Document(
   Prefix(cpt <http://example.com/concepts#>)
@@ -63,23 +67,33 @@ def main_page(input=None):
 )
     """
     form << h.textarea(input,
-                       cols="80", rows="10", name="input")
+                       cols="90", rows="20", name="input")
     form <<  h.input(type="submit", name="Go",
                      value="Go")
     page << form
 
-    page << h.h2('Translates to...')
+    page << h.h3('Translates to...')
 
     output = translate(input)
 
-    page << h.pre(output)
+    page << h.pre(output, style="padding:0.5em; border: 2px solid black;")
 
     print page
     # cgi.print_environ()    
 
 def translate(input):
+    
+    s = input
+    try:
+        result = parse(s)
+    except SyntaxError, e:
+        result = "Parser Error"
+    except lex.LexError, e:
+        result = "Lexer Error"
 
-    return input.replace(" ", "_")
+    return result
+
+
 
 def ensure_safety(uri):
     for x in ['"', "'", " "]:
