@@ -14,15 +14,16 @@ import xml.etree.cElementTree as ET
 
 import html as h
 
-sys.path.insert(0,"/usr/share/python-support/python-ply/")
-import ply.yacc as yacc
-import ply.lex as lex
+#sys.path.insert(0,"/usr/share/python-support/python-ply/")
+#import ply.yacc as yacc
+#import ply.lex as lex
 
 import ps_parse
 import ps_lex
 import xml_in
 import bld_xml_out
 import rif
+import error
 
 #
 # GLOBAL VARIABLES
@@ -31,12 +32,6 @@ import rif
 # we'll turn this into a class called, um, ... Page? )
 #
 page = None
-class State: pass
-state = State()             # in the CGI sense; what we want carried
-                            # from click to click via query or post
-                            # parameters
-
-mypath = "me"        # should be overrided via CGI
 
 def startPage(title):
     global page
@@ -48,7 +43,7 @@ def startPage(title):
         page.head << h.stylelink("http://validator.w3.org/base.css")
 
 
-def main_page(input=None, action="PS to PS"):
+def main_page(args):
     global page
 
     startPage("RIF (Highly Experimental) Demonstration Page")	
@@ -57,6 +52,10 @@ def main_page(input=None, action="PS to PS"):
 
     form = h.form(method="GET", class_="f")	
     form << h.h3("Input Text...") 
+
+    input=args.getfirst("input") or default_input()
+    input = input.replace("\r\n", "\n")
+
     if input is None:
         input = default_input()
     form << h.textarea(input,
@@ -70,11 +69,22 @@ def main_page(input=None, action="PS to PS"):
 
     page << h.h3('Translates to...')
 
-    (notes, output) = translate(input, action)
+    action=args.getfirst("action") 
+    if action:
+        (notes, output) = translate(input, action)
+    else:
+        notes = "select a processing option"
+        output = ""
 
-    page << h.pre(output, style="padding:0.5em; border: 2px solid black;")
+    if notes:
+        page << h.h4('Processor Message:')
+        page << h.pre(notes, style="padding:0.5em; border: 2px solid red;")
 
-    page << h.pre(notes, style="padding:0.5em; border: 2px solid black;")
+
+    if output:
+        page << h.pre(output, style="padding:0.5em; border: 2px solid black;")
+    else:
+        page << h.p("-- No Output --")
 
     page << h.hr()
 
@@ -86,11 +96,15 @@ def main_page(input=None, action="PS to PS"):
 def translate(input, action):
     
     s = input
-    notes = "Notes: "+`action`+"..."
+    notes = ""
 
     if action.startswith("PS to "):
-        notes += "from PS!"
-        doc = ps_parse.parse(s)
+        try:
+            doc = ps_parse.parse(s)
+        except error.SyntaxError, e:
+            notes += "\nsyntax error, line %d, col %d, %s" % (e.line, e.col, e.msg) + "\n"
+            notes += e.illustrate_position()
+            return (notes, None)
     elif action.startswith("XML to "):
         notes += "from XML!"
         p = xml_in.Parser(rif.bld_schema)
@@ -121,10 +135,8 @@ def cgiMain():
     import sys
     import os
 
-    form = cgi.FieldStorage()
-    input=form.getfirst("input")
-    action=form.getfirst("action")
-    main_page(input, action)
+    args = cgi.FieldStorage()
+    main_page(args)
     #if input is None or input == "":
     #    prompt()
     #else:
