@@ -13,6 +13,7 @@ import os
 
 import html as h
 
+sys.path.insert(0,"/usr/share/python-support/python-ply/")
 import ply.yacc as yacc
 import ply.lex as lex
 
