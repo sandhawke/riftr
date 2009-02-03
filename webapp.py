@@ -10,6 +10,7 @@ carefully.  Sorry.
 import time
 import sys
 import os
+import xml.etree.cElementTree as ET
 
 import html as h
 
