@@ -122,7 +122,7 @@ def cgiMain():
     form = cgi.FieldStorage()
     input=form.getfirst("input")
     action=form.getfirst("action")
-    main_page(input)
+    main_page(input, action)
     #if input is None or input == "":
     #    prompt()
     #else:
