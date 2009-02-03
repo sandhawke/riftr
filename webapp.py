@@ -11,6 +11,7 @@ import time
 import sys
 import os
 import xml.etree.cElementTree as ET
+from cStringIO import StringIO
 
 import html as h
 
@@ -106,7 +107,6 @@ def translate(input, action):
             notes += e.illustrate_position()
             return (notes, None)
     elif action.startswith("XML to "):
-        notes += "from XML!"
         p = xml_in.Parser(rif.bld_schema)
         p.root = ET.fromstring(s)
         doc = p.instance_from_XML(p.root)
@@ -114,11 +114,12 @@ def translate(input, action):
         raise RuntimeError('not a valid source format')
 
     if action.endswith(" to PS"):
-        notes += "to ps!"
         return (notes, rif.as_ps(doc))
     elif action.endswith(" to XML"):
-        notes += "to xml!"
-        return (notes, bld_xml_out.do(doc))
+        buffer = StringIO()
+        ser  = bld_xml_out.Serializer(stream=buffer)
+        ser.do(doc)
+        return (notes, buffer.getvalue())
     else:
         raise RuntimeError('not a valid output format')
 
