@@ -30,6 +30,8 @@ mypath = "me"        # should be overrided via CGI
 def startPage(title):
     global page
     if page == None:
+
+        print "Content-Type: text/html; charset=utf-8\n"
         page = h.Document()
         page.head.append(h.title(title))
         page.head << h.stylelink("http://validator.w3.org/base.css")
@@ -38,7 +40,6 @@ def startPage(title):
 def prompt():
     global page
 
-    print "Content-Type: text/html; charset=utf-8\n"
     startPage("rifdemo")	
     form = h.form(method="GET", class_="f")	
     form << h.p("RIF Input") 
@@ -87,7 +88,7 @@ def cgiMain():
     import os
 
     form = cgi.FieldStorage()
-    source=form.getfirst("input")
+    input=form.getfirst("input")
     if input is None or input == "":
         prompt()
     else:
