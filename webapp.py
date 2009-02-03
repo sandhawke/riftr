@@ -78,6 +78,7 @@ def run(input):
 
     startPage('rifdemo output')
     page << h.p('translation goes here')
+    print page
 
 def cgiMain():
 
