@@ -53,7 +53,7 @@ def main_page(input=None):
     page << h.p("This page currently only does translations between RIF XML and RIF PS, but the idea is to have various non-RIF languages supported as well")
 
     form = h.form(method="GET", class_="f")	
-    form << h.h3("Input Text") 
+    form << h.h3("Input Text...") 
     if input is None:
         input = """Document(
   Prefix(cpt <http://example.com/concepts#>)
@@ -73,10 +73,10 @@ def main_page(input=None):
     form << h.textarea(input,
                        cols="90", rows="20", name="input")
     form << h.br()
-    form <<  h.input(type="submit",  value="PS->PS")
-    form <<  h.input(type="submit",  value="PS->XML")
-    form <<  h.input(type="submit",  value="XML->XML")
-    form <<  h.input(type="submit",  value="XML->PS")
+    form <<  h.input(type="submit",  name="p_p", value="PS->PS")
+    form <<  h.input(type="submit",  name="p_x", value="PS->XML")
+    form <<  h.input(type="submit",  name="x_x", value="XML->XML")
+    form <<  h.input(type="submit",  name="x_p", value="XML->PS")
     page << form
 
     page << h.h3('Translates to...')
