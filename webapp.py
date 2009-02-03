@@ -10,7 +10,9 @@ carefully.  Sorry.
 
 import time
 import sys
-import os
+import cgi
+import glob
+import os.path
 
 import html as h
 
@@ -48,7 +50,7 @@ def main_page(args):
     page << h.p("This page currently only does translations between RIF XML and RIF PS, but the idea is to have various non-RIF languages supported as well")
 
     #for k in args.keys():
-    #    page << h.p(`k`, '=', `args.getfirst(k)`)
+    #    page << h.p(`k`, '=', `args[k]`)
 
     form = h.form(method="GET", class_="f")	
     
@@ -139,9 +141,55 @@ def select_processor(div, args, method, field_name):
                 button = h.input(type="radio",
                             name=field_name,
                             value=p.id)
+            
+            examples = h.span()
+            if hasattr(p, 'examples') and p.examples:
+                examples << h.br()
+                examples << "Load example input: "
+                for (name, text) in p.examples:
+                    examples << h.input(type="submit", name="load_example", 
+                                        value=name)
 
-            div << h.p(button, desc)
+            div << h.p(button, desc, examples)
 
+def load_example_texts():
+    
+    for p in plugin.registry:
+        if hasattr(p, 'parse'):
+            if not hasattr(p, 'examples'):
+                p.examples = []
+            for filename in sorted(glob.glob('/home/sandro/cvs/dev.w3.org/2009/rif/webapp-examples/%s/*' % p.id)):
+                basename = os.path.basename(filename)
+                if os.path.isfile(filename):
+                    stream = open(filename, "r")
+                    p.examples.append( (basename, stream.read()) )
+                    stream.close()
+
+            
+def handle_example_input(args):
+    """ Looks at the load_example parameter and, based on it,
+        may CHANGE the value of the input_text and input_processor
+        parameters.
+    """
+
+    load_example = args.getfirst("load_example")
+    for p in plugin.registry:
+        if hasattr(p, 'examples') and p.examples:
+            for (name, text) in p.examples:
+                if name == load_example:
+                    try:
+                        args["input_text"].value = text
+                    except KeyError: 
+                        args.list.append(cgi.MiniFieldStorage("input_text", text))
+                    try:
+                        args["input_location"].value = ""
+                    except KeyError: 
+                        args.list.append(cgi.MiniFieldStorage("input_location", ""))
+                    try:
+                        args["input_processor"].value = p.id
+                    except KeyError: 
+                        args.list.append(cgi.MiniFieldStorage("input_processor", p.id))
+    
 def select_input(div, args):
 
     input_location=args.getfirst("input_location") or ""
@@ -149,15 +197,15 @@ def select_input(div, args):
                h.input(type="text", name="input_location",
                        size="80",
                        value=input_location))
-
-    input_text=args.getfirst("input") or default_input()
+    
+    input_text=args.getvalue("input_text", default_input())
     div << h.p(('(Method 2) Input Text:'), h.br(),
                h.textarea(input_text,
-                          cols="90", rows="10", name="input"))
+                          cols="90", rows="10", name="input_text"))
 
 def run(page, args):
 
-    input_text = input_text=args.getfirst("input") or ""
+    input_text = input_text=args.getvalue("input_text", "")
     input_text = input_text.replace("\r\n", "\n")
 
     input_processor_id = args.getfirst("input_processor")
@@ -199,21 +247,6 @@ def run(page, args):
         return False
         
 
-    
-def plugins():
-
-    for (name, module) in sys.modules.items():
-        if not module:
-            continue
-
-        try:
-            info = module.plugin_info
-        except AttributeError:
-            continue
-        
-        yield (name, module, info)
-
-        
             
 def ensure_safety(uri):
     for x in ['"', "'", " "]:
@@ -223,18 +256,10 @@ def ensure_safety(uri):
 
 def cgiMain():
 
-    import cgi
-    import sys
-    import os
-
+    load_example_texts()
     args = cgi.FieldStorage()
+    handle_example_input(args)
     main_page(args)
-    #if input is None or input == "":
-    #    prompt()
-    #else:
-    #    #ensure_safety(input)
-    #    run(input)
-
 
 def xdefault_input() :
         return """Document(

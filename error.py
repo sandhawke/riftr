@@ -27,7 +27,10 @@ class SyntaxError (InputError):
 
    @property
    def col(self):
-       return find_column(self.input_text, self.pos)
+       if self.input_text:
+           return find_column(self.input_text, self.pos)
+       else:
+           return 0
 
    def illustrate_position(self, prefix="==> "):
        return illustrate_position(self.input_text, 
@@ -56,7 +59,7 @@ def find_column(input_text,pos):
 
 def illustrate_position(input_text, line, col, prefix="==> "):
     s = prefix + input_text.split("\n")[line-1] + "\n"
-    s+= prefix + (" "*(col-1))+"^---- here"
+    s+= prefix + (" "*(col-1))+"^---- around here"
     return s
 
 #   except lex.LexError, e:
