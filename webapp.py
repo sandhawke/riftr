@@ -84,7 +84,7 @@ def main_page(input=None, action="PS to PS"):
 def translate(input, action):
     
     s = input
-    notes = "Notes: "
+    notes = "Notes: "+`action`+"..."
 
     if action.startswith("PS to "):
         notes += "from PS!"
@@ -100,7 +100,7 @@ def translate(input, action):
     if action.endswith(" to PS"):
         notes += "to ps!"
         return (notes, rif.as_ps(doc))
-    elif action.endswith("XML to "):
+    elif action.endswith(" to XML"):
         notes += "to xml!"
         return (notes, bld_xml_out.do(doc))
     else:
