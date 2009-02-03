@@ -11,14 +11,8 @@ carefully.  Sorry.
 import time
 import sys
 import os
-import xml.etree.cElementTree as ET
-from cStringIO import StringIO
 
 import html as h
-
-#sys.path.insert(0,"/usr/share/python-support/python-ply/")
-#import ply.yacc as yacc
-#import ply.lex as lex
 
 import plugin
 import ps_parse
@@ -53,6 +47,9 @@ def main_page(args):
     page << h.h2("Highly Experimental RIF Demonstration Page")
     page << h.p("This page currently only does translations between RIF XML and RIF PS, but the idea is to have various non-RIF languages supported as well")
 
+    #for k in args.keys():
+    #    page << h.p(`k`, '=', `args.getfirst(k)`)
+
     form = h.form(method="GET", class_="f")	
     
     form << h.h3("Step 1: Select Input Processor") 
@@ -67,14 +64,27 @@ def main_page(args):
     form << h.h3("Step 4: Begin Processing") 
 
     form << h.br()
-    form <<  h.input(type="submit",  name="action", value="Generate Output Below")
-    form <<  h.Raw("&nbsp;")
-    form <<  h.Raw("&nbsp;")
-    form <<  h.Raw("&nbsp;")
-    form <<  h.Raw("&nbsp;")
-    form <<  h.Raw("&nbsp;")
-    form <<  h.input(type="submit",  name="action", value="Generate Output on New Page")
+
+    output_div = h.div()
+    output_done = run(output_div, args)
     page << form
+    page << output_div
+
+    if output_done:
+        form <<  h.input(type="submit",  name="action", 
+                         value="Update Output Below")
+    else:
+        form <<  h.input(type="submit",  name="action", 
+                         value="Generate Output Below")
+
+    #form <<  h.Raw("&nbsp;")
+    #form <<  h.Raw("&nbsp;")
+    #form <<  h.Raw("&nbsp;")
+    #form <<  h.Raw("&nbsp;")
+    #form <<  h.Raw("&nbsp;")
+    #form <<  h.input(type="submit",  name="action", value="Generate Output on New Page")
+
+
 
     if 0:
         page << h.h3('Translates to...')
@@ -105,12 +115,12 @@ def main_page(args):
     # cgi.print_environ()    
 
 def select_input_processor(div, args):
-    select_processor(div, args, 'parse')
+    select_processor(div, args, 'parse', 'input_processor')
 
 def select_output_processor(div, args):
-    select_processor(div, args, 'serialize')
+    select_processor(div, args, 'serialize', 'output_processor')
 
-def select_processor(div, args, method):
+def select_processor(div, args, method, field_name):
 
     for p in plugin.registry:
         if hasattr(p, method):
@@ -120,54 +130,76 @@ def select_processor(div, args, method):
                 desc.append(h.span('  (See ', h.a('language specification', 
                                                 href=p.spec), ")"))
 
-            div << h.p(
-                    h.input(type="radio",
-                            name="input_processor",
-                            value=p.id),
-                    desc)
+            if args.getfirst(field_name) == p.id:
+                button = h.input(type="radio",
+                            name=field_name,
+                            checked='YES',
+                            value=p.id)
+            else:
+                button = h.input(type="radio",
+                            name=field_name,
+                            value=p.id)
+
+            div << h.p(button, desc)
 
 def select_input(div, args):
 
     input_location=args.getfirst("input_location") or ""
-    div << h.p('Web Addres of Input:',
+    div << h.p('(Method 1) Web Address of Input:',h.br(),
                h.input(type="text", name="input_location",
+                       size="80",
                        value=input_location))
 
-    div << h.p('... or input text:')
     input_text=args.getfirst("input") or default_input()
-    div << h.textarea(input_text,
-                       cols="90", rows="10", name="input")
+    div << h.p(('(Method 2) Input Text:'), h.br(),
+               h.textarea(input_text,
+                          cols="90", rows="10", name="input"))
 
-def translate(input, action):
+def run(page, args):
+
+    input_text = input_text=args.getfirst("input") or ""
+    input_text = input_text.replace("\r\n", "\n")
+
+    input_processor_id = args.getfirst("input_processor")
+    iproc = None
+    if input_processor_id:
+        for p in plugin.registry:
+            if hasattr(p, 'parse'):
+                if p.id == input_processor_id:
+                    iproc = p
+                    break
+    else:
+        page << h.p('No input processor selected.')
+        return False
+            
+    try:
+        doc = iproc.parse(input_text)
+    except error.SyntaxError, e:
+        err = ""
+        err += e.message + "\n"
+        err += e.illustrate_position()
+        page << h.pre("Error\n"+err,
+                      style="padding: 1em; border:2px solid red;")
+        return False
+
     
-    s = input
-    notes = ""
-
-    if action.startswith("PS to "):
-        try:
-            doc = ps_parse.parse(s)
-        except error.SyntaxError, e:
-            notes += "\nsyntax error, line %d, col %d, %s" % (e.line, e.col, e.msg) + "\n"
-            notes += e.illustrate_position()
-            return (notes, None)
-    elif action.startswith("XML to "):
-        p = xml_in.Parser(rif.bld_schema)
-        p.root = ET.fromstring(s)
-        doc = p.instance_from_XML(p.root)
+    output_processor_id = args.getfirst("output_processor")
+    if output_processor_id:
+        oproc = None
+        for p in plugin.registry:
+            if hasattr(p, 'serialize'):
+                if p.id == output_processor_id:
+                    oproc = p
+                    break
+        output = oproc.serialize(doc)
+        page << h.pre(output, style="padding:1em; border:1px solid black;")
+        return True 
     else:
-        raise RuntimeError('not a valid source format')
+        page << h.p('No output processor selected.')
+        return False
+        
 
-    if action.endswith(" to PS"):
-        return (notes, rif.as_ps(doc))
-    elif action.endswith(" to XML"):
-        buffer = StringIO()
-        ser  = bld_xml_out.Serializer(stream=buffer)
-        ser.do(doc)
-        return (notes, buffer.getvalue())
-    else:
-        raise RuntimeError('not a valid output format')
-
-
+    
 def plugins():
 
     for (name, module) in sys.modules.items():

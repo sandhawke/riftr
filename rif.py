@@ -432,6 +432,8 @@ class Plugin (plugin.OutputPlugin):
    spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#EBNF_Grammar_for_the_Presentation_Syntax_of_RIF-BLD"
    
    def serialize(self, doc):
-       return ("", as_ps(doc))
+       return as_ps(doc)
  
 plugin.register(Plugin())
+
+

@@ -7,6 +7,8 @@
 import sys
 import serializer
 import plugin
+from cStringIO import StringIO
+
 
 class Serializer(serializer.General):
 
@@ -60,11 +62,11 @@ class Plugin (plugin.OutputPlugin):
    id="xml"
    spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#XML_Serialization_Syntax_for_RIF-BLD"
    
-   def serialize(self, str):
+   def serialize(self, doc):
        buffer = StringIO()
-       ser  = bld_xml_out.Serializer(stream=buffer)
+       ser  = Serializer(stream=buffer)
        ser.do(doc)
-       return (notes, buffer.getvalue())
+       return buffer.getvalue()
  
 plugin.register(Plugin())
 

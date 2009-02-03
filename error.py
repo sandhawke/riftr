@@ -13,10 +13,17 @@ class InputError (Error):
     
 class SyntaxError (InputError):
 
-   def __init__(self, line, pos, input_text = None):
+   def __init__(self, line, pos, input_text=None, message=None):
       self.line = line
       self.pos = pos
       self.input_text = input_text
+      if message is None:
+          self.message = ("syntax error, line %d, col %d, %s" % 
+                          (line, self.col, self.msg))
+      else:
+          self.message = message
+
+   msg = ""
 
    @property
    def col(self):

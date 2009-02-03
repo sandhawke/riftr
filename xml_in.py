@@ -7,11 +7,12 @@ http://docs.python.org/library/xml.etree.elementtree.html
 """
 
 import sys
-import xml.etree.cElementTree as ET
-import inspect
+import xml.etree.ElementTree as ET
+import xml.parsers.expat
 
 import rif
 import plugin
+import error
 
 from debugtools import debug
 import debugtools
@@ -177,7 +178,10 @@ class Plugin (plugin.InputPlugin):
    
    def parse(self, str):
        p = Parser(rif.bld_schema)
-       p.root = ET.fromstring(s)
+       try:
+           p.root = ET.fromstring(str)
+       except xml.parsers.expat.ExpatError, e:
+           raise error.SyntaxError(e.lineno, e.offset, str, e.message)
        doc = p.instance_from_XML(p.root)
        return doc
 
