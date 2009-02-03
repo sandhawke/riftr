@@ -18,8 +18,8 @@ To do...
     --- from RDF
 
 """
+from debugtools import debug
 
-webdata_ns = 'http://www.w3.org/2007/rif#'
 
 """
  schema.classes
@@ -54,6 +54,9 @@ def as_ps(obj, newline="\n"):
         except:
             pass
         
+        if isinstance(obj, basestring):
+            return obj  # not a great idea....
+
         raise RuntimeError("dont know how to serialized %s in ps" % obj)
 
 def ps_quoted_string(s):
@@ -62,6 +65,7 @@ def ps_quoted_string(s):
     return '"'+s+'"'
 
 class SmartObj(object):
+    xml_ns = "http://www.w3.org/2007/rif#"
     
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -98,7 +102,12 @@ class SmartObj(object):
         try:
             (id, frames) = self.meta
         except:
-            return ""
+            try:
+                id = self.id.lexrep
+                frames = self.meta
+            except:
+                return ""
+        
         s = "(* "
         if id:
             s += "<"+id+">"
@@ -133,18 +142,28 @@ class Document(SmartObj):
     
     def ps_heart(self, newline):
         s = newline
-        if self.base:
+        if self.get_base():
             s += 'Base('+ps_quoted_string(self.base)+')'+newline
             s += newline
-        if self.prefix:
+        if self.get_prefix():
             for (short, long) in self.prefix:
                 s += 'Prefix(%s %s)%s' % (short, long, newline)
             s += newline
         # @@@ import
-        if self.group:
-            s += self.group.as_ps(newline)
+        if self.payload:
+            s += self.payload.as_ps(newline)
             s += newline
         return s
+
+    def get_base(self):
+        if hasattr(self, 'base'):
+            return base
+        return None  # for now...
+
+    def get_prefix(self):
+        if hasattr(self, 'prefix'):
+            return prefix
+        return None  # for now...
 
 class Group(SmartObj):
 
@@ -162,15 +181,22 @@ class And(SmartObj):
             s += sent.as_ps(newline) + newline
         return s
 
-class Atom(SmartObj):
+class TERM(SmartObj):
+    pass
+
+class UNITERM(TERM):
+    pass
+
+class Atom(UNITERM):
     
     def as_ps(self, newline):
         sa = []
+        debug('ps_out', 'args: ', `self.args`)
         for arg in self.args:
-            sa.append(arg.as_ps(newline))
+            sa.append(as_ps(arg, newline))
         return self.op.as_ps(newline) + "(" + " ".join(sa) + ")"
 
-class Expr(SmartObj):
+class Expr(UNITERM):
 
     def as_ps(self, newline):
         sa = []
@@ -178,7 +204,7 @@ class Expr(SmartObj):
             sa.append(arg.as_ps(newline))
         return self.op.as_ps(newline) + "(" + " ".join(sa) + ")"
 
-class External(SmartObj):
+class External(TERM):
 
     ps_name = "External"
         
@@ -193,6 +219,9 @@ class ExternalAtom(External):
 
 class Const(SmartObj):
     
+    def __str__(self):
+        return("%s^^<%s>" % (`self.lexrep`, self.datatype))
+
     def as_ps(self, newline):
         
         # hack for now
@@ -223,7 +252,10 @@ class Const(SmartObj):
         return (ps_quoted_string(self.lexrep) + 
                 "^^" + 
                 # needs qname smarts -- prefix and stuff!
-                as_ps(self.datatype, newline))
+                #  IF CURIE  as_ps(self.datatype, newline))
+                #  IF IRI:
+                "<"+self.datatype+">"
+                )
 
     def determine_lexrep(self):
         try:
@@ -265,7 +297,9 @@ class Forall(SmartObj):
         return s
 
 class Slot(SmartObj):
-    pass
+
+    def as_ps(self, newline):
+        return "*slot*"
 
 class Frame(SmartObj):
     
@@ -288,7 +322,7 @@ class Frame(SmartObj):
         return s
 
 
-class Equal(SmartObj):
+class Equal(TERM):
 
     def as_ps(self, newline):
         return self.left.as_ps(newline) + "=" + self.right.as_ps(newline)
@@ -298,9 +332,90 @@ class Annotation(SmartObj):
 
     pass
 
+class Property:
+    def __init__(self, name, range, 
+                 list_valued=False, required=False,
+                 python_name=None):
+        self.name = name
+        self.range = range
+        self.list_valued = list_valued
+        self.required = required
+        self.python_name = python_name or name
+
+    @property
+    def xml_name(self):
+        return '{http://www.w3.org/2007/rif#}'+self.name
+
+    def __repr__(self):
+        return 'Property(%s)' % `self.name`
 
 bld_schema = {
+    
     Document : 
-    [  "payload" : Group,
+    [
+        Property("payload", Group),
         ],
+    
+    Frame :
+        [
+        Property("object", Const, required=True),
+        Property("slot", None, list_valued=True),  # WEIRD
+        ],
+    
+    Group :
+        [
+        Property('id', Const),
+        Property('meta', Frame, list_valued=True),
+        Property('sentence', None, list_valued=True),
+        ],
+    
+    Atom :
+        [
+        Property('op', Const, required=True),
+        Property('args', None, list_valued=True),
+        ],
+    
+    Expr :
+        [
+        Property('op', Const, required=True),
+        Property('args', None, list_valued=True),
+        ],
+    
+    External :
+        [
+        Property('content', UNITERM, required=True),
+        ],
+    
+    
+    And :
+        [
+        Property('formula', TERM, list_valued=True),
+        ],
+    
+    
+    Equal :
+        [
+        Property('left', None, required=True),
+        Property('right', None, required=True),
+        ],
+
+    Implies :
+        [
+        Property('if', None, required=True, python_name="if_"),
+        Property('then', None, required=True),
+        ],
+
+
+    Forall :
+        [
+        Property('declare', None, list_valued=True),
+        Property('formula', None, required=True),
+        ],
+
+
 }
+
+
+#   required == minOccurs 0/1
+#   list_valued == maxOccurs 1, >1 
+#                  AND ALSO how python handles it.
