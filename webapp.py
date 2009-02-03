@@ -76,7 +76,7 @@ def ensure_safety(uri):
 def run(input):
     global page
 
-    startpage('rifdemo output')
+    startPage('rifdemo output')
     page << h.p('translation goes here')
 
 def cgiMain():
