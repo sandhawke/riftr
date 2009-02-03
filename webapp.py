@@ -37,13 +37,17 @@ def startPage(title):
         page.head << h.stylelink("http://validator.w3.org/base.css")
 
 
-def prompt():
+def page(input=None):
     global page
 
-    startPage("rifdemo")	
+    startPage("RIF (Highly Experimental) Demonstration Page")	
+    page << h.h2("RIF (Highly Experimental) Demonstration Page")
+    page << h.p("This page currently only does translations between RIF XML and RIF PS, but the idea is to have various non-RIF languages supported as well")
+
     form = h.form(method="GET", class_="f")	
-    form << h.p("RIF Input") 
-    example = """Document(
+    form << h.p("Input Text") 
+    if input is None:
+        input = """Document(
   Prefix(cpt <http://example.com/concepts#>)
   Prefix(ppl <http://example.com/people#>)
   Prefix(bks <http://example.com/books#>)
@@ -58,28 +62,30 @@ def prompt():
   )
 )
     """
-    form << h.textarea(example,
+    form << h.textarea(input,
                        cols="80", rows="10", name="input")
     form <<  h.input(type="submit", name="Go",
                      value="Go")
     page << form
 
+    p << h.h2('Translates to...')
+
+    output = translate(input)
+
+    p << h.pre(output)
+
     print page
     # cgi.print_environ()    
 
+def translate(input):
+
+    return input.replace(" ", "_")
 
 def ensure_safety(uri):
     for x in ['"', "'", " "]:
         if uri.find(x) > -1:
             print "The string %s contains a %s" % (uri, x)
             raise ValueError
-
-def run(input):
-    global page
-
-    startPage('rifdemo output')
-    page << h.p('translation goes here')
-    print page
 
 def cgiMain():
 
@@ -89,11 +95,12 @@ def cgiMain():
 
     form = cgi.FieldStorage()
     input=form.getfirst("input")
-    if input is None or input == "":
-        prompt()
-    else:
-        #ensure_safety(input)
-        run(input)
+    page(input)
+    #if input is None or input == "":
+    #    prompt()
+    #else:
+    #    #ensure_safety(input)
+    #    run(input)
 
 
 
