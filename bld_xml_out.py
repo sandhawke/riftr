@@ -57,9 +57,9 @@ def do(obj):
 
 
 class Plugin (plugin.OutputPlugin):
-   """An XML Syntax that is NOT the RIF XML Syntax"""
+   """A fully-striped XML Syntax (not the RIF XML Syntax -- easier to implement, but more verbose)."""
 
-   id="xml"
+   id="xmlfs"
    #spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#XML_Serialization_Syntax_for_RIF-BLD"
    
    def serialize(self, doc):
