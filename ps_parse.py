@@ -26,7 +26,7 @@ tokens = ps_lex.tokens
 
 def p_Document(t):
    '''Document  : IRIMETA_opt KW_Document LPAREN Base_opt Prefix_star Import_star Group_opt RPAREN '''
-   t[0] = rif.Document(meta=t[1], base=t[4], prefix=t[5], imports=t[6], payload=t[7])
+   t[0] = rif.Document(annotation=t[1], base=t[4], prefix=t[5], imports=t[6], payload=t[7])
 
 def p_Base(t):
    '''Base      : KW_Base LPAREN STRING RPAREN '''   
@@ -55,11 +55,11 @@ def p_LOCATION(t):
 
 def p_Group(t):
    '''Group     : IRIMETA_opt KW_Group LPAREN RULE_or_Group_star RPAREN '''
-   t[0] = rif.Group(meta=t[1], sentence=t[4])
+   t[0] = rif.Group(annotation=t[1], sentence=t[4])
 
 def p_RULE_1(t):
    '''RULE      : IRIMETA_opt KW_Forall Var_plus LPAREN CLAUSE RPAREN'''
-   t[0] = rif.Forall(meta=t[1], declare=t[3], formula=t[5])
+   t[0] = rif.Forall(annotation=t[1], declare=t[3], formula=t[5])
 
 def p_RULE_2(t):
    '''RULE      : CLAUSE '''
@@ -92,19 +92,19 @@ def p_PROFILE(t):
 
 def p_FORMULA_1(t):
    '''FORMULA        :  IRIMETA_opt KW_And LPAREN FORMULA_star RPAREN'''
-   t[0] = rif.And(meta=t[1], formula=t[4])
+   t[0] = rif.And(annotation=t[1], formula=t[4])
 def p_FORMULA_2(t):
    '''FORMULA        :  IRIMETA_opt KW_Or LPAREN FORMULA_star RPAREN'''
-   t[0] = rif.Or(meta=t[1], formula=t[4])
+   t[0] = rif.Or(annotation=t[1], formula=t[4])
 def p_FORMULA_3(t):
    '''FORMULA        :  IRIMETA_opt KW_Exists Var_plus LPAREN FORMULA RPAREN'''
-   t[0] = rif.Exists(meta=t[1], declare=t[3], formula=t[5])
+   t[0] = rif.Exists(annotation=t[1], declare=t[3], formula=t[5])
 def p_FORMULA_4(t):
    '''FORMULA        :  ATOMIC'''
    t[0] = t[1]
 def p_FORMULA_5(t):
    '''FORMULA        :  IRIMETA_opt KW_External LPAREN Atom RPAREN'''
-   t[0] = rif.ExternalAtom(meta=t[1], content=t[4])
+   t[0] = rif.ExternalAtom(annotation=t[1], content=t[4])
 
 #   -- being removed from Spec
 #def p_FORMULA_5(t):
@@ -167,7 +167,7 @@ def p_TERM_1(t):
    
 def p_TERM_2(t):
    '''TERM           : IRIMETA_opt KW_External LPAREN Expr RPAREN '''
-   t[0] = rif.ExternalExpr(meta=t[1], content=t[4])
+   t[0] = rif.ExternalExpr(annotation=t[1], content=t[4])
 
 # was UNITERM
 def p_Expr_1(t):
@@ -250,21 +250,21 @@ def p_IRIMETA_opt_1(t):
    pass
 def p_IRIMETA_opt_2(t):
    '''IRIMETA_opt     : LMETA IRICONST RMETA '''
-   t[0] = rif.Annotation(iri=t[2], sentence=[])
+   t[0] = rif.Annotation(iri=t[2], sentence=None)
 def p_IRIMETA_opt_3(t):
    '''IRIMETA_opt     : LMETA IRICONST KW_And LPAREN Frame_star RPAREN RMETA '''
-   t[0] = rif.Annotation(iri=t[2], sentence=t[5])
-# These two are tricky; we need both of them to work around the
+   t[0] = rif.Annotation(iri=t[2], sentence=rif.And(formula=t[5]))
+# These next two are tricky; we need both of them to work around the
 # ambiguity here.
 def p_IRIMETA_opt_4(t):
    '''IRIMETA_opt     : LMETA IRICONST LBRACKET TERM_arrow_TERM_star RBRACKET RMETA '''
-   t[0] = rif.Annotation(sentence=[rif.Frame(object=t[2], slot=t[4]) ])
+   t[0] = rif.Annotation(sentence=rif.Frame(object=t[2], slot=t[4]))
 def p_IRIMETA_opt_5(t):
    '''IRIMETA_opt     : LMETA TERM LBRACKET TERM_arrow_TERM_star RBRACKET RMETA '''
-   t[0] = rif.Annotation(sentence=[rif.Frame(object=t[2], slot=t[4]) ])
+   t[0] = rif.Annotation(sentence=rif.Frame(object=t[2], slot=t[4]))
 def p_IRIMETA_opt_6(t):
    '''IRIMETA_opt     : LMETA IRICONST TERM LBRACKET TERM_arrow_TERM_star RBRACKET  RMETA'''
-   t[0] = rif.Annotation(iri=t[2], sentence=[rif.Frame(object=t[3], slot=t[5]) ])
+   t[0] = rif.Annotation(iri=t[2], sentence=rif.Frame(object=t[3], slot=t[5]))
 
 # This rule produces all our shift/reduce conflicts.   Sigh.
 # Because there are several places you could put meta, there are

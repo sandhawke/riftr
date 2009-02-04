@@ -61,6 +61,17 @@ class SmartObj(object):
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
+        # this is a form of metadata which ps_parser provides,
+        # and it would be hard to change it, so we'll convert here.
+        annotation = getattr(self, "annotation", None)
+        if annotation is not None:
+            id = getattr(annotation, "iri", None)
+            if id is not None:
+                self.id = id
+            meta = getattr(annotation, "sentence", None)
+            if meta is not None:
+                self.meta = meta
+
     def __str__(self):
         return self.as_debug()
 
@@ -90,45 +101,33 @@ class SmartObj(object):
         return self.__class__.__name__ + "("+newline + s + ")"
 
     def do_meta_ps(self, newline):
-        #try:
-        #    (id, frames) = self.meta
-        #except:
-        #    try:
-        #        id = self.id.lexrep
-        #        frames = self.meta
-        #    except:
-        #        return ""
 
-        if self.meta is None:
-            return ""
+        s = ""
+        id = getattr(self, "id", None)
+        if id is not None:
+            s += id.as_ps(newline)
+            s += " "
+            
+            
+        meta = getattr(self, "meta", None)
+        if meta is not None:
+            s += meta.as_ps(newline)
 
-        try:
-            iri = self.meta.iri
-        except:
-            iri = None
-
-        try:
-            frames = self.meta.sentence
-        except:
-            frames = []
-
-        s = "(* "
-
-        if iri is not None:
-            s += iri.as_ps(newline)
-
-        if len(frames) == 0:
-            pass
-        elif len(frames) == 1:
-            s += " "+frames[0].as_ps(newline+"    ")
+        #if len(frames) == 0:
+        #    pass
+        #elif len(frames) == 1:
+        #    s += " "+frames[0].as_ps(newline+"    ")
+        #else:
+        #    s += "And("+newline
+        #    newline += "    "
+        #    for f in frames:
+        #        s += "    " +  frames[0].as_ps(newline) + newline
+        #    s += ")"
+            
+        if s == "":
+            return s
         else:
-            s += "And("+newline
-            newline += "    "
-            for f in frames:
-                s += "    " +  frames[0].as_ps(newline) + newline
-            s += ")"
-        s += " *) " + newline
-        return s
+            return "(* " + s + " *) " + newline
 
     def as_ps(self, newline="\n"):
 
@@ -190,6 +189,7 @@ class Document(SmartObj):
             else:
                 map = PrefixMap()
             self.add_to_prefix_map(map)
+            debug('prefix_map', 'final map:', `map.entries`)
             for (short, long) in map.entries:
                 s += 'Prefix(%s <%s>)%s' % (short, long, newline)
             s += newline
@@ -300,7 +300,7 @@ def ncname_char(char):
 def ncname_start_char(char):
     return char.isalpha()
 
-host_only_pattern = re.compile(r'''[-a-zA-Z_]*://[-a-zA-Z0-9_.]*''')
+host_only_pattern = re.compile(r'''^[-a-zA-Z_]*://[-a-zA-Z0-9_.]*$''')
 
 def iri_split(text):
     """
@@ -326,7 +326,7 @@ def iri_split(text):
     >>> iri_split("http://www.w3.org")
     Traceback (most recent call last):
     ...
-    IndexError: string index out of range
+    IndexError
 
     # can't start with a number
     >>> iri_split("http://www.w3.org/123abc")
@@ -343,7 +343,8 @@ def iri_split(text):
     IndexError: string index out of range
 
     """
-    if host_only_pattern.match(text):
+    m = host_only_pattern.match(text)
+    if m is not None:
         raise IndexError
     pos = len(text)-1
     while ncname_char(text[pos]):
@@ -613,7 +614,7 @@ bld_schema = {
     Group :
         [
         Property('id', Const),
-        Property('meta', Frame, list_valued=True),
+        Property('meta', None),
         Property('sentence', None, list_valued=True),
         ],
     

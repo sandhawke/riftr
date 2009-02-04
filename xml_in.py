@@ -91,7 +91,7 @@ class Parser:
                 # Special case for Consts, which are weird
                 if e.tag == "{http://www.w3.org/2007/rif#}Const":
                     result = rif.Const()
-                    result.datatype = value
+                    result.datatype = rif.IRI(value)
                     result.lexrep = e.text
 
                     debug('xml_in)', 'returning', result)            

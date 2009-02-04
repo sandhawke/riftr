@@ -235,3 +235,12 @@ Where the RIF XML syntax differs from pure striping:
 
 Better go with "Sequence", I think.
    in the RIF model.
+
+****************************************************************
+
+
+Do we want barewords to be local names?  Or is that a poor use of them.
+Better to have 
+   Prefix(: <foo>)
+?
+
