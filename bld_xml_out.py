@@ -57,10 +57,10 @@ def do(obj):
 
 
 class Plugin (plugin.OutputPlugin):
-   """RIF XML Syntax"""
+   """An XML Syntax that is NOT the RIF XML Syntax"""
 
    id="xml"
-   spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#XML_Serialization_Syntax_for_RIF-BLD"
+   #spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#XML_Serialization_Syntax_for_RIF-BLD"
    
    def serialize(self, doc):
        buffer = StringIO()
