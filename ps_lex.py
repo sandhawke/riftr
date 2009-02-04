@@ -152,6 +152,11 @@ def t_NEWLINE(t):
 #lexer = lex.lex(optimize=1)
 lexer = lex.lex(outputdir="ps_ply_generated")
 
+def token_type(str):
+    lexer.input(str)
+    return lexer.token().type
+
+   
 # lexer = lex.lex(debug=1)
 if __name__ == "__main__":
     lex.runmain(lexer)

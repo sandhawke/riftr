@@ -201,6 +201,9 @@ def p_CONSTSHORT_4(t):
                     | BARE_IRI
                     | EXPANDED_CURIE'''
    t[0] = rif.Const(datatype=RIF_IRI, lexrep=t[1])
+def p_CONSTSHORT_5(t):
+   '''CONSTSHORT    : LOCALNAME'''
+   t[0] = rif.Const(datatype=rif.IRI(RIFNS+"local"), lexrep=t[1])
 
 
 def p_Var(t):

@@ -24,6 +24,7 @@ import re
 from debugtools import debug
 
 import plugin
+import ps_lex
 
 #use_qnames = False
 
@@ -210,6 +211,8 @@ class Document(SmartObj):
 
 common = {
     "http://www.w3.org/2007/rif#" : "rif",
+    "http://www.w3.org/2007/rif-builtin-function#" : "rifbif",
+    "http://www.w3.org/2007/rif-builtin-predicate#" : "rifbip",
     'http://www.w3.org/1999/02/22-rdf-syntax-ns#':'rdf',
     'http://www.w3.org/2000/01/rdf-schema#' :'rdfs',
     'http://www.w3.org/2001/XMLSchema#' : 'xsd',
@@ -476,31 +479,14 @@ class Const(SmartObj):
         except:
             pass
 
-        ## hack for now
-        #try:
-        #    s = self.value
-        #    if isinstance(s, basestring):
-        #        return s
-        #except:
-        #    pass
+        if self.datatype.text == 'http://www.w3.org/2007/rif#local':
+            if ps_lex.token_type(self.lexrep) == 'LOCALNAME':
+                return self.lexrep
+
+        if self.datatype.text == 'http://www.w3.org/2001/XMLSchema#integer':
+            if ps_lex.token_type(self.lexrep) == 'INTEGER':
+                return self.lexrep
             
-        # hack for now!
-        #try:
-        #    (pre,rest) = self.value
-        #    return pre+":"+rest
-        #except:
-        #    pass
-
-        # hack for now
-        #try:
-        #    i = self.value
-        #    if isinstance(i, int):
-        #        return str(i)
-        #except:
-        #    pass
-
-        # want a flag about whether to use APS !?
-        #self.determine_lexrep()
         return (ps_quoted_string(self.lexrep) + 
                 "^^" + 
                 self.datatype.as_ps(newline)
