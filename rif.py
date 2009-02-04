@@ -18,11 +18,14 @@ To do...
     --- from RDF
 
 """
+
+import re
+
 from debugtools import debug
 
 import plugin
 
-
+#use_qnames = False
 
 def as_debug(obj, newline="\n"):
     if hasattr(obj, 'as_debug'):
@@ -36,14 +39,14 @@ def as_ps(obj, newline="\n"):
     else:
 
         # @HACK
-        try:
-            (pre,rest) = obj
-            return pre+":"+rest
-        except:
-            pass
+        #try:
+        #    (pre,rest) = obj
+        #    return pre+":"+rest
+        #except:
+        #    pass
         
-        if isinstance(obj, basestring):
-            return obj  # not a great idea....
+        #if isinstance(obj, basestring):
+        #    return obj  # not a great idea....
 
         raise RuntimeError("dont know how to serialized %s in ps" % obj)
 
@@ -61,8 +64,8 @@ class SmartObj(object):
     def __str__(self):
         return self.as_debug()
 
-    def __repr__(self):
-        return str(self)
+    #def __repr__(self):
+    #    return str(self)
 
     def as_debug(self, newline="\n"):
         newline += "-  "
@@ -87,18 +90,33 @@ class SmartObj(object):
         return self.__class__.__name__ + "("+newline + s + ")"
 
     def do_meta_ps(self, newline):
+        #try:
+        #    (id, frames) = self.meta
+        #except:
+        #    try:
+        #        id = self.id.lexrep
+        #        frames = self.meta
+        #    except:
+        #        return ""
+
+        if self.meta is None:
+            return ""
+
         try:
-            (id, frames) = self.meta
+            iri = self.meta.iri
         except:
-            try:
-                id = self.id.lexrep
-                frames = self.meta
-            except:
-                return ""
-        
+            iri = None
+
+        try:
+            frames = self.meta.sentence
+        except:
+            frames = []
+
         s = "(* "
-        if id:
-            s += "<"+id+">"
+
+        if iri is not None:
+            s += iri.as_ps(newline)
+
         if len(frames) == 0:
             pass
         elif len(frames) == 1:
@@ -126,18 +144,58 @@ class SmartObj(object):
         s += ")"
         return s
 
+    def add_to_prefix_map(self, map):
+
+        debug('prefix_map(', 'scanning', `self`)
+
+        for (key, value) in self.__dict__.items():
+            debug('prefix_map(', 'key=', key, `value`)
+            if key.startswith("_"):
+                debug('prefix_map)', 'key starts with _')
+                continue
+
+            if isinstance(value, list):
+                values = value
+            else:
+                values = (value,)
+
+            for v in values:
+                debug('prefix_map(', 'a value:',  `v`)
+                try:
+                    f =  v.add_to_prefix_map
+                except:
+                    debug('prefix_map)', '... is opaque')
+                    continue
+
+                f(map)
+                debug('prefix_map)', 'done with value')
+
+            debug('prefix_map)', 'done with key', key)
+        debug('prefix_map)')
+
 class Document(SmartObj):
     
     def ps_heart(self, newline):
         s = newline
-        if self.get_base():
-            s += 'Base('+ps_quoted_string(self.base)+')'+newline
+        
+        # figure out a smart base?
+        #if self.get_base():
+        #    s += 'Base('+ps_quoted_string(self.base)+')'+newline
+        #    s += newline
+
+
+        if use_qnames:
+            if hasattr(self, '_prefix_map'):
+                map = self._prefix_map
+            else:
+                map = PrefixMap()
+            self.add_to_prefix_map(map)
+            for (short, long) in map.entries:
+                s += 'Prefix(%s <%s>)%s' % (short, long, newline)
             s += newline
-        if self.get_prefix():
-            for (short, long) in self.prefix:
-                s += 'Prefix(%s %s)%s' % (short, long, newline)
-            s += newline
+
         # @@@ import
+
         if self.payload:
             s += self.payload.as_ps(newline)
             s += newline
@@ -148,10 +206,199 @@ class Document(SmartObj):
             return self.base
         return None  # for now...
 
-    def get_prefix(self):
-        if hasattr(self, 'prefix'):
-            return self.prefix
-        return None  # for now...
+
+
+common = {
+    "http://www.w3.org/2007/rif#" : "rif",
+    'http://www.w3.org/1999/02/22-rdf-syntax-ns#':'rdf',
+    'http://www.w3.org/2000/01/rdf-schema#' :'rdfs',
+    'http://www.w3.org/2001/XMLSchema#' : 'xsd',
+    'http://purl.org/dc/elements/1.0/' : 'dc10',
+    'http://purl.org/dc/elements/1.1/' : 'dc',
+    'http://xmlcommon.com/foaf/0.1/' : 'foaf',
+    'http://www.w3.org/2000/10/swap/log#' : 'log',
+    'http://www.w3.org/2002/07/owl#' : 'owl',
+}
+
+class PrefixMap:
+    """Why not just use a dict, or a pair of them?  I guess I find
+    this less confusing, and for some reason I find this subject very
+    confusing."""
+
+    def __init__(self):
+        self.entries = []
+        self.gen_count = 0
+
+    def add(self, short, long):
+        if self.has_short(short):
+            if self.expand(short) == long:
+                pass  # just a dup
+            else:
+                raise RuntimeError, 'changing prefix binding'
+        self.entries.append( (short, long) )
+        debug('prefix_map', 'added entry', short, long)
+        
+    def add_long(self, long):
+        """When you don't know what the short should be..."""
+        if self.has_long(long):
+            return
+
+        if long in common:
+            short = common[long]
+            if not self.has_short(short):
+                self.add(short, long)
+                return
+
+        short = "ns"+str(self.gen_count)
+        self.gen_count += 1
+        self.add(short, long)
+        
+    def has_short(self, short):
+        for (s, l) in self.entries:
+            if s == short:
+                return True
+        return False
+
+    def has_long(self, long):
+        for (s, l) in self.entries:
+            if l == long:
+                return True
+        return False
+
+    def get_long(self, short):
+        for (s, l) in self.entries:
+            if s == short:
+                return l
+        raise KeyError(short)
+
+    def get_short(self, long):
+        for (s, l) in self.entries:
+            if l == long:
+                return s
+        raise KeyError(short)
+
+    def get_pair(self, iri):
+        for (s, l) in self.entries:
+            if iri.startswith(l):
+                return (s, iri[len(l):])
+        raise KeyError(iri)
+
+
+
+
+def ncname_char(char):
+    """
+    Is this text a valid ncname character?
+
+    Doesn't really implement 
+    http://www.w3.org/TR/REC-xml-names/#NT-NCName
+    as it should.   Is there some code somewhere in
+    the python library that does that?
+    """
+    return char.isalnum() or char == "-"
+
+def ncname_start_char(char):
+    return char.isalpha()
+
+host_only_pattern = re.compile(r'''[-a-zA-Z_]*://[-a-zA-Z0-9_.]*''')
+
+def iri_split(text):
+    """
+    Split an IRI into a long_part and a local_part, where local_part
+    is as long as possible while still matching the NCName production
+    http://www.w3.org/TR/REC-xml-names/#NT-NCName
+
+    Also, don't split the host part of the URI?
+
+
+    >>> iri_split("http://www.w3.org#x")
+    ('http://www.w3.org#', 'x')
+
+    >>> iri_split("http://www.w3.org#foo")
+    ('http://www.w3.org#', 'foo')
+
+    >>> iri_split("http://www.w3.org/foo")
+    ('http://www.w3.org/', 'foo')
+
+    >>> iri_split("http://www.w3.org?foo=bar")
+    ('http://www.w3.org?foo=', 'bar')
+
+    >>> iri_split("http://www.w3.org")
+    Traceback (most recent call last):
+    ...
+    IndexError: string index out of range
+
+    # can't start with a number
+    >>> iri_split("http://www.w3.org/123abc")
+    ('http://www.w3.org/123', 'abc')
+
+    >>> iri_split("http://www.w3.org#")
+    Traceback (most recent call last):
+    ...
+    IndexError: string index out of range
+
+    >>> iri_split("http://www.w3.org#123")
+    Traceback (most recent call last):
+    ...
+    IndexError: string index out of range
+
+    """
+    if host_only_pattern.match(text):
+        raise IndexError
+    pos = len(text)-1
+    while ncname_char(text[pos]):
+        pos -= 1
+    while not ncname_start_char(text[pos]):
+        pos += 1
+    if pos < len(text):
+        return (text[0:pos], text[pos:])
+    else:
+        raise IndexError
+    
+class IRI (SmartObj):
+    
+    def __init__(self, text):
+        self.text = text
+        self.map = None
+    
+    def add_to_prefix_map(self, map):
+        
+        debug('prefix_map', 'adding IRI', self.text)
+
+        # hack!   save the map used!    hack!   hack!
+        #
+        #   (otherwise, we'd have to pass it all the way down,
+        #   or switch to using a serializer object.)
+        #
+        self.map = map
+
+        try:
+            (long, local_part) = iri_split(self.text)
+            map.add_long(long)
+        except IndexError:
+            pass
+
+    def as_ps(self, newline):
+
+        if use_qnames:
+            try:
+                (prefix, local_part) = self.map.get_pair(self.text)
+            except KeyError:
+                return "<"+self.text+">"
+            return prefix+":"+local_part
+        else:
+            return "<"+self.text+">"
+
+    def __cmp__(self, other):
+        return cmp(self.text, other.text)
+
+class Import (SmartObj):
+
+    def ps_heart(self, newline):
+        s = self.location.as_ps(newline)
+        if hasattr(self, 'profile'):
+            s += " "+self.profile.as_ps(newline)
+        return s
 
 class Group(SmartObj):
 
@@ -211,42 +458,54 @@ class Const(SmartObj):
     #    self.determine_lexrep()
     #    return("%s^^<%s>" % (`self.lexrep`, self.datatype))
 
+    def add_to_prefix_map(self, map):
+        
+        if use_qnames:
+
+            self.datatype.add_to_prefix_map(map)
+
+            if self.datatype.text == 'http://www.w3.org/2007/rif#iri':
+                self.iri_value = IRI(self.lexrep)
+                self.iri_value.add_to_prefix_map(map)
+            
     def as_ps(self, newline):
         
-        # hack for now
         try:
-            s = self.value
-            if isinstance(s, basestring):
-                return s
+            return self.iri_value.as_ps(newline)
         except:
             pass
+
+        ## hack for now
+        #try:
+        #    s = self.value
+        #    if isinstance(s, basestring):
+        #        return s
+        #except:
+        #    pass
             
         # hack for now!
-        try:
-            (pre,rest) = self.value
-            return pre+":"+rest
-        except:
-            pass
+        #try:
+        #    (pre,rest) = self.value
+        #    return pre+":"+rest
+        #except:
+        #    pass
 
         # hack for now
-        try:
-            i = self.value
-            if isinstance(i, int):
-                return str(i)
-        except:
-            pass
+        #try:
+        #    i = self.value
+        #    if isinstance(i, int):
+        #        return str(i)
+        #except:
+        #    pass
 
         # want a flag about whether to use APS !?
-        self.determine_lexrep()
+        #self.determine_lexrep()
         return (ps_quoted_string(self.lexrep) + 
                 "^^" + 
-                # needs qname smarts -- prefix and stuff!
-                #  IF CURIE  as_ps(self.datatype, newline))
-                #  IF IRI:
-                "<"+self.datatype+">"
+                self.datatype.as_ps(newline)
                 )
 
-    def determine_lexrep(self):
+    def XXXXXX_determine_lexrep(self):
         try:
             x = self.lexrep
             return
@@ -314,7 +573,7 @@ class Frame(SmartObj):
 class Equal(TERM):
 
     def as_ps(self, newline):
-        return self.left.as_ps(newline) + "=" + self.right.as_ps(newline)
+        return self.left.as_ps(newline) + " = " + self.right.as_ps(newline)
 
 
 class Annotation(SmartObj):
@@ -419,8 +678,27 @@ class Plugin (plugin.OutputPlugin):
    spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#EBNF_Grammar_for_the_Presentation_Syntax_of_RIF-BLD"
    
    def serialize(self, doc):
+       global use_qnames
+       use_qnames = True
        return as_ps(doc)
  
 plugin.register(Plugin())
 
+class Plugin2 (plugin.OutputPlugin):
+   """RIF Presentation Syntax (with full IRIs -- no QNames)"""
+
+   id="psnq"
+   spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#EBNF_Grammar_for_the_Presentation_Syntax_of_RIF-BLD"
+   
+   def serialize(self, doc):
+       global use_qnames
+       use_qnames = False
+       return as_ps(doc)
+ 
+plugin.register(Plugin2())
+
+
+if __name__ == "__main__":
+    import doctest, sys
+    doctest.testmod(sys.modules[__name__])
 

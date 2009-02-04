@@ -53,7 +53,7 @@ delims = [
 
 ids = ['CURIE', 'ANGLEBRACKIRI', 'BARE_IRI',
        'STRING_HAT_HAT',
-       'STRING', 'NUMBER', 
+       'STRING', 'INTEGER', 'DECIMAL',
        'NAME_ARROW', 
        'LOCALNAME']
 
@@ -98,8 +98,12 @@ def t_STRING(t):
     t.value = t.value[1:-1]
     return t
 
-def t_NUMBER(t):
-    r'\d+(\.\d+)?'
+def t_INTEGER(t):
+    r'\d+?'
+    return t
+
+def t_DECIMAL(t):
+    r'\d+\.\d+?'
     return t
 
 # Completely ignored characters

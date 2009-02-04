@@ -13,21 +13,25 @@ class InputError (Error):
     
 class SyntaxError (InputError):
 
-   def __init__(self, line, pos, input_text=None, message=None):
+   def __init__(self, line=0, pos=0, input_text=None, message=None):
       self.line = line
       self.pos = pos
       self.input_text = input_text
       if message is None:
-          self.message = ("syntax error, line %d, col %d, %s" % 
-                          (line, self.col, self.msg))
+          self._message = self.default_message
       else:
-          self.message = message
+          self._message = message
 
-   msg = ""
+   default_message = ""
+   
+   @property
+   def message(self):
+       return ("syntax error, line %d, col %d, %s" % 
+               (self.line, self.col, self._message))
 
    @property
    def col(self):
-       if self.input_text:
+       if self.input_text is not None:
            return find_column(self.input_text, self.pos)
        else:
            return 0
@@ -40,11 +44,11 @@ class SyntaxError (InputError):
 
 class ParserError (SyntaxError):
 
-    msg = "unexpected token"
+    default_message = "unexpected token"
 
 class LexerError (SyntaxError):
 
-    msg = "unexpected character"
+    default_message = "unexpected character"
 
 
 

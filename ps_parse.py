@@ -17,8 +17,12 @@ import error
 import ps_lex
 import plugin
 
-tokens = ps_lex.tokens
+RIFNS = "http://www.w3.org/2007/rif#"
+RIF_IRI= rif.IRI(RIFNS+"iri")
+RDFNS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+XSDNS = "http://www.w3.org/2001/XMLSchema#"
 
+tokens = ps_lex.tokens
 
 def p_Document(t):
    '''Document  : IRIMETA_opt KW_Document LPAREN Base_opt Prefix_star Import_star Group_opt RPAREN '''
@@ -34,18 +38,20 @@ def p_Prefix(t):    # BUG?  BARE_IRI is like in BLD, but what about some chars?
                 | KW_Prefix LPAREN LOCALNAME BARE_IRI RPAREN '''
    short = t[3]
    long = t[4]
-   try:
-      # check to prevent over-writes?
-      t.parser.my_prefixes[short] = long
-   except AttributeError:
-      t.parser.my_prefixes = { short: long }
-   t[0] = (short, long)
+   t.parser.prefix_map.add(short, long)
+   t[0] = None
 
 def p_Import(t):
-   '''Import    : IRIMETA_opt KW_Import LPAREN ANGLEBRACKIRI PROFILE_opt RPAREN '''
+   '''Import    : IRIMETA_opt KW_Import LPAREN LOCATION PROFILE_opt RPAREN '''
    location = t[4]
    profile = t[5]
-   t[0] = (location, profile)
+   t[0] = rif.Import(IRI(location), profile)
+
+def p_LOCATION(t):
+   '''LOCATION    : ANGLEBRACKIRI
+                  | BARE_IRI
+                  | EXPANDED_CURIE'''
+   t[0] = t[1]
 
 def p_Group(t):
    '''Group     : IRIMETA_opt KW_Group LPAREN RULE_or_Group_star RPAREN '''
@@ -178,26 +184,23 @@ def p_Const_1(t):
 
 def p_Const_2(t):
    '''Const          : STRING_HAT_HAT SYMSPACE '''
-   t[0] = rif.Const(lexrep=t[1], datatype=t[2])
+   t[0] = rif.Const(lexrep=t[1], datatype=rif.IRI(t[2]))
 
 # MINE
-def p_CONSTSHORT(t):
-   '''CONSTSHORT    : STRING
-                    | NUMBER
-                    | ANGLEBRACKIRI
+def p_CONSTSHORT_1(t):
+   '''CONSTSHORT    : STRING'''
+   t[0] = rif.Const(datatype=rif.IRI(XSDNS+"string"), lexrep=t[1])
+def p_CONSTSHORT_2(t):
+   '''CONSTSHORT    : INTEGER'''
+   t[0] = rif.Const(datatype=rif.IRI(XSDNS+"integer"), lexrep=t[1])
+def p_CONSTSHORT_3(t):
+   '''CONSTSHORT    : DECIMAL'''
+   t[0] = rif.Const(datatype=rif.IRI(XSDNS+"decimal"), lexrep=t[1])
+def p_CONSTSHORT_4(t):
+   '''CONSTSHORT    : ANGLEBRACKIRI
                     | BARE_IRI
-                    | CURIE  '''
-   #   the ANGLEBRACKIRI/CURIE is needed for import-profiles
-   #       (among other things.   it's short for the rif:iri symspace)
-
-   t[0] = rif.Const(value=t[1])   # except CURIE  @@@@
-
-
-
-#def p_Name(t):
-#   '''Name           : STRING
-#                     | LOCALNAME '''
-#   pass
+                    | EXPANDED_CURIE'''
+   t[0] = rif.Const(datatype=RIF_IRI, lexrep=t[1])
 
 
 def p_Var(t):
@@ -209,17 +212,38 @@ def p_Var(t):
 
 def p_SYMSPACE(t):
    '''SYMSPACE       : ANGLEBRACKIRI
-                     | CURIE '''
+                     | EXPANDED_CURIE '''
    t[0] = t[1]
 
-# MINE
-def p_IRICONST(t):
+
+# And "EXPANDED_CURIE" has the same parse-value as the
+# ANGLEBRACKIRI you could use in the same place, namely
+# just the IRI as a string.
+def p_EXPANDED_CURIE(t):
+   '''EXPANDED_CURIE : CURIE'''
+   (prefix, local_part) = t[1]
+   try:
+      long = t.parser.prefix_map.get_long(prefix)
+   except KeyError:
+      raise error.ParserError(t.lexer.lineno, t.lexer.lexpos,
+          message=("QName prefix %s used but not declared" % `prefix`))
+   t[0] = long + local_part 
+
+def p_IRICONST_1(t):
    '''IRICONST       : ANGLEBRACKIRI
-                     | CURIE 
-                     | STRING_HAT_HAT SYMSPACE
-   '''      #   check to make sure it's the right symspace!
-   t[0] = t[1]
+                     | EXPANDED_CURIE'''
+   t[0] = rif.Const(datatype=RIF_IRI, lexrep=t[1])
+def p_IRICONST_2(t):
+   '''IRICONST       : STRING_HAT_HAT SYMSPACE'''
+   t[0] = rif.Const(datatype=rif.IRI(t[2]), lexrep=t[1])
+   require_iri(t)
 
+def require_iri(t):
+   if t[0].datatype == RIF_IRI:
+      pass
+   else:
+      raise error.ParserError(t.lexer.lineno, t.lexer.lexpos, 
+           message="Non-IRI Const given where only IRI Const is allowed; datatype=%s" % `t[0].datatype.text`)
 
 def p_IRIMETA_opt_1(t):
    '''IRIMETA_opt     : LMETA RMETA '''
@@ -267,13 +291,13 @@ def p_Name_arrow_TERM(t):
    t[0] = rif.Slot(key=t[1], value=t[3])
 
 
-def p_Frame_or_AndFrame_1(t):
-   '''Frame_or_AndFrame : Frame'''
-   t[0] = t[1]
-
-def p_Frame_or_AndFrame_2(t):
-   '''Frame_or_AndFrame : KW_And LPAREN Frame_star RPAREN '''
-   t[0] = rif.And(formula=t[3])
+#def p_Frame_or_AndFrame_1(t):
+#   '''Frame_or_AndFrame : Frame'''
+#   t[0] = t[1]
+#
+#def p_Frame_or_AndFrame_2(t):
+#   '''Frame_or_AndFrame : KW_And LPAREN Frame_star RPAREN '''
+#   t[0] = rif.And(formula=t[3])
 
 
 # Kleene star (*) expansion productions
@@ -353,11 +377,11 @@ def p_Base_opt(t):
    if (len(t)>1):
       t[0] = t[1]
 
-def p_Frame_or_AndFrame_opt(t):
-   '''Frame_or_AndFrame_opt : Frame_or_AndFrame 
-    | '''
-   if (len(t)>1):
-      t[0] = t[1]
+#def p_Frame_or_AndFrame_opt(t):
+#   '''Frame_or_AndFrame_opt : Frame_or_AndFrame 
+#    | '''
+#   if (len(t)>1):
+#      t[0] = t[1]
 
 def p_Group_opt(t):
    '''Group_opt : Group 
@@ -406,12 +430,19 @@ def find_column(input,pos):
 # Build the grammar
 
 parser = yacc.yacc(outputdir="ps_ply_generated")
+parser.my_base = None
+parser.prefix_map = rif.PrefixMap()
 
 def parse(str):
 
-   global parser
    try:
-      return parser.parse(str, debug=0, lexer=ps_lex.lexer)
+      result = parser.parse(str, debug=0, lexer=ps_lex.lexer)
+      # strictly speaking, neither of these is part of the resulting
+      # abstract document, but we do want to keep them and pass them 
+      # along, for user happiness (ie nice qnames).
+      result._base = parser.my_base
+      result._prefix_map = parser.prefix_map
+      return result
    except error.ParserError, e:
       e.input_text = str
       raise e
