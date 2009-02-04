@@ -22,20 +22,7 @@ from debugtools import debug
 
 import plugin
 
-"""
- schema.classes
- schmea.superclasses(class)
- schema.is_class(class)
- schema.properties(class)
- schema.property(class, propname)
 
- schema.cls(clsname).prop(propname).PROP ?
-
- p.min_occurs = (0/1)
- p.max_occurs = (0/1) 
-       if max_occurs > 1 then list-valued
-
-"""
 
 def as_debug(obj, newline="\n"):
     if hasattr(obj, 'as_debug'):
