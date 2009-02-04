@@ -155,10 +155,10 @@ lexer = lex.lex(outputdir="ps_ply_generated")
 def round_trip(str, type):
     try:
         t = token_list(str)
-        print "Tokens:", t
+        #print "Tokens:", t
     except ply.lex.LexError, e:
         return False
-    print t[0].__dict__
+    #print t[0].__dict__
     if (len(t) == 1 and 
         t[0].type == type and
         t[0].value == str
