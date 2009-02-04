@@ -99,11 +99,11 @@ def t_STRING(t):
     return t
 
 def t_INTEGER(t):
-    r'\d+?'
+    r'\d+'
     return t
 
 def t_DECIMAL(t):
-    r'\d+\.\d+?'
+    r'\d+\.\d+'
     return t
 
 # Completely ignored characters
@@ -155,6 +155,7 @@ lexer = lex.lex(outputdir="ps_ply_generated")
 def round_trip(str, type):
     try:
         t = token_list(str)
+        print "Tokens:", t
     except ply.lex.LexError, e:
         return False
     print t[0].__dict__
