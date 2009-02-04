@@ -23,6 +23,8 @@ import ps_parse
 import ps_lex
 import xml_in
 import bld_xml_out
+import fsxml_out
+import xps_out
 import rif
 import error
 

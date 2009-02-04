@@ -16,6 +16,8 @@ from debugtools import debug
 import debugtools
 #debugtools.tags.add('all')
 
+import AST
+
 class General:
 
     def __init__(self, stream=sys.stdout, indent=0):
@@ -42,7 +44,7 @@ class General:
                 self.domap[name] = getattr(self, f)
                 debug('build_domap', 'added:', name)
 
-    def do(self, *objList):
+    def OLD_do(self, *objList):
         
         # we could use inspect.getclasstree to do some kind of
         # inheritance here....    
@@ -51,6 +53,25 @@ class General:
             typename = type(obj).__name__
             try:
                 doer = self.domap[typename]
+            except KeyError:
+                try:
+                    doer = self.default_do
+                except AttributeError:
+                    raise RuntimeError("No serialization defined for your %s, %s" % (typename, `obj`))
+            doer(obj)
+
+    def do(self, *objList):
+        
+        for obj in objList:
+            if isinstance(obj, AST.Node):
+                typename = obj._type[1]
+            else:
+                typename = type(obj).__name__
+            debug('serializer', 'typename', typename)
+            # use schema.py to find superclasses?
+            try:
+                doer = self.domap[typename]
+                debug('serializer', 'doer', doer)
             except KeyError:
                 try:
                     doer = self.default_do
@@ -100,23 +121,22 @@ class General:
     def newline(self):
         return "\n" + " " * (self.indent * self.indent_factor)
 
-    def xml_begin(self, tag, attrs=None):
-        self.lend(2)
+    def xml_begin(self, tag, attrs=None, one_line=False):
+        if not one_line: self.lend(2)
         self.out("<"+tag+">")
         self.xml_stack.append(tag)
         self.indent += 1
         #self.lend(2)
 
+    # maybe don't go to a new line, when there's only one
+    # sub-element, a la  <Var><name> ... ?
+    # hard to detect here.
         
-    def xml_end(self):
+    def xml_end(self, one_line=False):
         self.indent -= 1
         #self.lend(2)
         tag = self.xml_stack.pop()
         self.out("</"+tag+">")
-        self.lend(2)
+        if not one_line: self.lend(2)
 
-    # switch to a "lend" style...?
-    # ... where we dont ACTUALLY go to the next line
-    #     until we have something to output, and
-    #     the indent might have changed by then....
 

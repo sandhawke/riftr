@@ -17,28 +17,30 @@ import error
 import ps_lex
 import plugin
 
-def node(type, **kwargs):
-   cls = getattr(rif, type)
-   return cls(**kwargs)
+RIFNS = "http://www.w3.org/2007/rif#"
+RDFNS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+XSDNS = "http://www.w3.org/2001/XMLSchema#"
 
 #def node(type, **kwargs):
-#   return AST.Node(type, **kwargs)
+#   cls = getattr(rif, type)
+#   return cls(**kwargs)
+
+import AST
+def node(type, **kwargs):
+    return AST.Node( (RIFNS, type), **kwargs)
 
 def iri(part1, part2=""):
    """node('IRI', RIFNS+"local"
    """
    return node('IRI', text=(part1+part2))
 
-RIFNS = "http://www.w3.org/2007/rif#"
 RIF_IRI= iri(RIFNS, "iri")
-RDFNS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-XSDNS = "http://www.w3.org/2001/XMLSchema#"
 
 tokens = ps_lex.tokens
 
 def p_Document(t):
    '''Document  : IRIMETA_opt KW_Document LPAREN Base_opt Prefix_star Import_star Group_opt RPAREN '''
-   t[0] = node('Document', annotation=t[1], base=t[4], prefix=t[5], imports=t[6], payload=t[7])
+   t[0] = node('Document', annotation=t[1], imports=t[6], payload=t[7])
 
 def p_Base(t):
    '''Base      : KW_Base LPAREN STRING RPAREN '''   
@@ -137,7 +139,7 @@ def p_ATOMIC(t):
 def p_Atom_1(t):
    # was UNITERM
    '''Atom           : Const LPAREN TERM_star RPAREN'''
-   t[0] = node('Atom', op=t[1], args=t[3])
+   t[0] = node('Atom', op=t[1], args=AST.Sequence(t[3]))
 
 def p_Atom_2(t):
    # was UNITERM
@@ -184,7 +186,7 @@ def p_TERM_2(t):
 # was UNITERM
 def p_Expr_1(t):
    '''Expr           : Const LPAREN TERM_star RPAREN '''
-   t[0] = node('Expr', op=t[1], args=t[3])
+   t[0] = node('Expr', op=t[1], args=AST.Sequence(t[3]))
 
 def p_Expr_2(t):
    '''Expr           : Const LPAREN Name_arrow_TERM_plus RPAREN '''
