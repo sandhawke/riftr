@@ -480,11 +480,11 @@ class Const(SmartObj):
             pass
 
         if self.datatype.text == 'http://www.w3.org/2007/rif#local':
-            if ps_lex.token_type(self.lexrep) == 'LOCALNAME':
+            if ps_lex.round_trip(self.lexrep, 'LOCALNAME'):
                 return self.lexrep
 
         if self.datatype.text == 'http://www.w3.org/2001/XMLSchema#integer':
-            if ps_lex.token_type(self.lexrep) == 'INTEGER':
+            if ps_lex.round_trip(self.lexrep, 'INTEGER'):
                 return self.lexrep
             
         return (ps_quoted_string(self.lexrep) + 

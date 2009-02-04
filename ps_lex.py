@@ -152,9 +152,29 @@ def t_NEWLINE(t):
 #lexer = lex.lex(optimize=1)
 lexer = lex.lex(outputdir="ps_ply_generated")
 
-def token_type(str):
+def round_trip(str, type):
+    try:
+        t = token_list(str)
+    except ply.lex.LexError, e:
+        return False
+    print t[0].__dict__
+    if (len(t) == 1 and 
+        t[0].type == type and
+        t[0].value == str
+        ):
+        return True
+    return False
+
+def token_list(str):
     lexer.input(str)
-    return lexer.token().type
+    tokens = []
+    while True:
+        tok = lex.token()
+        if not tok: break      # No more input
+        tokens.append(tok)
+    return tokens
+
+
 
    
 # lexer = lex.lex(debug=1)
