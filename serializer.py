@@ -20,10 +20,10 @@ import AST
 
 class General:
 
-    def __init__(self, stream=sys.stdout, indent=0):
+    def __init__(self, stream=sys.stdout, indent_factor=4):
         self.stream = stream
-        self.indent = indent
-        self.indent_factor = 4
+        self.indent = 0
+        self.indent_factor = int(indent_factor)
         self.build_domap()
         self.br_level = 1
         self.xml_stack = []

@@ -77,16 +77,25 @@ def do(obj):
 class Plugin (plugin.OutputPlugin):
    """A fully-striped XML Syntax (not the RIF XML Syntax -- easier to implement, but more verbose)."""
 
-   id="fsxml"
+   id="fsxml_out"
    #spec="http://www.w3.org/TR/2008/WD-rif-bld-20080730/#XML_Serialization_Syntax_for_RIF-BLD"
    
-   def serialize(self, doc):
-       buffer = StringIO()
-       ser  = Serializer(stream=buffer)
-       ser.do(doc)
-       return buffer.getvalue()
+   options = [
+       plugin.Option('indent_factor', 'Number of spaces to indent each level',
+                     default="4")
+
+       ]
+
+   def __init__(self, **kwargs):
+       # We *could* make the Plugin *be* the Serializer, but that feels a
+       # little too confusing for me right this moment.
+       self.ser = Serializer(**kwargs)
+
+   def serialize(self, doc, output_stream):
+       self.ser.output_stream = output_stream
+       self.ser.do(doc)
  
-plugin.register(Plugin())
+plugin.register(Plugin)
 
         
 if __name__ == "__main__":

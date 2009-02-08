@@ -471,13 +471,13 @@ def parse(str):
 class Plugin (plugin.InputPlugin):
    """RIF Presentation Syntax"""
 
-   id="ps"
+   id="ps_in"
    spec='http://www.w3.org/TR/2008/WD-rif-bld-20080730/#EBNF_Grammar_for_the_Presentation_Syntax_of_RIF-BLD'
 
    def parse(self, str):
       return parse(str)
 
-plugin.register(Plugin())
+plugin.register(Plugin)
 
 
 if __name__ == "__main__":

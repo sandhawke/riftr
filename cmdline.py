@@ -32,25 +32,21 @@ def run():
     parser = OptionParser(usage="%prog [options] input-location",
                           version=__version__)
     parser.set_defaults(verbose=True)
-    parser.set_defaults(in_id="auto")
-    parser.set_defaults(out_id="auto")
     parser.set_defaults(output="-")
-    parser.add_option("-i", "--input_processor",
-                      action="store", dest="in_id", 
-                      help="id code for input processing plugin")
-    parser.add_option("-o", "--output_processor",
-                      action="store", dest="out_id", 
-                      help="id code for output processing plugin")
     parser.add_option("-q", "--quiet",
                       action="store_false", dest="verbose", 
                       help="don't print status messages to stderr")
     parser.add_option("-D", "--debug",
                       action="append", dest="debugTags", 
                       help="turn on debugging of a particular type (try 'all')")
-    parser.add_option("-O", "--output", action="store", dest="output",
-                      help="Save the output to this file (else stdout)")
+    #parser.add_option("-O", "--output", action="store", dest="output",
+    #                  help="Save the output to this file (else stdout)")
+    plugin.add_to_OptionParser(parser)
                       
     (options, args) = parser.parse_args()
+
+    # feed the options back, somehow...
+    #   plugin.options_from_OptionParser(options)  maybe?
 
     if options.debugTags:
         debugtools.tags.update(options.debugTags)
@@ -62,8 +58,6 @@ def run():
         parser.print_help()
         sys.exit(1)
 
-    debug('cmdline', 'Yo!')
-
     input_filename = args[0]
     if input_filename == "-":
         input_stream = sys.stdin
@@ -73,17 +67,11 @@ def run():
 
     debug('cmdline', 'read %d bytes' % len(input_text))
 
-    iproc = None
-    for p in plugin.registry:
-        debug('cmdline', 'possible plugin:', p)
-        if hasattr(p, 'parse'):
-            if p.id == options.in_id:
-                iproc = p
-                break
-    if iproc is None:
-        print >>sys.stderr, "No input plugin %s found." % `options.in_id`
+    try:
+        iproc = plugin.get_plugin("input", options)
+    except ValueError:
+        print >>sys.stderr, "No input plugin selected"
         return
-    debug('cmdline', 'Input processor=', iproc)
             
     try:
         doc = iproc.parse(input_text)
@@ -94,24 +82,17 @@ def run():
         print >>sys.stderr, err
         return
 
-    if options.output == "-":
-        out_stream = sys.stdout
-    else:
-        out_stream = open(options.output, "w")
+    out_stream = sys.stdout
 
-    oproc = None
-    for p in plugin.registry:
-        if hasattr(p, 'serialize'):
-            if p.id == options.out_id:
-                oproc = p
-                break
-    if oproc is None:
-        print >>sys.stderr, "No output plugin %s found." % `options.out_id`
+    try:
+        oproc = plugin.get_plugin("output", options)
+    except ValueError:
+        print >>sys.stderr, "No output plugin selected"
         return
+            
 
     debug('cmdline', 'Output processor=', oproc)
-    str = oproc.serialize(doc)
-    out_stream.write(str)
+    oproc.serialize(doc, out_stream)
 
 if __name__ == "__main__":
     import doctest, sys
