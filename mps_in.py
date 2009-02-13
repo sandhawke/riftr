@@ -16,6 +16,7 @@ import rif
 import error
 import mps_lex
 import plugin
+import AST
 
 RIFNS = "http://www.w3.org/2007/rif#"
 RDFNS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -25,7 +26,6 @@ XSDNS = "http://www.w3.org/2001/XMLSchema#"
 #   cls = getattr(rif, type)
 #   return cls(**kwargs)
 
-import AST
 def node(type, **kwargs):
     return AST.Node( (RIFNS, type), **kwargs)
 
@@ -102,6 +102,7 @@ def p_error(t):
 # Build the grammar
 
 parser = yacc.yacc(outputdir="mps_ply_generated")
+#parser = yacc.yacc()
 parser.my_base = None
 parser.prefix_map = rif.PrefixMap()
 print 'parser generation done'
@@ -128,7 +129,7 @@ def parse(str):
 class Plugin (plugin.InputPlugin):
    """RIF Presentation Syntax"""
 
-   id=__name__
+   id="mps_in"
    spec='http://www.w3.org/TR/2008/WD-rif-bld-20080730/#EBNF_Grammar_for_the_Presentation_Syntax_of_RIF-BLD'
 
    def parse(self, str):

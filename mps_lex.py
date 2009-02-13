@@ -138,6 +138,9 @@ def t_STRING(t):
     t = t.replace(r'\n', '\n')
     return t
 
+# I'm not sure how to do negative numbers.  If we allow "-" as the
+# leading part of a number, then 4-3 parses as (4) (-4).  :-(
+
 def t_INTEGER(t):
     r'\d+'
     return t

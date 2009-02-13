@@ -159,17 +159,24 @@ def general_action(terms):
     if len(terms) == 1:
         return "t[0] = t[1]"
     cls = ''
-    args = []
+    kw = {}
     for i in range(0, len(terms)):
         term = terms[i]
         if term[0].islower() and term != 'lparen':
-            args.append("t[%d]" % (i+1))
+            kw.setdefault(term, []).append(i+1)
         elif term[0].lower().islower():
             if not cls:
                 cls = term
                 if cls.startswith("KW_"):
                     cls = cls[3:]
-    return "t[0] = ['%s', %s]" % (cls, ",".join(args))
+    args = []
+    for (key, value) in kw.items():
+        if len(value) == 1:
+            args.append(key+"=t[%d]" % value[0])
+        else:
+            s = ", ".join(["t[%d]"%i for i in value])
+            args.append(key+"=AST.Sequence(items=[%s])" % s)
+    return "t[0] = node('%s', %s)" % (cls, ",".join(args))
 
 p = []
 for line in sys.stdin:

@@ -149,7 +149,7 @@ def add_to_OptionParser(parser):
                         output_plugin=None)
     
     for plugin in registry:
-        print plugin.id
+        #print plugin.id
         group = optparse.OptionGroup(parser,
                                      "For %s plugin" % (plugin.id))
 
