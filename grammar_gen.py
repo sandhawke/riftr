@@ -4,6 +4,12 @@
 import sys
 import re
 
+group = {
+    "star" : [],
+    "plus" : [],
+    "opt" : [],
+}
+
 token_for = {
     '->': 'ARROW',
     '(*': 'LMETA',
@@ -51,15 +57,57 @@ def tok(match):
 
 lit = re.compile("'([^']*)'")
 
-def handle(s):
+def handle(s, actions=[]):
+    if s.strip() == "": return
     (key, rest) = s.split(' ', 1)
-    s = lit.sub(tok, s)
-    print "def p_%s(t):\n   '''%s '''\n   pass\n\n" % (key, s)
+    # s = lit.sub(tok, s)
+    rest = lit.sub(tok, rest)
+    lines = rest.split("\n")
+    if len(lines) > 1:
+        count = 1
+        for line in lines:
+            single_production(key, count, after_delim(line), actions)
+            count += 1
+    else:
+        single_production(key, 0, after_delim(s), actions)
+    print
+    print
+
+def after_delim(s):
+    try:
+        return s[s.index("|")+1:].strip()
+    except ValueError:
+        return s[s.index(":")+1:].strip()
+    
+def single_production(key, count, prods, actions):
+    if prods == "":
+        comment = " # EMPTY"
+    else:
+        comment = ""
+
+    pterms = prods.split()
+    for term in pterms:
+        for op in ("star", "plus", "opt"):
+            if term.endswith("_"+op):
+                key = term[0:-(1+len(op))]
+                if key not in group[op]:
+                    group[op].append(key)
+            
+    try:
+        action = actions[count-1]
+    except:
+        action = "default_action(t)"
+        # ... we could assemble an action, based on what the grammar says
+        #     like in asn06 / blindfold....
+
+    print ("def p_%s_%d(t):\n   '''%s : %s'''%s\n   %s" %
+           (key, count, key, prods, comment, action))    
 
 p = []
 for line in sys.stdin:
     line = line.strip()
     if line.startswith("#"):
+        print line
         continue
     if line == "":
         handle("\n".join(p))
@@ -69,33 +117,51 @@ for line in sys.stdin:
     
 
 print
-print "# Kleene star (*) expansion productions"
-for x in sorted(('Prefix', 'Import', 'RULE_or_Group', 'Frame',
-          'Name_arrow_TERM', 'ATOMIC', 'FORMULA', 'TERM', 'Var',
-          'TERM_arrow_TERM')):
-    handle("%s_star : %s_star %s \n    |" % (x,x,x))
-
+print "#########################################################"
 print
-print "# Kleene plus (+) expansion productions"
-for x in ('Var',):
-    handle("%s_plus : %s_plus %s \n    | %s" % (x,x,x,x))
-
+print "# GENERATED CODE FOR _star, _plus, and _opt PRODUCTIONS"
 print
-print "# Kleene opt (?) expansion productions"
-for x in sorted(('IRIMETA', 'IRICONST', 'Base', 'Group', 'PROFILE', 
-                 'Frame_or_AndFrame')):
-    handle("%s_opt : %s \n    |" % (x, x))
+print
+
+for x in group['star']:
+    print
+    print "# GENERATED CODE FOR '_star' (REPEAT 0+) PRODUCTION"
+    handle("%s_star : %s_star %s \n    |" % (x,x,x),
+           actions=["t[0] = t[1] + [t[2]]",
+                    "t[0] = []"
+                    ]
+           )
+
+for x in group['plus']:
+    print
+    print "# GENERATED CODE FOR '_plus' (REPEAT 1+) PRODUCTION"
+    handle("%s_plus : %s_plus %s \n    | %s" % (x,x,x,x),
+           actions=["t[0] = t[1] + [t[2]]",
+                    "t[0] = [t[1]]"
+                    ]
+           )
+
+for x in group['opt']:
+    print
+    print "# GENERATED CODE FOR '_opt' (occurs 0 or 1) PRODUCTION"
+    handle("%s_opt : %s \n    |" % (x, x),
+           actions=["t[0] = t[1]",
+                    "t[0] = None"
+                    ]
+           )
 
 #  (used at first, with new grammar)
 # print "Tokens: ", token_for
 
-print "tokens = ("
-for (key, value) in sorted(token_for.items()):
-    print "   %-16s,  # stands for text '%s'" % (`value`, key)
-print "   )"
+if False:
 
-print " "
-print "# For the lexer..."
-print " "
-for (key, value) in sorted(token_for.items()):
-    print "t_%-16s = r%s" % (value, `key`)
+    print "tokens = ("
+    for (key, value) in sorted(token_for.items()):
+        print "   %-16s,  # stands for text '%s'" % (`value`, key)
+    print "   )"
+
+    print " "
+    print "# For the lexer..."
+    print " "
+    for (key, value) in sorted(token_for.items()):
+        print "t_%-16s = r%s" % (value, `key`)
