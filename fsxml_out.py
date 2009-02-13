@@ -68,11 +68,6 @@ class Serializer(serializer.General):
                 self.xml_end()
         self.xml_end()
 
-_default_serializer = Serializer()
-
-def do(obj):
-    _default_serializer.do(obj)
-
 
 class Plugin (plugin.OutputPlugin):
    """A fully-striped XML Syntax (not the RIF XML Syntax -- easier to implement, but more verbose)."""
@@ -105,6 +100,7 @@ if __name__ == "__main__":
 
     s = sys.stdin.read()
     doc = ps_parse.parse(s)
-    do(doc)
-    print
+    ser = Serializer()
+    ser.do(obj)
+
 

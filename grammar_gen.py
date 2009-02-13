@@ -33,8 +33,15 @@ token_for = {
     'Import': 'KW_Import',
     'Or': 'KW_Or',
     'Prefix': 'KW_Prefix',
+    'Alias': 'KW_Alias',
+    'Local': 'KW_Local',
+    'Include': 'KW_Include',
     '[': 'LBRACKET',
     ']': 'RBRACKET',
+    '<': 'LT',
+    '+': 'PLUS',
+    '-': 'MINUS',
+    ',': 'COMMA',
 }
 
 
@@ -50,6 +57,7 @@ def tok(match):
     try:
         return token_for[s]
     except KeyError:
+        raise RuntimeError, "define a token for %s" % `s`
         key = "tk%d" % tcount
         tcount += 1
         token_for[s] = key
@@ -59,9 +67,8 @@ lit = re.compile("'([^']*)'")
 
 def handle(s, actions=[]):
     if s.strip() == "": return
+    s = lit.sub(tok, s)
     (key, rest) = s.split(' ', 1)
-    # s = lit.sub(tok, s)
-    rest = lit.sub(tok, rest)
     lines = rest.split("\n")
     if len(lines) > 1:
         count = 1
@@ -75,13 +82,13 @@ def handle(s, actions=[]):
 
 def after_delim(s):
     try:
-        return s[s.index("|")+1:].strip()
+        return s[s.index("|")+1:]
     except ValueError:
-        return s[s.index(":")+1:].strip()
+        return s[s.index(":")+1:]
     
 def single_production(key, count, prods, actions):
     if prods == "":
-        comment = " # EMPTY"
+        comment = ""
     else:
         comment = ""
 
@@ -89,9 +96,9 @@ def single_production(key, count, prods, actions):
     for term in pterms:
         for op in ("star", "plus", "opt"):
             if term.endswith("_"+op):
-                key = term[0:-(1+len(op))]
-                if key not in group[op]:
-                    group[op].append(key)
+                base = term[0:-(1+len(op))]
+                if base not in group[op]:
+                    group[op].append(base)
             
     try:
         action = actions[count-1]
@@ -100,8 +107,12 @@ def single_production(key, count, prods, actions):
         # ... we could assemble an action, based on what the grammar says
         #     like in asn06 / blindfold....
 
-    print ("def p_%s_%d(t):\n   '''%s : %s'''%s\n   %s" %
-           (key, count, key, prods, comment, action))    
+    if count:
+        count_text = "_"+str(count)
+    else:
+        count_text = ""
+    print ("def p_%s%s(t):\n   '''%s :%s '''%s\n   %s" %
+           (key, count_text, key, prods, comment, action))    
 
 p = []
 for line in sys.stdin:
@@ -110,6 +121,9 @@ for line in sys.stdin:
         print line
         continue
     if line == "":
+        if len(p) == 0:
+            print
+            continue
         handle("\n".join(p))
         p = []
         continue
@@ -126,7 +140,7 @@ print
 for x in group['star']:
     print
     print "# GENERATED CODE FOR '_star' (REPEAT 0+) PRODUCTION"
-    handle("%s_star : %s_star %s \n    |" % (x,x,x),
+    handle("%s_star : %s_star %s \n    | EMPTY" % (x,x,x),
            actions=["t[0] = t[1] + [t[2]]",
                     "t[0] = []"
                     ]
@@ -144,11 +158,14 @@ for x in group['plus']:
 for x in group['opt']:
     print
     print "# GENERATED CODE FOR '_opt' (occurs 0 or 1) PRODUCTION"
-    handle("%s_opt : %s \n    |" % (x, x),
+    handle("%s_opt : %s \n    | EMPTY" % (x, x),
            actions=["t[0] = t[1]",
-                    "t[0] = None"
+                    "t[0] = t[1]"
                     ]
            )
+
+handle("EMPTY : ",
+       actions=["t[0] = None"])
 
 #  (used at first, with new grammar)
 # print "Tokens: ", token_for

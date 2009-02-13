@@ -18,7 +18,7 @@ import debugtools
 
 import AST
 
-class General:
+class General (object):
 
     def __init__(self, stream=sys.stdout, indent_factor=4):
         self.stream = stream

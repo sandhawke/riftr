@@ -26,6 +26,9 @@ reserved = {
     k('Import'): 'KW_Import',
     k('Or'): 'KW_Or',
     k('Prefix'): 'KW_Prefix',
+    k('Alias'): 'KW_Alias',
+    k('Local'): 'KW_Local',
+    k('Include'): 'KW_Include',
 #    k('Atom'): 'KW_Atom',   # just messing around
 #    k('metasep'): 'METASEP',   # just messing around   -- saves two conflicts
 }
@@ -40,12 +43,15 @@ ops = [
 
    # NOT IN BLD, but ...?
    'LT',
+   'PLUS',
+   'MINUS',
  #  'LE',
  #  'GT',
  #  'GE',
    ]
 
 delims = [
+   'COMMA'         ,
    'LPAREN'        ,  # stands for text '('
    'LMETA'         ,  # stands for text '(*'
    'RPAREN'        ,  # stands for text ')'
@@ -57,7 +63,7 @@ delims = [
 ids = ['ANGLEBRACKIRI', 'BARE_IRI',
        'STRING_HAT_HAT',
        'STRING', 'INTEGER', 'DECIMAL',
-       'NAME_ARROW', 'LOCAL',
+       'NAME_ARROW', 'LOCAL', 'VARNAME',
        'BARE_WORD']
 
 tokens = ids + delims + ops + reserved.values()
@@ -96,7 +102,7 @@ def t_BARE_WORD(t):
                 if t.value in scope:
                     t.type='VARNAME'
                     return t
-            raise RuntimeError, 'undeclared variable %s used' % t.value
+            raise lex.LexError('undeclared variable %s used' % t.value)
             # ... else let it be returned as a BARE_WORD to be declared
             # (we don't check that it's being declared as a VARIABLE.)
     if t.lexer.recognize_keywords:
@@ -137,6 +143,7 @@ t_ignore           = ' \t\x0c'
 #t_DQUOTEHATHAT     = r'"^^'
 t_HASH             = r'\#'
 t_HASHHASH         = r'\#\#'
+t_COMMA            = r','
 t_LPAREN           = r'\('
 t_LMETA            = r'\(\*'
 t_RPAREN           = r'\)'
@@ -147,9 +154,10 @@ t_EQUALS           = r'='
 #t_QUESTION         = r'\?'
 t_LBRACKET         = r'\['
 t_RBRACKET         = r'\]'
-
+t_PLUS             = r'\+'
+t_MINUS            = r'\-'
+t_LT               = r'<'
 #t_LE = r'<='
-#t_LT = r'<'
 #t_GT = r'>'
 #t_GE = r'>='
 

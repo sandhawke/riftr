@@ -1,27 +1,25 @@
-#   need to update  gen_grammar
-#   to   
-#      * detect ending _star, _plus, _opt   ?
-#      * split "|" into  _n functions -- let person join them if they want....
 
 Document  : meta 'Document' '(' heading_star Group_opt ')'
-          |                     heading_star Group_opt
+          |                     heading_star Group_opt 
 
 # ISSUE: allow heading before every Group, not just before the root group?
 
 # none of these show up in the XML, except as hints for base & prefix
 # and except for import
 
-heading   : base
-          | prefix
-          | import
-          | include
-          | alias
-          | local
+heading   : meta base
+          | meta prefix
+          | meta import
+          | meta include
+          | meta alias
+          | meta local
 
-import    : meta 'Import' '(' iri ')'
-	  | meta 'Import' '(' iri TERM ')'
+include   : 'Include' '(' iri ')'
 
-base      : 'Base' '(' IRI ')'
+import    : 'Import' '(' iri ')'
+	  | 'Import' '(' iri TERM ')'
+
+base      : 'Base' '(' iri ')'
 
 iri       : ANGLEBRACKIRI
           | BARE_IRI
@@ -30,9 +28,13 @@ iri       : ANGLEBRACKIRI
 
 prefix    : 'Prefix' '(' bare_word iri ')'
 
-alias     : meta 'Alias' '(' bare_word iri ')'
+alias     : 'Alias' '(' bare_word iri ')'
 
-local     : meta 'Local' '(' bare_word_star ')'
+local     : 'Local' '(' bare_word_star ')'
+
+new_var   : bare_word
+
+old_var   : VARNAME
 
 # "bare_word" is a special token requiring a different state for the
 # lexer -- it matches words, even keywords, and just returns the text
@@ -52,50 +54,71 @@ local     : meta 'Local' '(' bare_word_star ')'
 
 bare_word  : begin_accept_bare_word BARE_WORD end_accept_bare_word
 
+begin_accept_bare_word : EMPTY
+
+end_accept_bare_word : EMPTY
+
 # what about:  declare word (PREFIX|ALIAS|LOCAL|EXIVAR|UNIVAR)
 
 # ruleset?
-Group     : meta 'Group' '(' RULE_or_Group_star ')'
-          | meta         '(' RULE_or_Group_star ')'
+Group     : meta 'Group' '(' Group_star ')'
+          | formula
 
-formula        : meta 'And' '(' formula_star ')' 
-	       | meta 'Or' '(' formula_star ')' 
-	       | meta 'Exists' Var_plus '(' formula ')' 
-	       | meta 'External' '(' Atom ')'
-	       | meta 'External' '(' Frame ')'
-	       | meta 'Forall' New_Var_plus '(' formula ')'
-	       | meta 'Exists' New_Var_plus '(' formula ')'
-               | meta formula  ':-' formula
-               | TERM '=' TERM
-               | TERM '<' TERM
-               | TERM '#' TERM
-	       | TERM '##' TERM
-	       | meta UNITERM
-	       | meta Frame
+formula        : meta '(' formula ')'
+#	       | meta formula 'And' formula
+#	       | meta formula 'Or' formula
+#	       | meta 'External' '(' pred_use ')'
+#	       | meta 'External' '(' Frame ')'
+#	       | meta 'Forall' new_var_plus '(' formula ')'
+#	       | meta 'Exists' new_var_plus '(' formula ')'
+#               | meta formula  ':-' formula
+#               | TERM '=' TERM
+#               | TERM '<' TERM
+#               | TERM '#' TERM
+#	       | TERM '##' TERM
+	       | meta pred_use
+#	       | meta Frame
 
-UNITERM        : Const '(' TERM_star ')'
-	       | Const '(' Name_arrow_TERM_star ')'
+pred_use       : Const '(' arg_list ')'
+               | Const '(' Name_arrow_TERM_plus ')'
+
+
+func_use       : Const '(' arg_list ')'
+               | Const '(' Name_arrow_TERM_plus ')'
+
+arg_list : TERM
+#arg_list  : EMPTY
+#          | TERM
+#          | arg_list ',' TERM
 
 Frame          : TERM '[' TERM_arrow_TERM_star ']'
 
-TERM           : meta Const 
-	       | meta Var 
-	       | meta UNITERM
-	       | meta 'External' '(' Expr ')'
+TERM           : '(' TERM ')'
+	       | meta Const 
+	       | meta old_var
+	       | meta func_use
+	       | meta 'External' '(' func_use ')'
 	       | meta TERM '+' TERM
+	       | meta TERM '-' TERM
 
 Const          : STRING_HAT_HAT iri
 	       | CONSTSHORT
 
-# how to do this?    lexer flagging?    like local
-Var            : '?' VARNAME      
- 
-IRIMETA        : '(*' IRICONST_opt Frame_or_AndFrame_opt '*)'
+CONSTSHORT     : STRING
+	       | INTEGER
+	       | DECIMAL
+	       | LOCAL
+	       | iri
+
+
+meta           : '(*' '*)'
+	       | '(*' iri '*)'
+	       | '(*' iri formula '*)'
+	       | '(*' formula '*)'
+
+# require meta for now, while debugging...
 
 TERM_arrow_TERM : TERM '->' TERM
-
-RULE_or_Group : RULE
-	      | Group
 
 # NAME_ARROW is a ...
 #
@@ -103,7 +126,4 @@ RULE_or_Group : RULE
 #   a "tagged expression", which is suitable for use as an argument...   yes?
 #
 Name_arrow_TERM : NAME_ARROW TERM
-
-Frame_or_AndFrame : Frame 
-		  | 'And' '(' Frame_star ')'
 
