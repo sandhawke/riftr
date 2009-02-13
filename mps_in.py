@@ -47,6 +47,7 @@ precedence = (
     # Logical operators
     ('left', 'KW_Then', 'KW_If'),
     ('nonassoc', 'COLONDASH'),
+    ('nonassoc', 'IMPLIES'),
     ('left', 'KW_Or'),
     ('left', 'KW_And'),
 

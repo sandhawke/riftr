@@ -43,6 +43,7 @@ ops = [
    'HASH'          ,  # stands for text '#'
    'HASHHASH'      ,  # stands for text '##'
    'ARROW'         ,  # stands for text '->'
+   'IMPLIES',
    'COLONDASH'     ,  # stands for text ':-'
    'EQUALS'        ,  # stands for text '='
    'LT',
@@ -65,8 +66,8 @@ delims = [
    'RMETA'         ,  # stands for text '*)'
    'LBRACKET'      ,  # stands for text '['
    'RBRACKET'      ,  # stands for text ']'
-#   'LBRACE'      ,  # stands for text '['
-#   'RBRACE'      ,  # stands for text ']'
+   'LBRACE'      ,  # stands for text '['
+   'RBRACE'      ,  # stands for text ']'
 ]
 
 ids = ['ANGLEBRACKIRI', 'BARE_IRI',
@@ -191,13 +192,14 @@ t_LMETA            = r'\(\*'
 t_RPAREN           = r'\)'
 t_RMETA            = r'\*\)'
 t_ARROW            = r'->'
+t_IMPLIES          = r'=>'
 t_COLONDASH        = r':-'
 t_EQUALS           = r'='
 #t_QUESTION         = r'\?'
 t_LBRACKET         = r'\['
 t_RBRACKET         = r'\]'
-#t_LBRACE         = r'\{'
-#t_RBRACE         = r'\}'
+t_LBRACE         = r'\{'
+t_RBRACE         = r'\}'
 t_PLUS             = r'\+'
 t_MINUS            = r'\-'
 t_LT               = r'<'

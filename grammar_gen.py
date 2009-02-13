@@ -13,6 +13,7 @@ group = {
 token_for = {
     ';' : 'SEMI',
     '->': 'ARROW',
+    '=>': 'IMPLIES',
     '(*': 'LMETA',
     '*)': 'RMETA',
     '"': 'DQUOTE',
@@ -143,9 +144,7 @@ def single_production(key, count, prods, actions):
     try:
         action = actions[count-1]
     except:
-        action = "default_action(t)"
-        # ... we could assemble an action, based on what the grammar says
-        #     like in asn06 / blindfold....
+        action = general_action(new_pterms)
 
     if count:
         count_text = "_"+str(count)
@@ -153,6 +152,24 @@ def single_production(key, count, prods, actions):
         count_text = ""
     print ("def p_%s%s(t):\n   '''%s :%s '''%s\n   %s" %
            (key, count_text, key, prods, comment, action))    
+
+def general_action(terms):
+    if len(terms) == 0:
+        return "pass"
+    if len(terms) == 1:
+        return "t[0] = t[1]"
+    cls = ''
+    args = []
+    for i in range(0, len(terms)):
+        term = terms[i]
+        if term[0].islower() and term != 'lparen':
+            args.append("t[%d]" % (i+1))
+        elif term[0].lower().islower():
+            if not cls:
+                cls = term
+                if cls.startswith("KW_"):
+                    cls = cls[3:]
+    return "t[0] = ['%s', %s]" % (cls, ",".join(args))
 
 p = []
 for line in sys.stdin:

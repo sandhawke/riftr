@@ -32,12 +32,13 @@ expr   : meta expr %prec META   # highest precedence
        | 'False'   # stands for rif:Or()
        | expr 'And' expr  # in code: gather into rif:And(...)
        | expr 'Or' expr   # in code: gather into rif:Or(...)
-       | expr  ':-' expr
+       | expr ':-' expr
+       | expr '=>' expr
        | 'If' expr 'Then' expr
        | expr '=' expr
        | expr '<' expr
        | expr '<=' expr
-       | expr '>' expr
+       | expr '>' expr    
        | expr '>=' expr
        | expr '#' expr
        | expr 'InstanceOf' expr
@@ -49,6 +50,11 @@ expr   : meta expr %prec META   # highest precedence
        | expr '/' expr
        | frame
        | atomic
+       | n3block
+
+# we could do this if not for n3block, and the iri in meta
+# ... either as anon frame, or as in n3, or as in prolog
+#       | '[' args? ']'
 
 iri    : ANGLEBRACKIRI
        | BARE_IRI   # in code: might really be a CURIE
@@ -60,6 +66,35 @@ atomic : expr 'hack-nospace-lparen' args? ')'
 
 lparen : 'hack-space-lparen'
        | 'hack-nospace-lparen'
+
+
+################################################################
+#
+# n3/turtle embedded here...   Mostly just to see if we can.
+#
+# I'm not sure this buys us anything, really; they're so close
+# to frames, and it's not exactly n3 anyway (no lists or [expr]s)
+#
+
+n3block : '{' triples? '}'
+
+triples : triple
+        | triples "." triple
+
+triple : subject pvpairs
+
+pvpairs : property values
+        | pvpairs ";" property values
+
+values : value
+       | values "," value
+
+subject : expr
+
+property : expr
+
+value : expr
+
 
 ################################################################
 #
