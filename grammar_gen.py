@@ -18,11 +18,20 @@ token_for = {
     '"^^': 'DQUOTEHATHAT',
     '##': 'HASHHASH',
     '#': 'HASH',
-    '(': 'LPAREN',
+
+    # total hack doing this here...
+    '(': 'lparen',
+    'hack-space-lparen': 'SPACE_LPAREN',
+    'hack-nospace-lparen': 'NOSPACE_LPAREN',
+
     ')': 'RPAREN',
     ':-': 'COLONDASH',
     '=': 'EQUALS',
     '?': 'QUESTION',
+    'if': 'KW_If',
+    'then': 'KW_Then',
+    'true': 'KW_True',
+    'false': 'KW_False',
     'And': 'KW_And',
     'Base': 'KW_Base',
     'Document': 'KW_Document',
@@ -38,6 +47,8 @@ token_for = {
     'Include': 'KW_Include',
     '[': 'LBRACKET',
     ']': 'RBRACKET',
+    '{': 'LBRACE',
+    '}': 'RBRACE',
     '<': 'LT',
     '+': 'PLUS',
     '-': 'MINUS',
@@ -164,7 +175,7 @@ for x in group['opt']:
                     ]
            )
 
-handle("EMPTY : ",
+handle("EMPTY :     %prec PRECFLAG1",
        actions=["t[0] = None"])
 
 #  (used at first, with new grammar)

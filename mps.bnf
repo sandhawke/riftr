@@ -1,8 +1,11 @@
 
-Document  : heading_star meta 'Document' '(' heading_star expr_opt ')'
-          | heading_star                                  expr_opt
+Document  : heading_star meta 'Document' '(' expr ')'
+#          | expr_opt
 
-# ISSUE: allow heading before every Group, not just before the root group?
+
+#Document  : heading_star meta 'Document' '(' heading_star expr_opt ')'
+#          | heading_star                                  expr_opt
+
 
 # none of these show up in the XML, except as hints for base & prefix
 # and except for import
@@ -60,17 +63,21 @@ end_accept_bare_word : EMPTY
 
 
 
-expr          : meta '(' expr ')'
-	      | meta 'Group' '(' Group ')'   
+expr          : meta 'hack-space-lparen' expr ')'
+	      | heading expr %prec HEADING_PRECEDENCE
+	      | meta 'Group' '(' expr_star ')'   
               | meta 'External' '(' frame ')'
               | meta 'External' '(' atomic ')'
               | meta 'Forall' new_var_plus '(' expr ')'
               | meta 'Exists' new_var_plus '(' expr ')'
               | meta Const 
               | meta old_var
+	      | 'true'
+	      | 'false'
               | expr 'And' expr
               | expr 'Or' expr
               | expr  ':-' expr
+	      | 'if' expr 'then' expr
               | expr '=' expr
               | expr '<' expr
               | expr '#' expr
@@ -80,14 +87,14 @@ expr          : meta '(' expr ')'
               | atomic
               | frame
 
+
 # like this, it's not invalid syntax to say
 #      if ( "1" or "2") then ...
 # ie no type checking is done in the parser.
 # reification stuff is syntactically okay.
 
-atomic        : expr '(' arg_list ')'
-              | expr '(' Name_arrow_expr_plus ')'
-
+atomic        : expr 'hack-nospace-lparen' arg_list ')'
+              | expr 'hack-nospace-lparen' Name_arrow_expr_plus ')'
 
 frame         : expr '[' frame_arg_list ']'
 
@@ -96,13 +103,14 @@ frame_arg_list : EMPTY
 
 frame_args     : expr '->' expr
 	       | frame_args ',' expr '->' expr
+	       | frame_args expr '->' expr
 
 arg_list  : EMPTY
           | args
 
 args      : expr
-          | arg_list ',' expr   
-# without the comma, we get some meta conf.
+          | args expr
+          | args ',' expr
 
 
 Const          : STRING_HAT_HAT iri
@@ -120,7 +128,7 @@ CONSTSHORT     : STRING
 meta           : '(*' '*)'
                | '(*' expr '*)'
 	       | '(*' expr ',' expr '*)'
-               | EMPTY 
+               | EMPTY
 
 
 # require meta for now, while debugging...
@@ -131,5 +139,12 @@ meta           : '(*' '*)'
 #   oh, we don't need this, just make arrow be an infix operator which makes
 #   a "tagged expression", which is suitable for use as an argument...   yes?
 #
+#   ... except this way, the lexer knows not to do keyword recognition before
+#   the left arrow.
+#
 Name_arrow_expr : NAME_ARROW expr
+                | NAME_ARROW expr ","
+
+lparen : 'hack-space-lparen'
+       | 'hack-nospace-lparen'
 

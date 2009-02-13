@@ -15,6 +15,10 @@ def k(x):
     return x.lower()
 
 reserved = {
+    k('true'): 'KW_True',
+    k('false'): 'KW_False',
+    k('if'): 'KW_If',
+    k('then'): 'KW_Then',
     k('And'): 'KW_And',
     k('Base'): 'KW_Base',
     k('Document'): 'KW_Document',
@@ -52,12 +56,15 @@ ops = [
 
 delims = [
    'COMMA'         ,
-   'LPAREN'        ,  # stands for text '('
+   'SPACE_LPAREN'  ,  # stands for text '(' after whitespace
+   'NOSPACE_LPAREN',  # stands for text '(' after no whitespace
    'LMETA'         ,  # stands for text '(*'
    'RPAREN'        ,  # stands for text ')'
    'RMETA'         ,  # stands for text '*)'
    'LBRACKET'      ,  # stands for text '['
    'RBRACKET'      ,  # stands for text ']'
+#   'LBRACE'      ,  # stands for text '['
+#   'RBRACE'      ,  # stands for text ']'
 ]
 
 ids = ['ANGLEBRACKIRI', 'BARE_IRI',
@@ -136,15 +143,47 @@ def t_DECIMAL(t):
     r'\d+\.\d+'
     return t
 
-# Completely ignored characters
-t_ignore           = ' \t\x0c'
+# Fancy handling of parens
+
+def test_LPAREN():
+    r"""
+    >>> show_types("(")
+    NOSPACE_LPAREN
+    >>> show_types(" (")
+    SPACE_LPAREN
+    >>> show_types("\n(")
+    SPACE_LPAREN
+    >>> show_types("0(")
+    INTEGER NOSPACE_LPAREN
+    >>> show_types("0 (")
+    INTEGER SPACE_LPAREN
+    >>> show_types("0\t(")
+    INTEGER SPACE_LPAREN
+
+    """
+    pass
+
+
+def t_SPACE_LPAREN(t):
+    r'[ \t\n\r\f\v]\('
+    return t
+
+def t_SPACE(t):
+    r'[ \t\n\r\f\v]+'
+    pass    # no return value, token discared
+
+def t_NOSPACE_LPAREN(t):
+    r'\('
+    return t
+
+# alas, this didn't work
+#t_SPACE_LPAREN     = r'?<![ \t\n\r\f\v]>\('
 
 #t_DQUOTE           = r'"'
 #t_DQUOTEHATHAT     = r'"^^'
 t_HASH             = r'\#'
 t_HASHHASH         = r'\#\#'
 t_COMMA            = r','
-t_LPAREN           = r'\('
 t_LMETA            = r'\(\*'
 t_RPAREN           = r'\)'
 t_RMETA            = r'\*\)'
@@ -154,6 +193,8 @@ t_EQUALS           = r'='
 #t_QUESTION         = r'\?'
 t_LBRACKET         = r'\['
 t_RBRACKET         = r'\]'
+#t_LBRACE         = r'\{'
+#t_RBRACE         = r'\}'
 t_PLUS             = r'\+'
 t_MINUS            = r'\-'
 t_LT               = r'<'
@@ -211,12 +252,15 @@ def token_list(s):
         tokens.append(tok)
     return tokens
 
+def show_types(s):
+    for t in token_list(s):
+        print t.type,
 
 def demo():
     """
     
-    >>> token_list("foo")
-    [LexToken(BARE_WORD,'foo',1,0)]
+    >>> show_types("foo")
+    BARE_WORD
 
     >>> token_list("aNd")
     [LexToken(KW_And,'aNd',1,0)]
