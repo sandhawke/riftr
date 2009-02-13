@@ -64,40 +64,41 @@ end_accept_bare_word : EMPTY
 Group     : meta 'Group' '(' Group_star ')'
           | formula
 
-formula        : meta '(' formula ')'
-#	       | meta formula 'And' formula
-#	       | meta formula 'Or' formula
-#	       | meta 'External' '(' pred_use ')'
-#	       | meta 'External' '(' Frame ')'
-#	       | meta 'Forall' new_var_plus '(' formula ')'
-#	       | meta 'Exists' new_var_plus '(' formula ')'
-#               | meta formula  ':-' formula
-#               | TERM '=' TERM
-#               | TERM '<' TERM
-#               | TERM '#' TERM
-#	       | TERM '##' TERM
-	       | meta pred_use
-#	       | meta Frame
+#        : meta '(' formula ')'
+formula : meta 'External' '(' uniterm ')'
+	       | meta 'External' '(' frame ')'
+	       | meta 'Forall' new_var_plus '(' formula ')'
+	       | meta 'Exists' new_var_plus '(' formula ')'
+	       | formula 'And' formula
+	       | formula 'Or' formula
+	       | formula  ':-' formula
+	       | uniterm
+	       | frame
+	       | TERM '=' TERM
+               | TERM '<' TERM
+               | TERM '#' TERM
+	       | TERM '##' TERM
 
-pred_use       : Const '(' arg_list ')'
-               | Const '(' Name_arrow_TERM_plus ')'
+uniterm        : TERM '(' arg_list ')'
+               | TERM '(' Name_arrow_TERM_plus ')'
 
 
-func_use       : Const '(' arg_list ')'
-               | Const '(' Name_arrow_TERM_plus ')'
+frame          : TERM '[' frame_arg_list ']'
 
-arg_list : TERM
+#TERM_arrow_TERM : TERM '->' TERM
+
+frame_arg_list : '->'
+
+arg_list : ','
 #arg_list  : EMPTY
 #          | TERM
 #          | arg_list ',' TERM
 
-Frame          : TERM '[' TERM_arrow_TERM_star ']'
-
 TERM           : '(' TERM ')'
 	       | meta Const 
 	       | meta old_var
-	       | meta func_use
-	       | meta 'External' '(' func_use ')'
+	       | meta uniterm
+	       | meta 'External' '(' uniterm ')'
 	       | meta TERM '+' TERM
 	       | meta TERM '-' TERM
 
@@ -115,10 +116,10 @@ meta           : '(*' '*)'
 	       | '(*' iri '*)'
 	       | '(*' iri formula '*)'
 	       | '(*' formula '*)'
+#	       | EMPTY
 
 # require meta for now, while debugging...
 
-TERM_arrow_TERM : TERM '->' TERM
 
 # NAME_ARROW is a ...
 #
