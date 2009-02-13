@@ -15,6 +15,8 @@ def k(x):
     return x.lower()
 
 reserved = {
+    k('InstanceOf'): 'KW_InstanceOf',
+    k('SubclassOf'): 'KW_SubclassOf',
     k('true'): 'KW_True',
     k('false'): 'KW_False',
     k('if'): 'KW_If',
@@ -43,19 +45,19 @@ ops = [
    'ARROW'         ,  # stands for text '->'
    'COLONDASH'     ,  # stands for text ':-'
    'EQUALS'        ,  # stands for text '='
-   #'QUESTION'      ,  # stands for text '?'
-
-   # NOT IN BLD, but ...?
    'LT',
    'PLUS',
    'MINUS',
- #  'LE',
- #  'GT',
- #  'GE',
+   'STAR',
+   'SLASH',
+   'LE',
+   'GT',
+   'GE',
    ]
 
 delims = [
    'COMMA'         ,
+   'SEMI'         ,
    'SPACE_LPAREN'  ,  # stands for text '(' after whitespace
    'NOSPACE_LPAREN',  # stands for text '(' after no whitespace
    'LMETA'         ,  # stands for text '(*'
@@ -184,6 +186,7 @@ def t_NOSPACE_LPAREN(t):
 t_HASH             = r'\#'
 t_HASHHASH         = r'\#\#'
 t_COMMA            = r','
+t_SEMI             = r';'
 t_LMETA            = r'\(\*'
 t_RPAREN           = r'\)'
 t_RMETA            = r'\*\)'
@@ -198,6 +201,12 @@ t_RBRACKET         = r'\]'
 t_PLUS             = r'\+'
 t_MINUS            = r'\-'
 t_LT               = r'<'
+
+t_STAR             = r'\*'
+t_SLASH            = r'\/'
+t_LE               = r'<='
+t_GT               = r'>'
+t_GE               = r'>='
 #t_LE = r'<='
 #t_GT = r'>'
 #t_GE = r'>='

@@ -1,43 +1,105 @@
 
-Document  : heading_star meta 'Document' '(' expr ')'
-#          | expr_opt
+Document  : exprs?
+          | document_with_tag
+
+document_with_tag : 'Document' '(' expr? ')'
+                  | decl document_with_tag
+		  | meta document_with_tag
+
+meta   : '(*' iri expr '*)'
+       | '(*' expr '*)'  # in code: decide if it's really the iri
+
+decl   : 'Base' '(' iri ')'
+       | 'Import' '(' iri ')'
+       | 'Import' '(' iri expr ')'
+       | 'Include' '(' iri ')'       
+       | 'Prefix' '(' bare_word iri ')'
+       | 'Alias' '(' bare_word iri ')'
+       | 'Local' '(' bare_word* ')'
 
 
-#Document  : heading_star meta 'Document' '(' heading_star expr_opt ')'
-#          | heading_star                                  expr_opt
+expr   : meta expr %prec META   # highest precedence
+       | decl expr %prec DECL   # precedence doesnt matter
+       | 'hack-space-lparen' expr ')'
+       | 'Group' '(' exprs? ')'   
+       | 'External' '(' frame ')'
+       | 'External' '(' atomic ')'
+       | 'Forall' new_scope new_var+ '(' expr ')' pop_scope
+       | 'Exists' new_scope new_var+ '(' expr ')' pop_scope
+       | declared_var
+       | const 
+       | 'True'    # stands for rif:And()
+       | 'False'   # stands for rif:Or()
+       | expr 'And' expr  # in code: gather into rif:And(...)
+       | expr 'Or' expr   # in code: gather into rif:Or(...)
+       | expr  ':-' expr
+       | 'If' expr 'Then' expr
+       | expr '=' expr
+       | expr '<' expr
+       | expr '<=' expr
+       | expr '>' expr
+       | expr '>=' expr
+       | expr '#' expr
+       | expr 'InstanceOf' expr
+       | expr '##' expr
+       | expr 'SubclassOf' expr
+       | expr '+' expr
+       | expr '-' expr
+       | expr '*' expr
+       | expr '/' expr
+       | frame
+       | atomic
 
+iri    : ANGLEBRACKIRI
+       | BARE_IRI   # in code: might really be a CURIE
 
-# none of these show up in the XML, except as hints for base & prefix
-# and except for import
+frame  : expr '[' frame_args? ']'
 
-heading   : meta base
-          | meta prefix
-          | meta import
-          | meta include
-          | meta alias
-          | meta local
+atomic : expr 'hack-nospace-lparen' args? ')'
+       | expr 'hack-nospace-lparen' Name_arrow_expr+ ')'
 
-include   : 'Include' '(' iri ')'
+lparen : 'hack-space-lparen'
+       | 'hack-nospace-lparen'
 
-import    : 'Import' '(' iri ')'
-          | 'Import' '(' iri expr ')'
+################################################################
+#
+#  Various sequences of expressions.  This is where we could enforce that 
+#  expr's be delimited 
+#
 
-base      : 'Base' '(' iri ')'
+exprs  : expr
+       | exprs ';' expr
+       | exprs expr # no delimiter
 
-iri       : ANGLEBRACKIRI
-          | BARE_IRI
+args   : expr
+       | args ',' expr
+       | args expr  # no delimiter
 
-# these are declarations which introduce a new word (along with forall and exists)
+frame_args    : expr '->' expr
+	      | frame_args ',' expr '->' expr
+	      | frame_args expr '->' expr # no delimiter
 
-prefix    : 'Prefix' '(' bare_word iri ')'
+################################################################
+#
+# Constants
+#
 
-alias     : 'Alias' '(' bare_word iri ')'
+const         : STRING_HAT_HAT iri
+              | constshort
 
-local     : 'Local' '(' bare_word_star ')'
+constshort    : STRING
+              | INTEGER
+              | DECIMAL
+              | LOCAL
+              | iri
 
-new_var   : bare_word
+new_scope : EMPTY
 
-old_var   : VARNAME
+pop_scope : EMPTY
+
+new_var   : bare_word  # in code: add to declared variables
+
+declared_var   : VARNAME
 
 # "bare_word" is a special token requiring a different state for the
 # lexer -- it matches words, even keywords, and just returns the text
@@ -63,76 +125,6 @@ end_accept_bare_word : EMPTY
 
 
 
-expr          : meta 'hack-space-lparen' expr ')'
-	      | heading expr %prec HEADING_PRECEDENCE
-	      | meta 'Group' '(' expr_star ')'   
-              | meta 'External' '(' frame ')'
-              | meta 'External' '(' atomic ')'
-              | meta 'Forall' new_var_plus '(' expr ')'
-              | meta 'Exists' new_var_plus '(' expr ')'
-              | meta Const 
-              | meta old_var
-	      | 'true'
-	      | 'false'
-              | expr 'And' expr
-              | expr 'Or' expr
-              | expr  ':-' expr
-	      | 'if' expr 'then' expr
-              | expr '=' expr
-              | expr '<' expr
-              | expr '#' expr
-              | expr '##' expr
-              | expr '+' expr
-              | expr '-' expr
-              | atomic
-              | frame
-
-
-# like this, it's not invalid syntax to say
-#      if ( "1" or "2") then ...
-# ie no type checking is done in the parser.
-# reification stuff is syntactically okay.
-
-atomic        : expr 'hack-nospace-lparen' arg_list ')'
-              | expr 'hack-nospace-lparen' Name_arrow_expr_plus ')'
-
-frame         : expr '[' frame_arg_list ']'
-
-frame_arg_list : EMPTY
-               | frame_args
-
-frame_args     : expr '->' expr
-	       | frame_args ',' expr '->' expr
-	       | frame_args expr '->' expr
-
-arg_list  : EMPTY
-          | args
-
-args      : expr
-          | args expr
-          | args ',' expr
-
-
-Const          : STRING_HAT_HAT iri
-               | CONSTSHORT
-
-CONSTSHORT     : STRING
-               | INTEGER
-               | DECIMAL
-               | LOCAL
-               | iri
-
-
-# first expr is IRI
-# if there's only one, look to see if it's an IRI or formula
-meta           : '(*' '*)'
-               | '(*' expr '*)'
-	       | '(*' expr ',' expr '*)'
-               | EMPTY
-
-
-# require meta for now, while debugging...
-
 
 # NAME_ARROW is a ...
 #
@@ -144,7 +136,4 @@ meta           : '(*' '*)'
 #
 Name_arrow_expr : NAME_ARROW expr
                 | NAME_ARROW expr ","
-
-lparen : 'hack-space-lparen'
-       | 'hack-nospace-lparen'
 

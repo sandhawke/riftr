@@ -11,6 +11,7 @@ group = {
 }
 
 token_for = {
+    ';' : 'SEMI',
     '->': 'ARROW',
     '(*': 'LMETA',
     '*)': 'RMETA',
@@ -18,6 +19,8 @@ token_for = {
     '"^^': 'DQUOTEHATHAT',
     '##': 'HASHHASH',
     '#': 'HASH',
+    'InstanceOf': 'KW_InstanceOf',
+    'SubclassOf': 'KW_SubclassOf',
 
     # total hack doing this here...
     '(': 'lparen',
@@ -28,10 +31,10 @@ token_for = {
     ':-': 'COLONDASH',
     '=': 'EQUALS',
     '?': 'QUESTION',
-    'if': 'KW_If',
-    'then': 'KW_Then',
-    'true': 'KW_True',
-    'false': 'KW_False',
+    'If': 'KW_If',
+    'Then': 'KW_Then',
+    'True': 'KW_True',
+    'False': 'KW_False',
     'And': 'KW_And',
     'Base': 'KW_Base',
     'Document': 'KW_Document',
@@ -50,8 +53,13 @@ token_for = {
     '{': 'LBRACE',
     '}': 'RBRACE',
     '<': 'LT',
+    '<=': 'LE',
+    '>': 'GT',
+    '>=': 'GE',
     '+': 'PLUS',
     '-': 'MINUS',
+    '*': 'STAR',
+    '/': 'SLASH',
     ',': 'COMMA',
 }
 
@@ -98,19 +106,40 @@ def after_delim(s):
         return s[s.index(":")+1:]
     
 def single_production(key, count, prods, actions):
-    if prods == "":
-        comment = ""
-    else:
+    try:
+        (prods, comment) = prods.split("#", 1)
+        comment = "# " + comment
+    except ValueError:
         comment = ""
 
     pterms = prods.split()
+    new_pterms = []
     for term in pterms:
+
+        new = term
+
         for op in ("star", "plus", "opt"):
             if term.endswith("_"+op):
                 base = term[0:-(1+len(op))]
                 if base not in group[op]:
                     group[op].append(base)
-            
+
+        for (chr, op)  in ( ("*", "star"),
+                            ("+", "plus"), 
+                            ("?", "opt") ) :
+            if term.endswith(chr):
+                base = term[0:-1]
+                new = base + "_"+ op
+                if base not in group[op]:
+                    group[op].append(base)
+
+        new_pterms.append(new)
+    if pterms != new_pterms:
+        #print >>sys.stderr, "CHANGED:"
+        #print >>sys.stderr, pterms
+        #print >>sys.stderr, new_pterms
+        prods = " " + " ".join(new_pterms)
+
     try:
         action = actions[count-1]
     except:
@@ -175,8 +204,11 @@ for x in group['opt']:
                     ]
            )
 
-handle("EMPTY :     %prec PRECFLAG1",
+handle("EMPTY : %prec EMPTY ",
        actions=["t[0] = None"])
+
+#handle("EMPTY :     %prec PRECFLAG1",
+#       actions=["t[0] = None"])
 
 #  (used at first, with new grammar)
 # print "Tokens: ", token_for
