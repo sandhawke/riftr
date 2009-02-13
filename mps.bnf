@@ -1,0 +1,109 @@
+#   need to update  gen_grammar
+#   to   
+#      * detect ending _star, _plus, _opt   ?
+#      * split "|" into  _n functions -- let person join them if they want....
+
+Document  : meta 'Document' '(' heading_star Group_opt ')'
+          |                     heading_star Group_opt
+
+# ISSUE: allow heading before every Group, not just before the root group?
+
+# none of these show up in the XML, except as hints for base & prefix
+# and except for import
+
+heading   : base
+          | prefix
+          | import
+          | include
+          | alias
+          | local
+
+import    : meta 'Import' '(' iri ')'
+	  | meta 'Import' '(' iri TERM ')'
+
+base      : 'Base' '(' IRI ')'
+
+iri       : ANGLEBRACKIRI
+          | BARE_IRI
+
+# these are declarations which introduce a new word (along with forall and exists)
+
+prefix    : 'Prefix' '(' bare_word iri ')'
+
+alias     : meta 'Alias' '(' bare_word iri ')'
+
+local     : meta 'Local' '(' bare_word_star ')'
+
+# "bare_word" is a special token requiring a different state for the
+# lexer -- it matches words, even keywords, and just returns the text
+# of the word.  
+
+# The logic here is designed to allow new keywords to be added to the
+# language later without breaking existing documents.  Specifically,
+# we read a bare_word, then add it to the proper token list (vars,
+# aliases, prefixes, etc) and the lexer will recognize it as that
+# instead of as a keyword.  You can't use the new keyword in such a
+# document without renaming the item, but at least the semantics
+# didn't change under you.
+
+# For details on this kind of lexer trick, see PLY documentation
+# example with new_scope, push_scope()/pop_scope() (or nearly any C
+# parser)
+
+bare_word  : begin_accept_bare_word BARE_WORD end_accept_bare_word
+
+# what about:  declare word (PREFIX|ALIAS|LOCAL|EXIVAR|UNIVAR)
+
+# ruleset?
+Group     : meta 'Group' '(' RULE_or_Group_star ')'
+          | meta         '(' RULE_or_Group_star ')'
+
+formula        : meta 'And' '(' formula_star ')' 
+	       | meta 'Or' '(' formula_star ')' 
+	       | meta 'Exists' Var_plus '(' formula ')' 
+	       | meta 'External' '(' Atom ')'
+	       | meta 'External' '(' Frame ')'
+	       | meta 'Forall' New_Var_plus '(' formula ')'
+	       | meta 'Exists' New_Var_plus '(' formula ')'
+               | meta formula  ':-' formula
+               | TERM '=' TERM
+               | TERM '<' TERM
+               | TERM '#' TERM
+	       | TERM '##' TERM
+	       | meta UNITERM
+	       | meta Frame
+
+UNITERM        : Const '(' TERM_star ')'
+	       | Const '(' Name_arrow_TERM_star ')'
+
+Frame          : TERM '[' TERM_arrow_TERM_star ']'
+
+TERM           : meta Const 
+	       | meta Var 
+	       | meta UNITERM
+	       | meta 'External' '(' Expr ')'
+	       | meta TERM '+' TERM
+
+Const          : STRING_HAT_HAT iri
+	       | CONSTSHORT
+
+# how to do this?    lexer flagging?    like local
+Var            : '?' VARNAME      
+ 
+IRIMETA        : '(*' IRICONST_opt Frame_or_AndFrame_opt '*)'
+
+TERM_arrow_TERM : TERM '->' TERM
+
+RULE_or_Group : RULE
+	      | Group
+
+# NAME_ARROW is a ...
+#
+#   oh, we don't need this, just make arrow be an infix operator which makes
+#   a "tagged expression", which is suitable for use as an argument...   yes?
+#
+Name_arrow_TERM : NAME_ARROW TERM
+
+Frame_or_AndFrame : Frame 
+		  | 'And' '(' Frame_star ')'
+
