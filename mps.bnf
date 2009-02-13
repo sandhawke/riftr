@@ -1,6 +1,6 @@
 
-Document  : heading_star meta 'Document' '(' heading_star Group_opt ')'
-          | heading_star                                  Group_opt
+Document  : heading_star meta 'Document' '(' heading_star expr_opt ')'
+          | heading_star                                  expr_opt
 
 # ISSUE: allow heading before every Group, not just before the root group?
 
@@ -58,14 +58,10 @@ begin_accept_bare_word : EMPTY
 
 end_accept_bare_word : EMPTY
 
-# what about:  declare word (PREFIX|ALIAS|LOCAL|EXIVAR|UNIVAR)
 
-# ruleset?
-#  can't just put expr expr expr in group --  f (3) ... etc
-Group     : meta 'Group' '(' Group ')'   
-          | expr
 
 expr          : meta '(' expr ')'
+	      | meta 'Group' '(' Group ')'   
               | meta 'External' '(' frame ')'
               | meta 'External' '(' atomic ')'
               | meta 'Forall' new_var_plus '(' expr ')'
@@ -84,6 +80,10 @@ expr          : meta '(' expr ')'
               | atomic
               | frame
 
+# like this, it's not invalid syntax to say
+#      if ( "1" or "2") then ...
+# ie no type checking is done in the parser.
+# reification stuff is syntactically okay.
 
 atomic        : expr '(' arg_list ')'
               | expr '(' Name_arrow_expr_plus ')'
