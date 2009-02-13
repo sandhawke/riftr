@@ -37,6 +37,8 @@ token_for = {
     'True': 'KW_True',
     'False': 'KW_False',
     'And': 'KW_And',
+    'And(': 'PREFIX_AND',
+    'Or(': 'PREFIX_OR',
     'Base': 'KW_Base',
     'Document': 'KW_Document',
     'Exists': 'KW_Exists',

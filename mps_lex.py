@@ -54,6 +54,8 @@ ops = [
    'LE',
    'GT',
    'GE',
+   'PREFIX_AND',
+   'PREFIX_OR',
    ]
 
 delims = [
@@ -100,6 +102,14 @@ def t_NAME_ARROW(t):
 
 def t_LOCAL(t):
     r'_[-a-zA-Z_0-9]*'
+    return t
+
+def t_PREFIX_AND(t):
+    r'[aA][nN][dD]\('
+    return t
+
+def t_PREFIX_OR(t):
+    r'[oO][rR]\('
     return t
 
 def t_BARE_WORD(t):
@@ -153,8 +163,8 @@ def t_DECIMAL(t):
 
 def test_LPAREN():
     r"""
-    >>> show_types("(")
-    NOSPACE_LPAREN
+    >>> show_types("(")    # start of text is like a space
+    SPACE_LPAREN
     >>> show_types(" (")
     SPACE_LPAREN
     >>> show_types("\n(")
@@ -169,9 +179,8 @@ def test_LPAREN():
     """
     pass
 
-
 def t_SPACE_LPAREN(t):
-    r'[ \t\n\r\f\v]\('
+    r'(^|[ \t\n\r\f\v])\('
     return t
 
 def t_SPACE(t):
@@ -294,6 +303,7 @@ def demo():
         return
     
     # if we have ANY argument, read stdin....!
+    lexer.recognize_keywords = True
     input_text = sys.stdin.read()
     for tok in token_list(input_text):
         print tok

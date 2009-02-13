@@ -32,6 +32,8 @@ expr   : meta expr %prec META   # highest precedence
        | 'False'   # stands for rif:Or()
        | expr 'And' expr  # in code: gather into rif:And(...)
        | expr 'Or' expr   # in code: gather into rif:Or(...)
+       | 'And(' exprs ')'
+       | 'Or(' exprs ')'
        | expr ':-' expr
        | expr '=>' expr
        | 'If' expr 'Then' expr
