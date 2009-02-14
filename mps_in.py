@@ -50,6 +50,8 @@ precedence = (
     ('nonassoc', 'IMPLIES'),
     ('left', 'KW_Or'),
     ('left', 'KW_And'),
+    ('right', 'KW_Neg'),
+    ('right', 'KW_Naf'),
 
     # term->formula operators -- shouldn't really occur in
     # practice, but we don't want the parser to complain

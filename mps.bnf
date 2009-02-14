@@ -34,6 +34,8 @@ expr   : meta expr %prec META   # highest precedence
        | expr 'Or' expr   # in code: gather into rif:Or(...)
        | 'And(' exprs ')'
        | 'Or(' exprs ')'
+       | 'Neg' expr
+       | 'Naf' expr
        | expr ':-' expr
        | expr '=>' expr
        | 'If' expr 'Then' expr

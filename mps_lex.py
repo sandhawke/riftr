@@ -15,6 +15,8 @@ def k(x):
     return x.lower()
 
 reserved = {
+    k('Neg'): 'KW_Neg',
+    k('Naf'): 'KW_Naf',
     k('InstanceOf'): 'KW_InstanceOf',
     k('SubclassOf'): 'KW_SubclassOf',
     k('true'): 'KW_True',

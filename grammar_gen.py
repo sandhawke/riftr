@@ -32,6 +32,8 @@ token_for = {
     ':-': 'COLONDASH',
     '=': 'EQUALS',
     '?': 'QUESTION',
+    'Neg': 'KW_Neg',
+    'Naf': 'KW_Naf',
     'If': 'KW_If',
     'Then': 'KW_Then',
     'True': 'KW_True',
