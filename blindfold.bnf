@@ -1,0 +1,18 @@
+
+grammar : production+
+
+production : WORD ':' expr action?
+
+expr : expr '|' expr
+     | '(' expr ')'
+     | expr expr %prec SEQ
+     | WORD '::' expr
+     | WORD 
+     | STRING
+     | expr '+'
+     | expr '*'
+     | expr '?'
+
+action : '{' WORD+ '}'
+
+
