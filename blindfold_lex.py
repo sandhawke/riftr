@@ -49,7 +49,9 @@ t_PLUS             = r'\+'
 t_STAR             = r'\*'
 t_QUESTION         = r'\?'
 
-weird = ['LINE_COMMENT', 'C_COMMENT']
+weird = [
+    # 'LINE_COMMENT', 'C_COMMENT'
+    ]
 
 ids = ['STRING', 'WORD', 'WORD_COLON', 'WORD_COLON_COLON', 'PREC']
 

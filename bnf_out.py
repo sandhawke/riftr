@@ -79,15 +79,21 @@ class Serializer(serializer.General):
         self.out(")")
 
     def do_Plus(self, obj):
+        self.out("(")
         self.do(obj.expr)
+        self.out(")")
         self.out("+")
 
     def do_Optional(self, obj):
+        self.out("(")
         self.do(obj.expr)
+        self.out(")")
         self.out("?")
 
     def do_Times(self, obj):
+        self.out("(")
         self.do(obj.expr)
+        self.out(")")
         self.out("*")
 
     def do_Literal(self, obj):

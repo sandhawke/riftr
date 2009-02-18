@@ -1,0 +1,4 @@
+#  test the precendence of various things...
+#
+p : a1 a2 | a3 (a b)+ c+ | d e %prec foo
+

@@ -35,9 +35,9 @@ tokens = mylex.tokens
 
 
 precedence = (
-    ('left', 'VERTICALBAR'),
-    ('left', 'PREC'),
-    ('left', 'SEQ'),
+#    ('right', 'VERTICALBAR'),
+    ('right', 'PREC'),
+    ('right', 'SEQ'), # associativity doesn't work for %prec
     ('nonassoc', 'COLONCOLON'),
     ('left', 'PLUS', 'STAR', 'QUESTION'),
 )
@@ -65,14 +65,22 @@ def p_grammar(t):
 
 
 def p_production(t):
-   '''production : WORD_COLON expr action_opt '''
+   '''production : WORD_COLON Aexpr action_opt '''
    t[0] = node('Production', name=t[1], expr=t[2], action=t[3])
 
-def p_expr_1(t):
-   '''expr : expr VERTICALBAR expr '''
+# an expr without a vertical bar in it
+#
+# I'm not sure why setting the precedence on VERTICALBAR doesn't
+# do this, but ... it doesn't.
+def p_Aexpr_1(t):
+   '''Aexpr : Aexpr VERTICALBAR expr '''
    t[0] = node('Alt', left=t[1], right=t[3])
+def p_Aexpr_2(t):
+   '''Aexpr : expr '''
+   t[0] = t[1]
+
 def p_expr_2(t):
-   '''expr : LPAREN expr RPAREN '''
+   '''expr : LPAREN Aexpr RPAREN '''
    t[0] = t[2]
 def p_expr_3(t):
    '''expr : expr expr %prec SEQ'''
