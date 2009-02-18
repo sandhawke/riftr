@@ -11,7 +11,10 @@ group = {
 }
 
 token_for = {
+    ':' : 'COLON',
+    '::' : 'COLONCOLON',
     ';' : 'SEMI',
+    '|' : 'VERTICALBAR',
     '->': 'ARROW',
     '=>': 'IMPLIES',
     '(*': 'LMETA',

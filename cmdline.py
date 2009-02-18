@@ -19,13 +19,16 @@ import debugtools
 from debugtools import debug
 
 import plugin
-import ps_parse
+#import ps_parse
 import ps_lex
 import xml_in
 import bld_xml_out
 import fsxml_out
 import xps_out
-import gend_mps_in
+#import gend_mps_in
+import blindfold
+import bnf_out
+import dump_out
 import rif
 import error
 

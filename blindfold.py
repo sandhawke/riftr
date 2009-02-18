@@ -35,14 +35,11 @@ tokens = mylex.tokens
 
 
 precedence = (
-
-    ('left', 'COLON'),
     ('left', 'VERTICALBAR'),
+    ('left', 'PREC'),
     ('left', 'SEQ'),
     ('nonassoc', 'COLONCOLON'),
     ('left', 'PLUS', 'STAR', 'QUESTION'),
-    ('left', 'EMPTY'),     # shouldn't affect anything
-
 )
 
 def default_action(t):
@@ -64,46 +61,56 @@ def default_action(t):
 
 def p_grammar(t):
    '''grammar : production_star '''
-   t[0] = t[1]
+   t[0] = node('Grammar', productions=t[1])
 
 
 def p_production(t):
-   '''production : WORD COLON expr action_opt '''
-   t[0] = node('WORD', expr=t[3],action_opt=t[4])
-
+   '''production : WORD_COLON expr action_opt '''
+   t[0] = node('Production', name=t[1], expr=t[2], action=t[3])
 
 def p_expr_1(t):
    '''expr : expr VERTICALBAR expr '''
-   t[0] = node('VERTICALBAR', expr=AST.Sequence(items=[t[1], t[3]]))
+   t[0] = node('Alt', left=t[1], right=t[3])
 def p_expr_2(t):
    '''expr : LPAREN expr RPAREN '''
-   t[0] = node('LPAREN', expr=t[2])
+   t[0] = t[2]
 def p_expr_3(t):
    '''expr : expr expr %prec SEQ'''
-   t[0] = node('', expr=AST.Sequence(items=[t[1], t[2]]))
+   #items = []
+   #for tt in (t[1], t[2]):
+   #    try:
+   #        for i in tt:
+   #            items += i
+   #    except:
+   #        items.append(tt)
+   #t[0] = AST.Sequence(items=items)
+   t[0] = node('Seq', left=t[1], right=t[2])
 def p_expr_4(t):
-   '''expr : WORD COLONCOLON expr '''
-   t[0] = node('WORD', expr=t[3])
+   '''expr : WORD_COLON_COLON expr %prec COLONCOLON'''
+   t[0] = node('Property', property=t[1], expr=t[2])
 def p_expr_5(t):
    '''expr : WORD '''
-   t[0] = t[1]
+   t[0] = node('Reference', name=t[1])
 def p_expr_6(t):
    '''expr : STRING '''
-   t[0] = t[1]
+   t[0] = node('Literal', text=t[1])
 def p_expr_7(t):
    '''expr : expr PLUS '''
-   t[0] = node('PLUS', expr=t[1])
+   t[0] = node('Plus', expr=t[1])
 def p_expr_8(t):
    '''expr : expr STAR '''
-   t[0] = node('STAR', expr=t[1])
+   t[0] = node('Star', expr=t[1])
 def p_expr_9(t):
    '''expr : expr QUESTION '''
-   t[0] = node('QUESTION', expr=t[1])
+   t[0] = node('Optional', expr=t[1])
+def p_expr_10(t):
+   '''expr : expr PREC WORD '''
+   t[0] = node('Precedence', expr=t[1], reference=t[3])
 
 
 def p_action(t):
    '''action : LBRACE WORD_plus RBRACE '''
-   t[0] = node('LBRACE', )
+   t[0] = node('Action', words=t[2])
 
 
 
@@ -116,10 +123,10 @@ def p_action(t):
 
 # GENERATED CODE FOR '_star' (REPEAT 0+) PRODUCTION
 def p_production_star_1(t):
-   '''production_star : production_star production  '''
+   '''production_star : production_star production'''
    t[0] = t[1] + [t[2]]
 def p_production_star_2(t):
-   '''production_star : EMPTY '''
+   '''production_star : EMPTY'''
    t[0] = []
 
 
@@ -144,7 +151,7 @@ def p_action_opt_2(t):
 
 
 def p_EMPTY(t):
-   '''EMPTY : %prec EMPTY  '''
+   '''EMPTY :   '''
    t[0] = None
 
 
@@ -213,15 +220,4 @@ if __name__ == "__main__":
 
    if result:
       print `result`
-
-
-   #>>> with open('/tmp/workfile', 'r') as f:
-   #...     read_data = f.read()
-   #
-   #>>> for line in f:
-   #        print line,
-
-#if __name__ == "__main__":
-#    import doctest, sys
-#    doctest.testmod(sys.modules[__name__])
 
