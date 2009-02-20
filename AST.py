@@ -67,6 +67,10 @@ class Node (SyntacticObject):
     def __cmp__(self, other):
         return cmp(self.__dict__, other.__dict__)
 
+    def __str__(self):
+        return "Node("+self._type[1]+", ...)"
+
+
     # I dunno, do we want to tread _id specially?  I think we probably
     # do...  But we'd also kind of like it in the dictionary, so we
     # can serialize it like the other stuff?  But what if it has
@@ -114,12 +118,12 @@ class Sequence (SyntacticObject):
     def __init__(self, items=None):
         self.items = items or []
     
-
 class DataValue (SyntacticObject):
 
     def __init__(self, lexrep, datatype):
         self.lexrep = lexrep
         self.datatype = datatype
+
 
     # python to/from conversions?
 
@@ -127,3 +131,63 @@ class DataValue (SyntacticObject):
 
     # special handling to/from IRIs
         
+
+
+def map(function, obj, *args, **kwargs):
+    """
+    Apply this function to every node in the tree, starting with the
+    leaves and building up to the root.
+
+    The function is called with the first parameter being an object in
+    the tree (a node or data value), and the other args are as given.
+    The function returns whatever the node should be replaced with.
+
+    (Should we allow None to mean list items are removed from the
+    list?  Right now it puts a None in the list.)
+
+    """
+
+    if obj is None:
+        return None
+    if isinstance(obj, str):    # do we allow these...?
+        return obj
+    
+    debug('AST.map(', 'obj begins', obj)
+
+    assert obj is not None
+
+    if isinstance(obj, DataValue):
+        obj = function(obj, *args, **kwargs)
+    elif isinstance(obj, Sequence):
+       for i in range(0, len(obj.items)):
+           value = obj.items[i]
+           assert value is not None
+           value = map(function, value, *args, **kwargs)
+           assert value is not None
+           obj.items[i] = function(value, *args, **kwargs)
+    elif isinstance(obj, list):
+       for i in range(0, len(obj)):
+           value = obj[i]
+           assert value is not None
+           value = map(function, value, *args, **kwargs)
+           assert value is not None
+           obj[i] = function(value, *args, **kwargs)
+    elif isinstance(obj, Node):
+        for (key, value) in obj.__dict__.items():
+            if key.startswith("_"):
+                continue
+            debug('AST.map', 'property ', key)
+            value = map(function, value, *args, **kwargs)
+            obj.__dict__[key] = function(value, *args, **kwargs)
+        obj = function(obj, *args, **kwargs)
+    else:
+        raise RuntimeError, 'Cant map a %s' % type(obj)
+
+
+    debug('AST.map)', 'obj ends as ', obj)
+    assert obj is not None
+
+    return obj
+
+
+

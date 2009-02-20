@@ -11,6 +11,7 @@ module names don't matter.)    Could use names like do_rif_Document where
 """
 
 import sys
+from cStringIO import StringIO
 
 from debugtools import debug
 import debugtools
@@ -60,6 +61,17 @@ class General (object):
                     raise RuntimeError("No serialization defined for your %s, %s" % (typename, `obj`))
             doer(obj)
 
+    def str_do(self, *objList):
+        state = {}   # for keeping the old stream, at_lend, etc.
+        state.update(self.__dict__)
+
+        buffer = StringIO()
+        self.stream = buffer
+        self.do(*objList)
+
+        self.__dict__.update(state)
+        return buffer.getvalue()
+
     def do(self, *objList):
         
         for obj in objList:
@@ -79,25 +91,75 @@ class General (object):
                     raise RuntimeError("No serialization defined for your %s, %s" % (typename, `obj`))
             doer(obj)
         
-    def out(self, *args):
+    def out(self, *args, **kwargs):
+        """
+        Write the arguments to the output stream.
+
+        If we are at a line-end (set by calling lend()), then move
+        down to the next line (and indent by the current indent)
+        before doing any output.  This is done even if there are no
+        arguments.
+
+        After output, look at the keyword argument "keep":
+
+           if keep=1, output a space (or whatever the if_keep text is
+                      set to) and stay to the same line
+           if keep=0, call self.lend(), so that the next output will be
+                      done on a new line.
+           
+        Values of keep between 0 and 1 mean that it's okay to either
+        keep or not keep -- that is, this is an okay place to do a
+        line break if necessary.  If line breaking is necessary, then
+        places with lower keep values (closer to keep=0) will be
+        used for line breaking first.
+
+        (This variable line breaking is not yet implemented, but
+        still, try to use intermediate values for keep if it's an
+        okay-to-break spot.)
+
+        """
 
         if self.at_lend:
             self.at_lend = False
-            self.br()
+            self.stream.write(self.newline)
 
         for arg in args:
             self.stream.write(arg)
-            self.at_left_margin = False
+            if arg:
+                self.at_left_margin = False
+            
+        keep = kwargs.get("keep", 0) 
+        if_keep = kwargs.get("if_keep", " ") 
+        if keep > 0.5:  # make this flexible later
+            self.stream.write(if_keep)
+        else:
+            self.lend()
 
-    def lend(self, level=2):
-        if level >= self.br_level:
-            self.at_lend = True
+
+    def outk(self, *args):
+        """Short for out(..., keep=1)"""
+        self.out(*args, **{'keep':1})
+
+    def lend(self):
+        """This is the end of a line.   The next time you try
+        to write, do a newline/indent before anything else.  We 
+        don't do it NOW because we might have multiple lends, and
+        we might change the indent after this, before the text."""
+        self.at_lend = True
+
+    @property
+    def newline(self):
+        return "\n" + " " * (self.indent * self.indent_factor)
+
+
+    ################################################################
+    #    This BR stuff is deprecated.
 
     def br(self):
         "Go to a new line at this point"
         if self.at_left_margin:
             return
-        self.out(self.newline)
+        self.stream.write(self.newline)
         self.at_left_margin = True
 
     def brsp(self, text=" ", level=2):
@@ -116,10 +178,6 @@ class General (object):
         "This is a poor (but still not erroneous) place to go to a new line"
         self.brsp(text, level=3)
         
-
-    @property
-    def newline(self):
-        return "\n" + " " * (self.indent * self.indent_factor)
 
     def xml_begin(self, tag, attrs=None, one_line=False):
         if not one_line: self.lend(2)

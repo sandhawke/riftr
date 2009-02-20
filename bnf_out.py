@@ -90,6 +90,7 @@ class Serializer(serializer.General):
         self.out(")")
         self.out("?")
 
+
     def do_Times(self, obj):
         self.out("(")
         self.do(obj.expr)

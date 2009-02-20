@@ -157,6 +157,8 @@ def demo():
     input_text = sys.stdin.read()
     for tok in token_list(input_text):
         print tok
+
+
    
 if __name__ == "__main__":
     import doctest, sys

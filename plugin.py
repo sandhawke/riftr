@@ -122,7 +122,7 @@ def register(p):
     assert p.__doc__
     assert p.id
     if isinstance(p, Plugin):
-        print "WARNING: plugin passed instance -- ignored", p.id
+        #print "WARNING: plugin passed instance -- ignored", p.id
         return
     registry.append(p)
 

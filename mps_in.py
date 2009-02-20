@@ -107,8 +107,8 @@ parser = yacc.yacc(outputdir="mps_ply_generated")
 #parser = yacc.yacc()
 parser.my_base = None
 parser.prefix_map = rif.PrefixMap()
-print 'parser generation done'
-print 
+#print 'parser generation done'
+#print 
 
 def parse(str):
 
