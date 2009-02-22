@@ -20,7 +20,7 @@ decl   : 'Base' '(' iri ')'
 
 expr   : meta expr %prec META   # highest precedence
        | decl expr %prec DECL   # precedence doesnt matter
-       | 'hack-space-lparen' expr ')'
+       | SPACE_LPAREN expr ')'
        | 'Group' '(' exprs? ')'   
        | 'External' '(' frame ')'
        | 'External' '(' atomic ')'
@@ -65,8 +65,8 @@ iri    : ANGLEBRACKIRI
 
 frame  : expr '[' frame_args? ']'
 
-atomic : expr 'hack-nospace-lparen' args? ')'
-       | expr 'hack-nospace-lparen' Name_arrow_expr+ ')'
+atomic : expr NOSPACE_LPAREN args? ')'
+       | expr NOSPACE_LPAREN Name_arrow_expr+ ')'
 
 lparen : 'hack-space-lparen'
        | 'hack-nospace-lparen'
@@ -175,4 +175,13 @@ end_accept_bare_word : EMPTY
 #
 Name_arrow_expr : NAME_ARROW expr
                 | NAME_ARROW expr ","
+
+
+
+# BEGIN LEX PYTHON
+# END LEX PYTHON
+
+
+# BEGIN YACC PYTHON
+# END YACC PYTHON
 

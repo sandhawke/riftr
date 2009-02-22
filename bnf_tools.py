@@ -12,9 +12,11 @@ Do this stuff with some sort of rules...?
 """
 
 import re
+import copy
 import htmlentitydefs
 
 import AST
+import plugin
 
 
 ################################################################
@@ -36,7 +38,9 @@ class TokenSet:
             return self.token_name[text]
         except KeyError:
             if is_word(text):
-                name = text
+                # not a good idea to just use it, bare, because it's
+                # likely to conflict with some non-terminals
+                name = "kw_"+text
             else:
                 name_parts = []
                 for char in text:
@@ -51,19 +55,20 @@ class TokenSet:
     def for_lex(self):
         s = ""
         r = ""
-        tokens = []
+        t = ""
         for (text, name) in self.token_name.items():
             if is_word(text):
                 r += "reserved['%-15s = '%s'\n" % (text+"']", name)
             else:
                 s += "t_%-15s = re.escape(%s)\n" % (name, `text`)
-                tokens.append(name)
+                t += "tokens.append('%s')\n" % name
         result = ""
         result += r
         result += "\n"
         result += s
         result += "\n"
-        result += "tokens.extend(['"+"', '".join(tokens) +"'])"
+        result += t
+        result += "\n"
         return result
 
 word_pat = re.compile(r'''^[a-zA-Z_][a-zA-Z_0-9]*$''')
@@ -128,15 +133,82 @@ def is_type(node, type):
     
     return getattr(node, "_type", (None, None))[1] == type
 
-def convert_to_yacc_form(node):
+def convert_to_yacc_form(root):
 
-    node = AST.map(convert_Alt_to_AltN, node)
-    node = AST.map(convert_AltN_to_branches, node)
+    additions = []
+    root = AST.map(convert_plus, root, additions)
+    root = AST.map(convert_star, root, additions)
+    root = AST.map(convert_optional, root, additions)
+    for p in additions:
+        root.productions.append(p)
 
-    #node = node._transform(convert_Seq_to_SeqN)
-    
+    root = AST.map(convert_Alt_to_AltN, root)
+    root = AST.map(convert_AltN_to_branches, root)
+
 
     # disallow nested Alt
+
+class Plugin (plugin.TransformPlugin) :
+    """Convert (arbitrary) grammars to yacc-style grammars.  Kind of
+    like converting logical formula to Conjunctive Normal Form.
+
+    """
+    id = "to_yacc"
+
+    def transform(self, root):
+        convert_to_yacc_form(root)
+        return root
+
+plugin.register(Plugin)
+
+def convert_plus(node, additions):
+    
+    if is_type(node, 'Plus'):
+        name = "_plus_gen_%d" % len(additions)
+        e = AST.Node(('', 'Alt'), 
+                     left=copy.deepcopy(node.expr),
+                     right=AST.Node(('', 'Seq'),
+                                    left=AST.Node(('','Reference'),
+                                                  name=name),
+                                    right=copy.deepcopy(node.expr)
+                                    )
+                     )
+        
+        additions.append(AST.Node(('', 'Production'), name=name, expr=e))
+        node = AST.Node(('', 'Reference'), name=name)
+    return node
+
+def convert_star(node, additions):
+    
+    if is_type(node, 'Star'):
+        name = "_star_gen_%d" % len(additions)
+        e = AST.Node(('', 'Alt'), 
+                     left=AST.Node(('','Reference'), name='EMPTY'),
+                     right=AST.Node(('', 'Seq'),
+                                    left=AST.Node(('','Reference'),
+                                                  name=name),
+                                    right=copy.deepcopy(node.expr)
+                                    )
+                     )
+        
+        additions.append(AST.Node(('', 'Production'), name=name, expr=e))
+        node = AST.Node(('', 'Reference'), name=name)
+    return node
+
+
+def convert_optional(node, additions):
+    
+    if is_type(node, 'Optional'):
+        name = "_optional_gen_%d" % len(additions)
+        e = AST.Node(('', 'Alt'), 
+                     left=AST.Node(('','Reference'), name='EMPTY'),
+                     right=copy.deepcopy(node.expr)
+                     )
+        
+        additions.append(AST.Node(('', 'Production'), name=name, expr=e))
+        node = AST.Node(('', 'Reference'), name=name)
+    return node
+
 
 def convert_Alt_to_AltN(node):
 

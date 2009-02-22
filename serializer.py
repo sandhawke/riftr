@@ -117,6 +117,29 @@ class General (object):
         still, try to use intermediate values for keep if it's an
         okay-to-break spot.)
 
+        It's okay to have \n inside an argument; it's treated as if
+        every \n split the out() call into multiple out() calls.
+
+        TODO:
+
+           if max_line_length, then each line should be assembled into
+           a list of strings and possible break points (each with its
+           if_keep, indent, and maybe if_break text), so at the end of
+           the line, we can break it as much as necessary.   
+
+           Maybe we'll need some sort of "align" marker, for stuff like: 
+                some_long_function(arg1, arg2, arg3
+                                   arg4, arg5)
+           where the indent is some kinda-fixed amount.   Basically,
+           each of arg1...arg5 should be marked as items in a group.
+           Then it's a policy decision whether 
+                - group membership doesn't matter
+                - all group items on new line
+                - first group item in place; all others
+                  line up below it
+                - first group item in place; any that need
+                  a new line, they line up below it.
+
         """
 
         if self.at_lend:
@@ -124,8 +147,11 @@ class General (object):
             self.stream.write(self.newline)
 
         for arg in args:
-            self.stream.write(arg)
-            if arg:
+            lines = arg.split("\n")
+            for line in lines[:-1]:
+                self.out(line)
+            self.stream.write(lines[-1])
+            if lines[-1]:
                 self.at_left_margin = False
             
         keep = kwargs.get("keep", 0) 
@@ -140,7 +166,7 @@ class General (object):
         """Short for out(..., keep=1)"""
         self.out(*args, **{'keep':1})
 
-    def lend(self):
+    def lend(self, ignore_this_arg=None):
         """This is the end of a line.   The next time you try
         to write, do a newline/indent before anything else.  We 
         don't do it NOW because we might have multiple lends, and

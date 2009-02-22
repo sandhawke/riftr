@@ -68,7 +68,7 @@ class Plugin (plugin.OutputPlugin):
        ser.do(doc)
        return buffer.getvalue()
  
-plugin.register(Plugin())
+plugin.register(Plugin)
 
         
 if __name__ == "__main__":

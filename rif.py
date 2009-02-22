@@ -669,7 +669,7 @@ class Plugin (plugin.OutputPlugin):
        use_qnames = True
        return as_ps(doc)
  
-plugin.register(Plugin())
+plugin.register(Plugin)
 
 class Plugin2 (plugin.OutputPlugin):
    """RIF Presentation Syntax (with full IRIs -- no QNames)"""
@@ -682,7 +682,7 @@ class Plugin2 (plugin.OutputPlugin):
        use_qnames = False
        return as_ps(doc)
  
-plugin.register(Plugin2())
+plugin.register(Plugin2)
 
 
 if __name__ == "__main__":

@@ -73,7 +73,7 @@ def run():
     debug('cmdline', 'read %d bytes' % len(input_text))
 
     try:
-        iproc = plugin.get_plugin("input", options)
+        (iproc,) = plugin.get_plugins(["input"], options)
     except ValueError:
         print >>sys.stderr, "No input plugin selected"
         return
@@ -87,10 +87,22 @@ def run():
         print >>sys.stderr, err
         return
 
+
+    for p in plugin.get_plugins(["transform","analysis"], options):
+        if isinstance(p, plugin.TransformPlugin):
+            doc = p.transform(doc)
+        elif isinstance(p, plugin.AnalysisPlugin):
+            report = p.analyze(doc)
+            print "\nReport from %s plugin:" % p.id
+            print report
+            print
+        else:
+            raise RuntimeError
+
     out_stream = sys.stdout
 
     try:
-        oproc = plugin.get_plugin("output", options)
+        (oproc,) = plugin.get_plugins(["output"], options)
     except ValueError:
         print >>sys.stderr, "No output plugin selected"
         return

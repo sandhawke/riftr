@@ -185,7 +185,7 @@ class Plugin (plugin.InputPlugin):
        doc = p.instance_from_XML(p.root)
        return doc
 
-plugin.register(Plugin())
+plugin.register(Plugin)
 
 if __name__ == "__main__":
     

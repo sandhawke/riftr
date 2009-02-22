@@ -23,82 +23,91 @@ class Serializer(serializer.General):
 
     def begin(self, tag,  one_line=False):
         #if not one_line: self.lend(2)
-        self.out(tag+"(")
+        self.outk(tag+"(")
         self.lend(2)
         self.indent += 1
 
     def end(self, one_line=False):
         self.indent -= 1
-        self.out(")")
+        self.outk(")")
         if not one_line: self.lend(2)
 
     def do_str(self, obj):
-        self.out(repr(obj))
+        self.outk(repr(obj))
 
     #def do_Sequence(self, obj):
 
     def do_Grammar(self, obj):
         for i in obj.productions:
             self.do(i)
-            self.out("\n\n")
+            self.outk("\n\n")
 
     def do_Production(self, obj):
-        self.out(obj.name, " : ")
+        self.outk(obj.name, " ::= ")
         self.do(obj.expr)
 
 
     def do_Seq(self, obj):
-        #self.out("(")
+        #self.outk("(")
         self.do(obj.left)
-        self.out(" ")
+        self.outk(" ")
         self.do(obj.right)
-        #self.out(")")
+        #self.outk(")")
 
     def do_Alt(self, obj):
-        #self.out("(")
+        #self.outk("(")
         self.do(obj.left)
         self.lend()
-        self.out(" | ")
+        self.outk(" | ")
         self.do(obj.right)
-        #self.out(")")
+        #self.outk(")")
+
+    def do_AltN(self, obj):
+        self.indent += 1
+        for expr in obj.exprs[:-1]:
+            self.do(expr)
+            self.lend()
+            self.outk(" | ")
+        self.do(obj.exprs[-1])
+        self.indent -= 1
 
     def do_Reference(self, obj):
-        self.out(obj.name)
+        self.outk(obj.name)
 
     def do_Precedence(self, obj):
-        self.out("(")
+        self.outk("(")
         self.do(obj.expr)
-        self.out(")")
-        self.out(" %prec ", obj.reference)
+        self.outk(")")
+        self.outk(" %prec ", obj.reference)
 
 
     def do_Property(self, obj):
-        self.out(obj.property)
-        self.out("::(")    # how do to parens only when necessary?
+        self.outk(obj.property)
+        self.outk("::(")    # how do to parens only when necessary?
         self.do(obj.expr)
-        self.out(")")
+        self.outk(")")
 
     def do_Plus(self, obj):
-        self.out("(")
+        self.outk("(")
         self.do(obj.expr)
-        self.out(")")
-        self.out("+")
+        self.outk(")")
+        self.outk("+")
 
     def do_Optional(self, obj):
-        self.out("(")
+        self.outk("(")
         self.do(obj.expr)
-        self.out(")")
-        self.out("?")
+        self.outk(")")
+        self.outk("?")
 
 
     def do_Times(self, obj):
-        self.out("(")
+        self.outk("(")
         self.do(obj.expr)
-        self.out(")")
-        self.out("*")
+        self.outk(")")
+        self.outk("*")
 
     def do_Literal(self, obj):
-        self.out('"', obj.text, '"')    # escaping
+        self.outk('"', obj.text, '"')    # escaping
 
     def default_do(self, obj):
 
@@ -113,16 +122,16 @@ class Serializer(serializer.General):
             if isinstance(value, list):
                 count = len(value)
                 for item in value:
-                    self.out(key, '=')
+                    self.outk(key, '=')
                     self.do(item)
                     self.lend(1)
             elif isinstance(value, AST.Sequence):
-                self.out(key, '= [')
+                self.outk(key, '= [')
                 for item in value.items:
                     self.do(item)
-                self.out("]")
+                self.outk("]")
             else:
-                self.out(key, '=')
+                self.outk(key, '=')
                 self.do(value)
                 self.lend(1)
         self.end()

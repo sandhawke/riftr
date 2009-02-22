@@ -3,19 +3,34 @@
 
 """
 
+TODO: 
+
+     -- use a plugins directory, so they don't need to be enumerated
+        somewhere?
+
+     -- find a way to allow the same intermediate plugin to be used
+        multiple times with different options...?  (and in the XML
+        form?)  In the cmdline form, we could exec something which
+        which attaches the argument's affect to a prior compatible
+        plugin.
+
 Every plugin should:
 
    1.  import this module (plugin)
 
    2.  create an plugin class which is subclass of one of the below
-       plugin subclasses (InputPlugin or OutputPlugin, at the moment)
-       and give it:
+       plugin subclasses (InputPlugin, OutputPlugin, etc) and give it:
 
         plugin.id
 
                 Some short unique identifier-syntax string
 
-                Typically <language_name>_in or <language_name>_out
+                Typically like <language_name>_in,
+                <language_name>_out, etc.
+
+                If there's only one plugin in a module, it's
+                reasonable to use __name__, so the plugin id is the
+                module name.
 
         plugin.__doc__
 
@@ -30,31 +45,33 @@ Every plugin should:
         plugin.options
 
                 A list of options which this plugin supports.  They'll
-                turn into keyword parameters to the constructed Parser
-                or Serializer?  Or just be passed to parse/serialize?
-                Or what?
+                turn into keyword parameters to the plugin, when it is
+                instantiated.
 
                 Each item in the list is a plugin.Option 
 
         plugin.parse(str)
         plugin.serialize(node)
+        plugin.transform(node)
+        plugin.analyze(node)
 
                 One of these two functions, depending whether you do
                 input or output.
 
    3.  Toward the end of your module, call:   
 
-           plugin.register(your_plugin_instance)
+           plugin.register(your_plugin_class)
 
 
 Design Note:
 
-   Why is this an INSTANCE of that class instead of just being the
-   class? It could work either way, but being an instance gives us a
-   little more flexibility, eg for making multiple very-similar
-   languages.  But, really, we could have done it either way.  Still
-   we have to pick one, since parse and serialize will be called
-   differently if they're bound to an instance.
+   I was on the fense about whether what's registered as a plugin
+   should be a class or an instance.  I settled on "class" when I
+   added options, because it seems pretty nice to have the options
+   turn into attributes of the instance and/or arguments.
+
+   (Maybe there should be some flag about whether you want them passed
+   in, or want us to set them, then call init2?)
 
 Design Note:
 
@@ -80,12 +97,10 @@ class Plugin (object):
     def add_to_OptionParser(cls, parser, group):
 
         group.add_option("--"+cls.id,
-                         action="store_const",
+                         action="append_const",
                          const=cls.id,
-                         dest=cls.action_word() + "_plugin",
-                         help= ( "Use this plugin for " +
-                                 cls.action_word()+ 
-                                 ".  Description: "+
+                         dest="plugins",
+                         help= ( ("Use this %s plugin. " % cls.action_word())+
                                  cls.__doc__ 
                                  ))
 
@@ -115,6 +130,28 @@ class OutputPlugin (Plugin):
     def action_word(cls):
         return "output"
 
+class TransformPlugin (Plugin):
+    """Must have a transform() method"""
+
+    def transform(self, root_node):
+        raise RuntimeError("Not implemented")
+
+    @classmethod
+    def action_word(cls):
+        return "transform"
+
+class AnalysisPlugin (Plugin):
+    """Must have a transform() method"""
+
+    def analyze(self, root_node):
+        raise RuntimeError("Not implemented")
+
+    @classmethod
+    def action_word(cls):
+        return "analysis"
+
+
+
 def register(p):
     """
 
@@ -122,10 +159,8 @@ def register(p):
     assert p.__doc__
     assert p.id
     if isinstance(p, Plugin):
-        #print "WARNING: plugin passed instance -- ignored", p.id
-        return
+        raise RuntimeError, "WARNING: plugin %s passed instance -- ignored"%p.id
     registry.append(p)
-
 
 
 ################################################################
@@ -159,16 +194,14 @@ def add_to_OptionParser(parser):
             option.add_to_OptionParser(plugin, parser, group)
         parser.add_option_group(group)
 
-def get_plugin(action, options):
+def get_plugins(actions, options):
     
-    plugin_id = getattr(options, action+"_plugin")
-    if plugin_id is None:
-        raise ValueError
-    for plugin in registry:
-        if plugin.id == plugin_id:
-            return instantiate_with_options(plugin, options)
-    # we should never get here due to any user input, I think....
-    raise RuntimeError
+    for plugin_id in getattr(options, "plugins"):
+        for plugin in registry:
+            if plugin.action_word() in actions:
+                if plugin.id == plugin_id:
+                    yield instantiate_with_options(plugin, options)
+
 
 def instantiate_with_options(plugin, options):
 

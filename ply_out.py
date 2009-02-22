@@ -93,9 +93,9 @@ class Serializer(serializer.General):
         self.outk(obj.name)
 
     def do_Precedence(self, obj):
-        self.out("(", keep=0.9)
+        #self.out("(", keep=0.9)
         self.do(obj.expr)
-        self.out(")", keep=0.9)
+        #self.out(")", keep=0.9)
         self.out(" %prec ", obj.reference, keep=0.9)
 
 
