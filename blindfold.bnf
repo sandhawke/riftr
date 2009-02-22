@@ -1,18 +1,89 @@
 
 grammar : production+
 
-production : WORD ':' expr action?
+production : WORD_COLON expr action?
 
 expr : expr '|' expr
      | '(' expr ')'
      | expr expr %prec SEQ
-     | WORD '::' expr
+     | WORD_COLON_COLON expr
      | WORD 
      | STRING
      | expr '+'
      | expr '*'
      | expr '?'
+     | expr '%prec' WORD
 
 action : '{' WORD+ '}'
 
 
+%%
+# Lex Extra Stuff
+
+tokens.append('WORD_COLON_COLON')
+def t_WORD_COLON_COLON(t):
+    r'[a-zA-Z_]:?[-a-zA-Z_0-9]*[ \t\n]*::'
+    t.lexer.lineno += t.value.count('\n')
+    t.value = t.value[:-2].strip()
+    return t
+
+tokens.append('WORD_COLON')
+def t_WORD_COLON(t):
+    r'[a-zA-Z_][-a-zA-Z_0-9]*[ \t\n]*:'
+    t.lexer.lineno += t.value.count('\n')
+    t.value = t.value[:-1].strip()
+    return t
+
+#tokens.append('PREC')
+#def t_PREC(t):
+#    r'%prec'
+#    return t
+
+tokens.append('WORD')
+def t_WORD(t):
+    r'[a-zA-Z_][-a-zA-Z_0-9]*'
+    return t
+
+tokens.append('STRING')
+def t_STRING(t):
+    r'''(("([^"]|\\"|\n)*")|('([^']|\\'|\n)*'))'''
+    t.value = t.value[1:-1]
+    t.value = t.value.replace(r'\"', '"')
+    t.value = t.value.replace(r"\'", "'")
+    t.value = t.value.replace(r'\n', '\n')
+    t.lexer.lineno += t.value.count('\n')
+    return t
+
+##
+##  sorta standard stuff
+##
+
+# DONT declare it a token -- yacc never sees these
+# tokens.append('LINE_COMMENT')
+def t_LINE_COMMENT(t):
+    r'\#[^\n]*\n'
+    t.lexer.lineno += t.value.count('\n')
+    pass
+
+# DONT declare it a token -- yacc never sees these
+# tokens.append('C_COMMENT')
+def t_C_COMMENT(t):
+    r'/\*(.|\n)*?\*/'
+    t.lexer.lineno += t.value.count('\n')
+    pass
+
+%%
+# Yacc Extra Stuff
+
+def p__EMPTY(t):
+    '''EMPTY : '''
+    pass
+
+
+precedence = (
+#    ('right', 'VERTICALBAR'),
+    ('right', 'PERCENT_P_R_E_C'),
+    ('right', 'SEQ'), # associativity doesn't work for %prec
+    ('nonassoc', 'WORD_COLON_COLON'),
+    ('left', 'PLUS', 'STAR', 'QUESTION'),
+)

@@ -24,6 +24,7 @@ import blindfold_lex as mylex
 import AST
 import plugin
 import error
+import ply_out
 
 NS = "http://www.w3.org/2009/02/blindfold/ns#"
 
@@ -185,34 +186,85 @@ parser.my_base = None
 #print 'parser generation done'
 #print 
 
-def parse(str):
+def parse(input_text):
+
+   parts = input_text.split('\n%%\n')
+   if len(parts) == 1:
+       lex_extra = ""
+       yacc_extra = ""
+   elif len(parts) == 3:
+       (input_text, lex_extra, yacc_extra) = parts
+   else:
+       raise RuntimeError, "unexpected number of %% parts: %d"%len(parts)
 
    try:
-      result = parser.parse(str, debug=1, lexer=mylex.lexer)
+      result = parser.parse(input_text, debug=1, lexer=mylex.lexer)
       # strictly speaking, neither of these is part of the resulting
       # abstract document, but we do want to keep them and pass them 
       # along, for user happiness (ie nice qnames).
       ####result._base = parser.my_base
       ####result._prefix_map = parser.prefix_map
+      result.lex_extra = lex_extra
+      result.yacc_extra = yacc_extra
       return result
    except error.ParserError, e:
-      e.input_text = str
+      e.input_text = input_text
       raise e
    except ply.lex.LexError, e:
       raise error.LexerError(mylex.lexer.lineno,
-                             len(str) - len(e.text),
-                             input_text = str)
+                             len(input_text) - len(e.text),
+                             input_text = input_text)
 
 class Plugin (plugin.InputPlugin):
-   """RIF Presentation Syntax"""
+   """Read in an annotated BNF grammar"""
 
-   id=__name__
-   spec='http://www.w3.org/TR/2008/WD-rif-bld-20080730/#EBNF_Grammar_for_the_Presentation_Syntax_of_RIF-BLD'
+   id='blindfold_in'
 
-   def parse(self, str):
-      return parse(str)
+   def parse(self, input_text):
+      return parse(input_text)
 
 plugin.register(Plugin)
+
+
+class Plugin2 (plugin.InputPlugin):
+   """Read in data using the provided annotated BNF grammar"""
+
+   id='blindfold'
+   
+   options = [
+       plugin.Option('grammar', 'Location of the grammar to use to guide parsing', 
+                     ),
+       ]
+
+   def __init__(self, grammar):
+       self.grammar_location=grammar
+
+   def parse(self, input_text):
+       
+       # We don't yet have smarts to prevent repeated generation.  Caching
+       # of .pyc files will be important to have, some day soon.
+
+       # parse the grammar
+       grammar_stream = open(self.grammar_location, "r")
+       grammar_text = grammar_stream.read()
+       grammar = parse(grammar_text)
+
+       # generate the python code
+       module_name = "bnf_out_1"
+       python_code_file = module_name+".py"
+       out_stream = open(python_code_file, "w")
+       generator = ply_out.Plugin()
+       generator.serialize(grammar, out_stream)
+       out_stream.close()
+
+       # load and use the resulting python code
+       module = __import__(module_name)
+       return module.parse(input_text)
+
+plugin.register(Plugin2)
+
+
+
 
 if __name__ == "__main__":
 
@@ -220,7 +272,7 @@ if __name__ == "__main__":
    s = sys.stdin.read()
    result = None
    try:
-      result = parse(s)
+      result = parse(input_text)
    except error.SyntaxError, e:
       print 
       print "syntax error, line %d, col %d, %s" % (e.line, e.col, getattr(e, 'msg', 'no msg'))

@@ -81,7 +81,7 @@ parser.my_base = None
 def parse(str):
 
    try:
-      result = parser.parse(str, debug=1, lexer=mylex.lexer)
+      result = parser.parse(str, debug=1, lexer=lexer)
       # strictly speaking, neither of these is part of the resulting
       # abstract document, but we do want to keep them and pass them 
       # along, for user happiness (ie nice qnames).
@@ -92,7 +92,7 @@ def parse(str):
       e.input_text = str
       raise e
    except ply.lex.LexError, e:
-      raise error.LexerError(mylex.lexer.lineno,
+      raise error.LexerError(lexer.lineno,
                              len(str) - len(e.text),
                              input_text = str)
 
@@ -105,7 +105,9 @@ class Plugin (plugin.InputPlugin):
    def parse(self, str):
       return parse(str)
 
-plugin.register(Plugin)
+# Let's not have it registering itself...    Someone else can do this
+# if it's really necessary.
+#plugin.register(Plugin)
 
 if __name__ == "__main__":
 

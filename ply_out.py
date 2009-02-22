@@ -18,7 +18,7 @@ def position_after(big, little):
 
 class Serializer(serializer.General):
 
-    def __init__(self, indent_factor):
+    def __init__(self, indent_factor=4):
         super(Serializer, self).__init__(indent_factor=indent_factor)
         self.tokens = bnf_tools.TokenSet()
 
@@ -35,8 +35,10 @@ class Serializer(serializer.General):
 
         self.out(template[:cut1])
         self.out(self.tokens.for_lex())
+        self.out(getattr(root, "lex_extra", ""))
         self.out(template[cut1:cut2])
         self.do_Grammar(root)
+        self.out(getattr(root, "yacc_extra", ""))
         self.out(template[cut2:])
   
     def do_str(self, obj):
@@ -146,7 +148,7 @@ class Plugin (plugin.OutputPlugin):
        self.ser = Serializer(**kwargs)
 
    def serialize(self, doc, output_stream):
-       self.ser.output_stream = output_stream
+       self.ser.stream = output_stream
        self.ser.generate_parser(doc)
 
 plugin.register(Plugin)

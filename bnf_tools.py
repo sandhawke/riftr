@@ -98,10 +98,15 @@ char_names = {
      ']': 'rbracket', 
      '[': 'lbracket', 
      '}': 'lbrace', 
+     '|': 'vbar',
      '{': 'rbrace', 
      '.': 'dot', 
      ';': 'semi', 
      ',': 'comma', 
+     '?': 'question', 
+     '<': 'lt', 
+     '>': 'gt', 
+     '%': 'percent',
     }
 
 def char_name(char):
@@ -123,7 +128,7 @@ def char_name(char):
         pass
 
     n = "chr%d" % ord(char)
-    print "     '%s': '', " % char
+    # print "     '%s': '', " % char
     char_names[char] = n
     return char_names[char]
 

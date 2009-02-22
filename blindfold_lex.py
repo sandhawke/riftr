@@ -26,7 +26,6 @@ ops = [
    'PLUS',
    'STAR',
    'QUESTION',
-
    ]
 
 delims = [
