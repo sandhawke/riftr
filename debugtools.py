@@ -34,17 +34,33 @@ def debug(tag, *obj):
             # sys.stderr.write("(indent %04d)" % indent)
             sys.stderr.write("%-7s " %(tag+":"))
             sys.stderr.write(".  " * indent)
-            sys.stderr.write(" ".join([str(x) for x in obj]) + "\n")
+            sys.stderr.write(" ".join([my_repr(x) for x in obj]) + "\n")
     indent += indentChange
 
+def my_repr(x):
+    """
+    Like repr() but make sure everything is utf-8, and dictionaries are
+    given a stable ordering.
+    """
+    if isinstance(x,dict):
+        x = dict_repr(x)
+    if isinstance(x, unicode):
+        x = x.encode("utf-8")
+        assert isinstance(x, str)
+    if isinstance(x, str):
+        if x != x.strip():
+            x = '"' + x.replace('"', "\\\"") + '"'
+        return x
+
+    x = repr(x)
+    return my_repr(x)
 
 def dict_repr(d):
     """stable serialization of dict"""
 
     pairs = []
-    keys = d.keys()
-    keys.sort()
-    for k in keys:
-        pairs.append(k+": "+repr(d[k]))
+    keys = [my_repr(k) for x in d.keys()]
+    for k in sorted(keys):
+        pairs.append(k+": "+my_repr(d[k]))
     return "{"+", ".join(pairs)+"}"
     
