@@ -88,7 +88,7 @@ class Multi (object) :
                 self.add(value)
 
     def add(self, new):
-        debug('ast2', 'multi add', new)
+        debug('ast2-multi-add', 'multi add', new)
         assert not isinstance(new, Multi)
 
         if not (new in self.values):
@@ -151,10 +151,11 @@ class Instance (object) :
     def __setattr__(self, prop, value):
         assert not isinstance(value, Multi)
         assert isinstance(prop, basestring)   # unicode?   IRI.
+        debug('ast2', 'adding',prop,"=",value)
         self.dict.setdefault(prop, Multi()).add(value)
 
     def __getattr__(self, prop):
-        debug('ast2', 'returning attr for ', prop)
+        debug('ast2-get', 'returning attr for ', prop)
         return self.dict.setdefault(prop, Multi())
     
     def __cmp__(self, other):
@@ -206,6 +207,9 @@ class Sequence (object) :
 
     def __init__(self, items=None):
         self.items = items or []
+
+    def append(self, new):
+        self.items.append(new)
 
 datatypes = {}
 

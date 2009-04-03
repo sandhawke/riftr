@@ -21,8 +21,8 @@ from debugtools import debug
 import debugtools
 #debugtools.tags.add("ps_out")
 #debugtools.tags.add("reconstruct")
-debugtools.tags.add("xml_in")
-debugtools.tags.add("ast2")
+#debugtools.tags.add("xml_in")
+#debugtools.tags.add("ast2")
 
 RIFNS = u"http://www.w3.org/2007/rif#"
 
@@ -47,72 +47,72 @@ class Parser:
 
         ns = node.namespaceURI
         local = node.localName
-        debug('xml_in(', "value of a", `local`, `ns`)
+        debug('xml_in(', "value_of_element", local, 'ns:',ns)
 
         if (ns == RIFNS and local == u"Const"):
             datatype = node.getAttribute('type')
             lexrep = xx.nodeContents(node)    # this is so wrong.... markup should cause an error!
             v = AST2.DataValue(lexrep, datatype)
-            debug('xml_in)', "It's a data value: ", v)
+            debug('xml_in)', "It's a data value:", v)
             return v
 
         if (ns == RIFNS and local == u"Var"):
             name = xx.nodeContents(node)
             v = AST2.Instance(ns_join(ns, local))
-            getattr(v, ns_join(RIFNS, 'name')).add(name)
+            setattr(v, ns_join(RIFNS, 'name'), AST2.string(name))
+            debug('xml_in)', "It's a variable:", v)
             return v
 
         ins = AST2.Instance(ns_join(ns, local))
-        debug('xml_in', "instance:", ins)
-        
+        debug('xml_in', "instance=", str(ins))
+
+        # xml-attributes as property values
+        # (not in RIF, per se, but it seems reasonable to do...)
+        nnmap = node.attributes
+        for i in range(0, nnmap.length):
+            xmlattr = nnmap.item(i)
+            if xmlattr.prefix == "":
+                ns = node.namespaceURI # not typical for XML
+            else:
+                ns = xmlattr.namespaceURI
+            prop = ns_join(ns, xmlattr.localName)
+            debug('xml_in', "attribute:", prop)
+            setattr(ins, prop, AST2.string(xmlattr.value))
+
+        # child elements as property values        
         for child in node.childNodes:
             if child.nodeType == child.ELEMENT_NODE:
-                
-                ordered=False
-
-                # xml-attributes as property values
-                nnmap = node.attributes
-                for i in range(0, nnmap.length):
-                    xmlattr = nnmap.item(i)
-                    if (xmlattr.prefix == "" and xmlattr.localName == "ordered"):
-                        if xmlattr.value == "yes":
-                            ordered=True
-                            debug('xml_in', "ordered")
-                    else:
-                        if xmlattr.prefix == "":
-                            ns = child.namespaceURI # not typical for XML
-                        else:
-                            ns = xmlattr.namespaceURI
-                        prop = ns_join(ns, xmlattr.localName)
-                        debug('xml_in', "attribute:", prop)
-                        getattr(ins, prop).add(AST2.string(xmlattr.value))
-
-                # child elements as property values
                 prop = ns_join(child.namespaceURI, child.localName)
                 debug('xml_in', "property", prop)
-                if ordered:
+                if child.getAttribute("ordered") == "yes":
+                    debug('xml_in', 'ordered')
                     s = AST2.Sequence()
                     for value in self.values_inside_element(child):
                         s.append(value)
-                    getattr(ins, prop).add(s)
+                    setattr(ins, prop, s)
                 else:
                     for value in self.values_inside_element(child):
-                        getattr(ins, prop).add(value)
+                        setattr(ins, prop, value)
  
             elif xx.white(child):
                 pass
             else:
                 raise RuntimeError("unexpected content")
 
-        debug('xml_in)')
+        debug('xml_in)', 'done reading', ins)
         return ins
         
     def values_inside_element(self, node):
+
+        debug('xml_in(', "getting values inside", node.tagName)
         
         # it's EITHER just text, OR it's a sequence of elements (with whitespace ignored)
         try:
             text = xx.nodeText(node)
-            yield AST2.string(text)
+            result = AST2.string(text)
+            debug('xml_in', "value_inside:", result)
+            yield result
+            debug('xml_in)')
             return
         except xx.UnexpectedContent:
             pass
@@ -121,10 +121,13 @@ class Parser:
             if xx.white(child):
                 pass
             elif child.nodeType == child.ELEMENT_NODE:
-                yield self.value_of_element(child)
+                result = self.value_of_element(child)
+                debug('xml_in', "value_inside:", result)
+                yield result
             else:
                 raise xx.UnexpectedContent
 
+        debug('xml_in)')
 
 class Plugin (plugin.InputPlugin):
    """RIF XML Syntax Input"""
