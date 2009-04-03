@@ -53,6 +53,7 @@ from debugtools import debug
 XS = "http://www.w3.org/2001/XMLSchema#"
 RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
 
+
 class Multi (object) :
     """
 
@@ -109,7 +110,8 @@ class Multi (object) :
         if len(self.values) == 1:
             return self.values[0]
         else:
-            raise RuntimeError()
+            raise RuntimeError('Expecting exactly one value, but there are '+
+                               str(len(self.values)))
 
     @property
     def any(self):
@@ -140,13 +142,17 @@ class Instance (object) :
     def __init__(self, primary_type=None, **kwargs):
         object.__setattr__(self, "dict", {})
         if primary_type:
-            setattr(self, RDF_TYPE, primary_type)
+            setattr(self, RDF_TYPE, string(primary_type))
         for (prop, value) in kwargs.items():
             setattr(self, prop, value)
 
     @property
     def primary_type(self):
-        return getattr(self, RDF_TYPE).first
+        return getattr(self, RDF_TYPE).first.lexrep
+
+    @property
+    def properties(self):
+        return self.dict.keys()
 
     def __setattr__(self, prop, value):
         assert not isinstance(value, Multi)
@@ -219,6 +225,9 @@ class BaseDataValue (object):
 
     """
 
+    @property
+    def serialize_as_type(self):
+        return "BaseDataValue"
 
     def __repr__(self):
         return "DataValue("+`self.lexrep`+", "+`self.datatype`+")"

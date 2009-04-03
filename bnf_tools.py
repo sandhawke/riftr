@@ -2,12 +2,10 @@
 #      -*-mode: python -*-    -*- coding: utf-8 -*-
 """
 
-Should this be a transformative plugin
-      --bnfmod or some such?
 
 Do this stuff with some sort of rules...?
 
-(XSTL?  RIF?  ...
+(XSTL?  RIF?  ...)
 
 """
 
@@ -154,8 +152,7 @@ def convert_to_yacc_form(root):
     # disallow nested Alt
 
 class Plugin (plugin.TransformPlugin) :
-    """Convert (arbitrary) grammars to yacc-style grammars.  Kind of
-    like converting logical formula to Conjunctive Normal Form.
+    """Convert (arbitrary) grammars to yacc-style grammars.  Kind of like converting logical formula to Conjunctive Normal Form.
 
     """
     id = "to_yacc"

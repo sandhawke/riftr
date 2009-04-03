@@ -59,7 +59,7 @@ def dict_repr(d):
     """stable serialization of dict"""
 
     pairs = []
-    keys = [my_repr(k) for x in d.keys()]
+    keys = [my_repr(k) for k in d.keys()]
     for k in sorted(keys):
         pairs.append(k+": "+my_repr(d[k]))
     return "{"+", ".join(pairs)+"}"

@@ -14,7 +14,7 @@ mapping back another sequence of characters.  (In some cases we might
 map from one AST to another more-or-less equivalent one before we
 serialize.)
 
-This interface to ASTs is walks a line between having AST.Nodes be
+This interface to ASTs walks a line between having AST.Nodes be
 simple python objects and ensuring they have a correct, general form.
 In a previous version, I would do something like:
 
@@ -40,6 +40,15 @@ Issues:
       AST objects?
 
    -- even more: Okay to have all python types as attribute values?
+
+   -- use a Multi instead of a list to represent multiple values?
+      The question is, do we special case single-valued vs multi-valued?
+      Or do we want to write code which works for either one?
+      If we really do, then we need   
+           node.attr.all
+           node.attr.any
+           node.attr.the
+           node.attr.
 
 
 """

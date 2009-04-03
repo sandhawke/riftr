@@ -328,7 +328,7 @@ common.rdfs = 'http://www.w3.org/2000/01/rdf-schema#'
 common.xsd = 'http://www.w3.org/2001/XMLSchema#'
 common.dc10 = 'http://purl.org/dc/elements/1.0/'
 common.dc = 'http://purl.org/dc/elements/1.1/'
-common.foaf = 'http://xmlcommon.com/foaf/0.1/'
+common.foaf = 'http://xmlns.com/foaf/0.1/'
 common.log = 'http://www.w3.org/2000/10/swap/log#'
 common.owl = 'http://www.w3.org/2002/07/owl#'
 

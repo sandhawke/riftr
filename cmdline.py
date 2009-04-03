@@ -18,10 +18,15 @@ from optparse import OptionParser
 import debugtools 
 from debugtools import debug
 
+import rif
+import error
 import plugin
+import xml_in
+import xml_out
+import dump2_out
+
 #import ps_parse
 import ps_lex
-import xml_in
 import bld_xml_out
 import fsxml_out
 import xps_out
@@ -30,10 +35,9 @@ import blindfold
 import bnf_out
 import ply_out
 import dump_out
-import rif
-import error
 
 def run():
+
     parser = OptionParser(usage="%prog [options] input-location",
                           version=__version__)
     parser.set_defaults(verbose=True)

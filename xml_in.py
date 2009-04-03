@@ -31,6 +31,9 @@ def ns_join(ns, term):
     Keep this indirect, in case we want to change how we handle namespaces.
     """
 
+    if not ns:
+        return term
+
     if ns.endswith("#"):
         return ns+term
     else:
@@ -59,7 +62,7 @@ class Parser:
         if (ns == RIFNS and local == u"Var"):
             name = xx.nodeContents(node)
             v = AST2.Instance(ns_join(ns, local))
-            setattr(v, ns_join(RIFNS, 'name'), AST2.string(name))
+            setattr(v, 'name', AST2.string(name))
             debug('xml_in)', "It's a variable:", v)
             return v
 
@@ -72,11 +75,17 @@ class Parser:
         for i in range(0, nnmap.length):
             xmlattr = nnmap.item(i)
             if xmlattr.prefix == "":
-                ns = node.namespaceURI # not typical for XML
+                ns = "" # node.namespaceURI # not typical for XML
             else:
+                if xmlattr.prefix and xmlattr.prefix.startswith("xmlns"):
+                    # I guess we could/should remember the shortnames?
+                    continue 
                 ns = xmlattr.namespaceURI
             prop = ns_join(ns, xmlattr.localName)
             debug('xml_in', "attribute:", prop)
+            if prop == 'http://www.w3.org/2000/xmlns/#xmlns':
+                # I guess we could/should remember the shortnames?
+                continue
             setattr(ins, prop, AST2.string(xmlattr.value))
 
         # child elements as property values        
@@ -97,7 +106,7 @@ class Parser:
             elif xx.white(child):
                 pass
             else:
-                raise RuntimeError("unexpected content")
+                raise RuntimeError("unexpected content: "+node.toxml()+" in "+node.parentNode.toxml())
 
         debug('xml_in)', 'done reading', ins)
         return ins
@@ -140,7 +149,7 @@ class Plugin (plugin.InputPlugin):
        try:
            p.root = xml.dom.minidom.parseString(s)
        except xml.parsers.expat.ExpatError, e:
-           raise error.SyntaxError(e.lineno, e.offset, str, e.message)
+           raise error.SyntaxError(e.lineno, e.offset, s, e.message)
        doc = p.value_of_element(p.root.documentElement)
        return doc
 

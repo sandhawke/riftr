@@ -138,7 +138,7 @@ class Serializer(serializer.General):
 
 
 class Plugin (plugin.OutputPlugin):
-   """A variant, made up, presentation syntax"""
+   """...."""
 
    id=__name__
 
