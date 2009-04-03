@@ -88,7 +88,10 @@ class Multi (object) :
                 self.add(value)
 
     def add(self, new):
-        if not new in self.values:
+        debug('ast2', 'multi add', new)
+        assert not isinstance(new, Multi)
+
+        if not (new in self.values):
             self.values.append(new)
             return True
         else:
@@ -98,7 +101,8 @@ class Multi (object) :
         return "Multi(values="+`self.values`+")"
 
     def __cmp__(self, other):
-        return cmp(sorted(self.values, other.values))
+        assert isinstance(other, Multi)
+        return cmp(sorted(self.values), sorted(other.values))
 
     @property
     def the(self):
@@ -131,10 +135,10 @@ class Instance (object) :
     setattr/getattr instead of python's "obj.attr" notation.
 
     """
-    __slots__ = [ "dict" ]
+    __slots__ = [ "dict" ]    
 
     def __init__(self, primary_type=None, **kwargs):
-        self.dict = {}
+        object.__setattr__(self, "dict", {})
         if primary_type:
             setattr(self, RDF_TYPE, primary_type)
         for (prop, value) in kwargs.items():
@@ -150,6 +154,7 @@ class Instance (object) :
         self.dict.setdefault(prop, Multi()).add(value)
 
     def __getattr__(self, prop):
+        debug('ast2', 'returning attr for ', prop)
         return self.dict.setdefault(prop, Multi())
     
     def __cmp__(self, other):
@@ -161,6 +166,15 @@ class Instance (object) :
 
         
     def to_python(self, map):
+        """
+        
+
+
+        ...  wow, have I written code like this a lot, and I'm never
+        very happy with it.  It might make sense to use some sort of
+        schema; I think we have one floating around somewhere.
+
+        """
         (ns, local) = ns_split(self.primary_type)
         cls = getattr(map.class_map[ns], local)
         lvas = list_valued_attributes(cls)
@@ -514,7 +528,8 @@ def map(function, obj, *args, **kwargs):
     return obj
 
 
-
+def string(s):
+    return StringValue(s, XS+"string")
 
 if __name__ == "__main__":
     import doctest, sys

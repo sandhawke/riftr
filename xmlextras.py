@@ -32,6 +32,9 @@ import debugtools
 
 XML = "http://www.w3.org/XML/1998/namespace"
 
+class UnexpectedContent (Exception):
+    pass
+
 # shortcut web access.   very installation specific, of course.
 # hacked in here crudely for now.  
 localizeURLs = (
@@ -256,9 +259,10 @@ def nodeText(node):
     like nodeContents but requires content to be plain text
     '''
     node.normalize()
-    assert (node.nodeType == node.TEXT_NODE or
-            node.nodeType == node.CDATA_SECTION_NODE)
-    return node.data
+    if (node.nodeType == node.TEXT_NODE or
+        node.nodeType == node.CDATA_SECTION_NODE):
+        return node.data
+    raise UnexpectedContent("should be no markup, but was: "+`nodeContents(node)`+", node type "+str(node.nodeType))
         
 def nodeContentsWithoutMarkup(node):
     s = []
@@ -511,6 +515,21 @@ def nextLeaf(node):
     while next.hasChildNodes():
         next = next.firstChild
     return next
+
+
+def theChildElement(node):
+    
+    theOne = None
+    for child in node.childNodes:
+        if child.nodeType == node.ELEMENT_NODE:
+            if theOne is None:
+                theOne = child
+            else:
+                raise UnexpectedContent()
+    #if theOne is None:
+    #    raise RuntimError("fewer child nodes than allowed")
+    return theOne
+
 
 if __name__ == "__main__":
     import doctest, sys
