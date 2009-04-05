@@ -77,7 +77,7 @@ class General (object):
 
             typenames = []
             if isinstance(obj, AST2.BaseDataValue):
-                typenames.append('BaseDataValue')
+                typenames.append(obj.serialize_as_type)
 
             if isinstance(obj, AST2.Sequence):
                 typenames.append("Sequence")

@@ -23,6 +23,7 @@ import AST2
 import xml_in
 import escape
 
+rifns = xml_in.RIFNS
 
 safe_atom = re.compile("[a-z][a-zA-Z_0-9]*$")
 def atom_quote(s):
@@ -51,16 +52,20 @@ class Serializer(serializer2.General):
     #def do_StringValue(self, obj):
     #    self.out(atom_quote(obj.lexrep))
 
+    def do_IntValue(self, obj):
+        self.outk(str(obj.value))
+
     def do_BaseDataValue(self, obj):
-        if obj.datatype == xml_in.RIFNS+"iri":
+        if obj.datatype == rifns+"iri":
             self.iri(obj.lexrep)
-        elif obj.datatype == xml_in.RIFNS+"local":
+        elif obj.datatype == rifns+"local":
             self.local(obj.lexrep)
         else:
             self.outk('data(')
             self.outk(atom_quote(obj.lexrep))
             self.outk(", ")
             self.iri(obj.datatype)
+            self.outk(", ", obj.serialize_as_type)
             self.outk(')')
 
     def iri(self, text):
@@ -176,11 +181,54 @@ class Serializer(serializer2.General):
         self.outk(")")
             
     def do_Atom(self, obj):
-        self.do(obj.op.the)
-        self.outk("(")
-        self.do(obj.args.the)
-        self.outk(")")
+        if self.handle_external(obj):
+            pass
+        else:
+            self.do(obj.op.the)
+            self.outk("(")
+            self.do(obj.args.the)
+            self.outk(")")
+        
+    rif_calc = AST2.obtainDataValue(rifns+"calc", rifns+"iri")
 
+    rif_bif = 'http://www.w3.org/2007/rif-builtin-function#'
+    rif_bip = 'http://www.w3.org/2007/rif-builtin-predicate#'
+
+    def handle_external(self, obj):
+        if obj.op.the == self.rif_calc:
+            (var, expr) = obj.args.the.items
+            func = expr.op.the
+            assert func.datatype == rifns+"iri"
+            (ns, local) = qname.uri_split(func.lexrep)
+            if ns == self.rif_bif:
+                arg = expr.args.the.items
+                if local == "numeric-subtract":
+                    self.do(var)
+                    self.outk(' is ')
+                    self.do(arg[0])
+                    self.outk(' - ')
+                    self.do(arg[1])
+                    return True
+                else:
+                    # warn about missing builtin?
+                    pass
+        else:
+            pred = obj.op.the
+            if pred.datatype == rifns+"iri":
+                (ns, local) = qname.uri_split(pred.lexrep)
+                if ns == self.rif_bip:
+                    arg = obj.args.the.items
+                    if local == "numeric-greater-than":
+                        self.do(arg[0])
+                        self.outk(" > ")
+                        self.do(arg[1])
+                        return True
+                    else:
+                        # warn about missing builtin?
+                        pass
+
+        return False
+        
     def do_Equal(self, obj):
         self.open_paren("=")
         self.do(obj.left.the)
@@ -201,9 +249,9 @@ class Serializer(serializer2.General):
         self.outk(")")
 
     def op(self, op):
-        if op.datatype == xml_in.RIFNS+"iri":
+        if op.datatype == rifns+"iri":
             s = "iri_"
-        elif op.datatype == xml_in.RIFNS+"local":
+        elif op.datatype == rifns+"local":
             s = "local_"
         else:
             raise RuntimeError()
@@ -253,7 +301,7 @@ class Plugin (plugin.OutputPlugin):
        self.ser = Serializer(**kwargs)
 
    def serialize(self, doc, output_stream):
-       AST2.default_namespace = xml_in.RIFNS
+       AST2.default_namespace = rifns
        self.ser.output_stream = output_stream
        self.ser.do(doc)
   

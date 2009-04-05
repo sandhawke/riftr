@@ -434,6 +434,10 @@ class IntValue (BaseDataValue) :
 
     """
 
+    @property
+    def serialize_as_type(self):
+        return "IntValue"
+
     __slots__ = ['value', 'datatype']   # keep dt around...???
 
     def __init__(self, lexrep, datatype):
