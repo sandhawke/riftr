@@ -24,6 +24,11 @@ import xml_in
 import escape
 
 rifns = xml_in.RIFNS
+rif_bif = 'http://www.w3.org/2007/rif-builtin-function#'
+rif_bip = 'http://www.w3.org/2007/rif-builtin-predicate#'
+
+class MissingBuiltin (Exception):
+    pass
 
 safe_atom = re.compile("[a-z][a-zA-Z_0-9]*$")
 def atom_quote(s):
@@ -181,54 +186,59 @@ class Serializer(serializer2.General):
         self.outk(")")
             
     def do_Atom(self, obj):
-        if self.handle_external(obj):
+        try:
+            self.handle_builtin_atom(obj)
+            return
+        except MissingBuiltin:
             pass
-        else:
-            self.do(obj.op.the)
-            self.outk("(")
-            self.do(obj.args.the)
-            self.outk(")")
+
+        self.do(obj.op.the)
+        self.outk("(")
+        self.do(obj.args.the)
+        self.outk(")")
         
-    rif_calc = AST2.obtainDataValue(rifns+"calc", rifns+"iri")
 
-    rif_bif = 'http://www.w3.org/2007/rif-builtin-function#'
-    rif_bip = 'http://www.w3.org/2007/rif-builtin-predicate#'
+    def handle_builtin_atom(self, obj):
+        pred = obj.op.the
+        if pred.datatype == rifns+"iri":
+            (ns, local) = qname.uri_split(pred.lexrep)
+            if ns == rif_bip:
+                arg = obj.args.the.items
+                method_name = "builtin_"+local.replace("-","_")
+                debug('prolog-bi', 'looking for pred ', method_name)
+                attr = getattr(self, method_name, None)
+                if attr:
+                    attr(*arg)
+                    return
+        raise MissingBuiltin()
+                    
 
-    def handle_external(self, obj):
-        if obj.op.the == self.rif_calc:
-            (var, expr) = obj.args.the.items
-            func = expr.op.the
-            assert func.datatype == rifns+"iri"
+    def builtin_calc(self, var, expr):
+        func = expr.op.the
+        if func.datatype == rifns+"iri":
             (ns, local) = qname.uri_split(func.lexrep)
-            if ns == self.rif_bif:
+            if ns == rif_bif:
                 arg = expr.args.the.items
-                if local == "numeric-subtract":
-                    self.do(var)
-                    self.outk(' is ')
-                    self.do(arg[0])
-                    self.outk(' - ')
-                    self.do(arg[1])
-                    return True
-                else:
-                    # warn about missing builtin?
-                    pass
-        else:
-            pred = obj.op.the
-            if pred.datatype == rifns+"iri":
-                (ns, local) = qname.uri_split(pred.lexrep)
-                if ns == self.rif_bip:
-                    arg = obj.args.the.items
-                    if local == "numeric-greater-than":
-                        self.do(arg[0])
-                        self.outk(" > ")
-                        self.do(arg[1])
-                        return True
-                    else:
-                        # warn about missing builtin?
-                        pass
+                method_name = "builtin_"+local.replace("-","_")
+                debug('prolog-bi', 'looking for func ', method_name)
+                attr = getattr(self, method_name, None)
+                if attr:
+                    attr(var, *arg)
+                    return
+        raise MissingBuiltin()
 
-        return False
-        
+    def builtin_subtract(self, var, left, right):
+        self.do(var)
+        self.outk(' is ')
+        self.do(left)
+        self.outk(' - ')
+        self.do(right)
+
+    def builtin_numeric_greater_than(self, left, right):
+        self.do(left)
+        self.outk(" > ")
+        self.do(right)
+
     def do_Equal(self, obj):
         self.open_paren("=")
         self.do(obj.left.the)

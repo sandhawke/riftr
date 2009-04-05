@@ -25,12 +25,12 @@ calculate/assign predicate.   Needed for Prolog.
    id=__name__
    options = [
        plugin.Option('calc_pred', 'IRI/Qname of the calculate/assign predicate to use',
-                     default="rif:calc"),
+                     default="pred:calc"),
        ]
 
 
    def __init__(self, calc_pred=None):
-       self.calc_pred = AST2.obtainDataValue(qname.common.uri(calc_pred or "rif:calc"),
+       self.calc_pred = AST2.obtainDataValue(qname.common.uri(calc_pred),
                                              rifns+"iri")
        self.v_count = 0
 
