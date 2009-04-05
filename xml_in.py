@@ -62,7 +62,7 @@ class Parser:
         if (ns == RIFNS and local == u"Var"):
             name = xx.nodeContents(node)
             v = AST2.Instance(ns_join(ns, local))
-            setattr(v, 'name', AST2.string(name))
+            setattr(v, RIFNS+'name', AST2.string(name))
             debug('xml_in)', "It's a variable:", v)
             return v
 

@@ -53,6 +53,7 @@ from debugtools import debug
 XS = "http://www.w3.org/2001/XMLSchema#"
 RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
 
+default_namespace = None
 
 class Multi (object) :
     """
@@ -157,10 +158,14 @@ class Instance (object) :
     def __setattr__(self, prop, value):
         assert not isinstance(value, Multi)
         assert isinstance(prop, basestring)   # unicode?   IRI.
+        if default_namespace and prop.find(":") == -1:
+            prop = default_namespace + prop
         debug('ast2', 'adding',prop,"=",value)
         self.dict.setdefault(prop, Multi()).add(value)
 
     def __getattr__(self, prop):
+        if default_namespace and prop.find(":") == -1:
+            prop = default_namespace + prop
         debug('ast2-get', 'returning attr for ', prop)
         return self.dict.setdefault(prop, Multi())
     
@@ -171,7 +176,16 @@ class Instance (object) :
     def __str__(self):
         return "Instance("+self.primary_type+", ...)"
 
+    def __repr__(self):
+        s = "Instance("+self.primary_type+", "
+        for (prop, value) in self.dict.items():
+            s += `prop`+"="+`value`+", "
+        s += ")"
+        return s
+
         
+
+
     def to_python(self, map):
         """
         

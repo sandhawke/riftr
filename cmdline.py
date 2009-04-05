@@ -24,6 +24,7 @@ import plugin
 import xml_in
 import xml_out
 import dump2_out
+import prolog_out
 
 #import ps_parse
 import ps_lex
