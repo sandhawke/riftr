@@ -12,6 +12,7 @@ from cStringIO import StringIO
 import AST2
 import xml_in
 
+rifns = xml_in.RIFNS
 
 class Serializer(serializer2.General):
 
@@ -35,15 +36,15 @@ class Serializer(serializer2.General):
             #raise RuntimeError(msg)
 
     def do_Var(self, obj):
-        self.xml_begin(xml_in.RIFNS+'Var')
-        self.xml_set_text(obj.name.the.lexrep)
+        self.xml_begin(rifns+'Var')
+        self.xml_set_text(getattr(obj, rifns+"name").the.lexrep)
         self.xml_end()
 
     def do_StringValue(self, obj):
         self.xml_set_text(obj.lexrep)
 
     def do_BaseDataValue(self, obj):
-        self.xml_begin(xml_in.RIFNS+'Const', {(None, 'type'):obj.datatype})
+        self.xml_begin(rifns+'Const', {(None, 'type'):obj.datatype})
         self.xml_set_text(obj.lexrep)
         self.xml_end()
 

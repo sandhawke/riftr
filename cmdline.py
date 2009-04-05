@@ -25,6 +25,8 @@ import xml_in
 import xml_out
 import dump2_out
 import prolog_out
+import func_to_pred
+import unnest
 
 #import ps_parse
 import ps_lex

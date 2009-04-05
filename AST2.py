@@ -41,6 +41,14 @@ Issues:
    -- even more: Okay to have all python types as attribute values?
 
 
+****************
+
+  * Instead of default_namespace, have a qname map.  (but only use it
+    when there's no match, so it never intercepts?)
+
+  * It's so hard to know if we should just use an xml dom or an rdf
+    graph as the AST...  :-(
+
 """
 
 import sys
@@ -99,6 +107,16 @@ class Multi (object) :
         else:
             return False
 
+    def remove(self, value):
+        self.values.remove(value)
+
+    def replace_values(self, new_values):
+        # please use this interface to replace the list of values,
+        # instead of mucking with values directly.
+        #
+        # (this way, we could do special processing...)
+        self.values = new_values
+
     def __repr__(self):
         return "Multi(values="+`self.values`+")"
 
@@ -137,23 +155,88 @@ class Instance (object) :
     Note the property values are often IRIs.   Just use
     setattr/getattr instead of python's "obj.attr" notation.
 
+    Should we maye primary_type look like a value of RDF_TYPE?  Eh, I
+    dunno....
+
     """
-    __slots__ = [ "dict" ]    
+    __slots__ = [ "primary_type", "dict" ]    
 
     def __init__(self, primary_type=None, **kwargs):
         object.__setattr__(self, "dict", {})
-        if primary_type:
-            setattr(self, RDF_TYPE, string(primary_type))
+        object.__setattr__(self, "primary_type", primary_type)
         for (prop, value) in kwargs.items():
             setattr(self, prop, value)
 
-    @property
-    def primary_type(self):
-        return getattr(self, RDF_TYPE).first.lexrep
+    def has_primary_type(self, type):
+        if default_namespace and type.find(":") == -1:
+            type = default_namespace + type
+        return self.primary_type == type
 
     @property
     def properties(self):
         return self.dict.keys()
+
+    @property
+    def child_instances(self):
+        '''yield each instance directly under this one (via Multi/Sequence)'''
+
+        for prop in self.properties:
+            for value in getattr(self, prop):
+                if isinstance(value, Sequence):
+                    items = value.items
+                else:
+                    items = (value,)
+                for item in items:
+                    if isinstance(item, Instance):
+                        yield item
+                    elif isinstance(item, BaseDataValue):
+                        pass
+                    else:
+                        raise RuntimeError('bad AST tree')
+        return 
+
+    def map_replace(self, func):
+        '''call the func on each descendant Instance, replacing it
+        with whatever Instance func returns.  Works from the leaves
+        up, operating on children before their parents.  If func
+        returns None, that list-item or property value is simply
+        removed'''
+
+        debug('ast2-map(', 'begin')
+        for prop in self.properties:
+            multi = getattr(self, prop)
+            self.list_map(multi.values, func, True)
+        debug('ast2-map)')
+
+    def list_map(self, values, func, collapse_dups):
+        '''call func on each item in this array of instances and
+        return a new array of the resulting instances; used by map_in_place'''
+
+        result = []
+        for value in values:
+
+            if isinstance(value, Sequence):
+                self.list_map(value.items, func, False)
+                result.append(value)
+            elif isinstance(value, Instance):
+                value.map_replace(func)
+                new = func(value)
+                if collapse_dups:
+                    if new in result:
+                        pass
+                    else:
+                        result.append(new)
+                else:
+                    result.append(new)
+            elif isinstance(value, BaseDataValue):
+                result.append(value)
+            else:
+                raise RuntimeError('bad AST tree')
+
+        values[:] = result
+
+
+
 
     def __setattr__(self, prop, value):
         assert not isinstance(value, Multi)
@@ -166,7 +249,7 @@ class Instance (object) :
     def __getattr__(self, prop):
         if default_namespace and prop.find(":") == -1:
             prop = default_namespace + prop
-        debug('ast2-get', 'returning attr for ', prop)
+        debug('ast2-get', 'returning attr for', prop)
         return self.dict.setdefault(prop, Multi())
     
     def __cmp__(self, other):
@@ -498,6 +581,7 @@ def list_valued_attributes(cls):
     return result
         
 
+# OBSOLETE --- use   inst.map_replace()
 def map(function, obj, *args, **kwargs):
     """
     Apply this function to every node in the tree, starting with the
