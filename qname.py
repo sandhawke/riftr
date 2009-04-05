@@ -73,13 +73,14 @@ class Map:
     DuplicateShortName: Shortname 'rdf' cannot be bound to 'http://www.w3.org/something-different' since it is already bound to 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
 
     with a different short part, it's an alias.  getShort will always
-    return the first shortname bound for this longname.
+    return the first shortname bound for this longname.  ERR, not any
+    more.  Now it's arbitrary.
 
     >>> map.bind('r', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#')
     >>> map.r
     'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
-    >>> map.getShort(map.r)
-    'rdf'
+    >>> map.getShort(map.r) == 'rdf' or map.getShort(map.r) == 'r' 
+    True
     
 
     Part 2 -- inheritance from"defaults".  Each map has a list of
@@ -264,7 +265,7 @@ class Map:
     def shortNames(self):
         return self._long.keys()
 
-splitPattern = re.compile(r"""^(.*[#?/])([a-zA-Z_][\w]*|)$""")
+splitPattern = re.compile(r"""^(.*[#?/])([a-zA-Z_][-\w]*|)$""")
 
 class Unsplitable(RuntimeError):
     pass
@@ -278,10 +279,13 @@ def uri_split(uri):
     >>> uri_split('http://www.w3.org/2002/07/owl#')
     ('http://www.w3.org/2002/07/owl#', '')
 
-    >>> uri_split('http://www.w3.org/2002/07/owl#bad-stuff')
+    >>> uri_split('http://www.w3.org/2002/07/owl#ok-stuff')
+    ('http://www.w3.org/2002/07/owl#', 'ok-stuff')
+
+    >>> uri_split('http://www.w3.org/2002/07/owl#bad stuff')
     Traceback (most recent call last):
     ...
-    Unsplitable: http://www.w3.org/2002/07/owl#bad-stuff
+    Unsplitable: http://www.w3.org/2002/07/owl#bad stuff
 
     """
     m = splitPattern.match(uri)
@@ -331,6 +335,7 @@ common.dc = 'http://purl.org/dc/elements/1.1/'
 common.foaf = 'http://xmlns.com/foaf/0.1/'
 common.log = 'http://www.w3.org/2000/10/swap/log#'
 common.owl = 'http://www.w3.org/2002/07/owl#'
+common.rif = 'http://www.w3.org/2007/rif#'
 
 if __name__ == "__main__":
     import doctest, sys
