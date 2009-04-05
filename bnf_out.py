@@ -8,13 +8,17 @@
 
 """
 
-import serializer
+import serializer2
 import plugin
 from cStringIO import StringIO
 
-import AST
+from debugtools import debug
 
-class Serializer(serializer.General):
+import AST2
+NS = "http://www.w3.org/2009/02/blindfold/ns#"
+AST2.default_namespace = NS
+
+class Serializer(serializer2.General):
 
     def __init__(self, indent_factor, show_annotations, html):
         super(Serializer, self).__init__(indent_factor=indent_factor)
@@ -38,80 +42,85 @@ class Serializer(serializer.General):
     #def do_Sequence(self, obj):
 
     def do_Grammar(self, obj):
-        for i in obj.productions:
+        for i in obj.productions.the.items:
             self.do(i)
             self.outk("\n\n")
 
     def do_Production(self, obj):
-        self.outk(obj.name, " ::= ")
-        self.do(obj.expr)
+        self.outk(obj.name.the.lexrep, " ::= ")
+        self.do(obj.expr.the)
 
 
     def do_Seq(self, obj):
         #self.outk("(")
-        self.do(obj.left)
+        self.do(obj.left.the)
         self.outk(" ")
-        self.do(obj.right)
+        self.do(obj.right.the)
         #self.outk(")")
 
     def do_Alt(self, obj):
         #self.outk("(")
-        self.do(obj.left)
+        self.do(obj.left.the)
         self.lend()
         self.outk(" | ")
-        self.do(obj.right)
+        self.do(obj.right.the)
         #self.outk(")")
 
     def do_AltN(self, obj):
         self.indent += 1
-        for expr in obj.exprs[:-1]:
+        exprs = obj.exprs.values
+        for expr in exprs[:-1]:
             self.do(expr)
             self.lend()
             self.outk(" | ")
-        self.do(obj.exprs[-1])
+        self.do(exprs[-1])
         self.indent -= 1
 
     def do_Reference(self, obj):
-        self.outk(obj.name)
+        self.outk(obj.name.the.lexrep)
 
     def do_Precedence(self, obj):
         self.outk("(")
-        self.do(obj.expr)
+        self.do(obj.expr.the)
         self.outk(")")
-        self.outk(" %prec ", obj.reference)
+        self.outk(" %prec ", obj.reference.the.lexrep)
 
 
     def do_Property(self, obj):
-        self.outk(obj.property)
+        self.outk(obj.property.the)
         self.outk("::(")    # how do to parens only when necessary?
-        self.do(obj.expr)
+        self.do(obj.expr.the)
         self.outk(")")
 
     def do_Plus(self, obj):
         self.outk("(")
-        self.do(obj.expr)
+        self.do(obj.expr.the)
         self.outk(")")
         self.outk("+")
 
     def do_Optional(self, obj):
         self.outk("(")
-        self.do(obj.expr)
+        self.do(obj.expr.the)
         self.outk(")")
         self.outk("?")
 
 
     def do_Times(self, obj):
         self.outk("(")
-        self.do(obj.expr)
+        self.do(obj.expr.the)
         self.outk(")")
         self.outk("*")
 
     def do_Literal(self, obj):
-        self.outk('"', obj.text, '"')    # escaping
+        s = obj.text.the.lexrep
+        s = s.replace('"', r'\"')
+        self.outk('"', s, '"')
 
     def default_do(self, obj):
 
-        self.begin(obj._type[1])
+        self.out('**UNKNOWN**', obj.primary_type)
+        return
+        self.begin(obj.primary_type)
         for (key, value) in obj.__dict__.items():
             if value is None:
                 continue
@@ -125,7 +134,7 @@ class Serializer(serializer.General):
                     self.outk(key, '=')
                     self.do(item)
                     self.lend(1)
-            elif isinstance(value, AST.Sequence):
+            elif isinstance(value, AST2.Sequence):
                 self.outk(key, '= [')
                 for item in value.items:
                     self.do(item)
@@ -160,7 +169,9 @@ class Plugin (plugin.OutputPlugin):
 
    def serialize(self, doc, output_stream):
        self.ser.output_stream = output_stream
+       debug('bnf_out(', 'running')
        self.ser.do(doc)
+       debug('bnf_out)')
   
 plugin.register(Plugin)
 

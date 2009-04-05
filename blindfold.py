@@ -9,7 +9,7 @@ grammar.
 
 It uses PLY for the actual parsing.  
 
-This is another attempt at something I worked on long ago.
+This is another attempt at something I worked on long, long ago.
 http://www.w3.org/2001/06/blindfold/grammar
 
 """
@@ -21,7 +21,7 @@ import ply.lex
 
 import blindfold_lex as mylex
 
-import AST
+import AST2
 import plugin
 import error
 import ply_out
@@ -29,11 +29,16 @@ import ply_out
 NS = "http://www.w3.org/2009/02/blindfold/ns#"
 
 def node(type, **kwargs):
-    return AST.Node( (NS, type), **kwargs)
+    n = AST2.Instance(NS+type)
+    for (k,v) in kwargs.items():
+        if v is None:
+            continue
+        if isinstance(v, basestring):
+            v = AST2.string(v)
+        setattr(n, NS+k, v)
+    return n
 
 tokens = mylex.tokens
-
-
 
 precedence = (
 #    ('right', 'VERTICALBAR'),
@@ -52,7 +57,7 @@ def default_action(t):
     elif len(t) == 1:
         t[0] = t[1]
     else:
-        t[0] = [x for x in t[1:]]
+        t[0] = AST2.Sequence(items=[x for x in t[1:]])
     #raise RuntimeError('not implemented')
 
 ################################################################
@@ -133,20 +138,20 @@ def p_action(t):
 # GENERATED CODE FOR '_star' (REPEAT 0+) PRODUCTION
 def p_production_star_1(t):
    '''production_star : production_star production'''
-   t[0] = t[1] + [t[2]]
+   t[0] = t[1] + AST2.Sequence(items=[t[2]])
 def p_production_star_2(t):
    '''production_star : EMPTY'''
-   t[0] = []
+   t[0] = AST2.Sequence(items=[])
 
 
 
 # GENERATED CODE FOR '_plus' (REPEAT 1+) PRODUCTION
 def p_WORD_plus_1(t):
    '''WORD_plus : WORD_plus WORD  '''
-   t[0] = t[1] + [t[2]]
+   t[0] = t[1] + AST2.Sequence(items=[t[2]])
 def p_WORD_plus_2(t):
    '''WORD_plus : WORD '''
-   t[0] = [t[1]]
+   t[0] = AST2.Sequence(items=[t[1]])
 
 
 
@@ -204,8 +209,8 @@ def parse(input_text):
       # along, for user happiness (ie nice qnames).
       ####result._base = parser.my_base
       ####result._prefix_map = parser.prefix_map
-      result.lex_extra = lex_extra
-      result.yacc_extra = yacc_extra
+      result.lex_extra = AST2.string(lex_extra)
+      result.yacc_extra = AST2.string(yacc_extra)
       return result
    except error.ParserError, e:
       e.input_text = input_text
