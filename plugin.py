@@ -14,6 +14,8 @@ TODO:
         which attaches the argument's affect to a prior compatible
         plugin.
 
+     -- html for options.
+
 Every plugin should:
 
    1.  import this module (plugin)
@@ -35,7 +37,7 @@ Every plugin should:
         plugin.__doc__
 
                 The documentation for that plugin -- ie what we print
-                out to describe it!
+                out to describe it
 
         plugin.spec  (optional)
 
@@ -55,8 +57,7 @@ Every plugin should:
         plugin.transform(node)
         plugin.analyze(node)
 
-                One of these two functions, depending whether you do
-                input or output.
+                implement to appropriate one of these functions        
 
    3.  Toward the end of your module, call:   
 
@@ -65,7 +66,7 @@ Every plugin should:
 
 Design Note:
 
-   I was on the fense about whether what's registered as a plugin
+   I was on the fence about whether what's registered as a plugin
    should be a class or an instance.  I settled on "class" when I
    added options, because it seems pretty nice to have the options
    turn into attributes of the instance and/or arguments.
@@ -73,11 +74,6 @@ Design Note:
    (Maybe there should be some flag about whether you want them passed
    in, or want us to set them, then call init2?)
 
-Design Note:
-
-   We don't really pay enough attention to Input vs Output plugins.
-   Could a plugin be both?  I guess we'll understand this better
-   when/if we have more types of plugins.
 
 """
 
@@ -159,7 +155,7 @@ def register(p):
     assert p.__doc__
     assert p.id
     if isinstance(p, Plugin):
-        raise RuntimeError, "WARNING: plugin %s passed instance -- ignored"%p.id
+        raise RuntimeError("Plugin %s passed instance instead of class")
     registry.append(p)
 
 
@@ -195,6 +191,12 @@ def add_to_OptionParser(parser):
         parser.add_option_group(group)
 
 def get_plugins(actions, options):
+    """ Yields sequence of INSTANTIATIONS of plugins which which:
+            1.  have their id present in the list options.plugins
+                (and use this order for results); and
+            2.  have an action word ("input", "transform", etc]
+                in the collection you provide as "actions";
+     """
     
     for plugin_id in getattr(options, "plugins"):
         for plugin in registry:

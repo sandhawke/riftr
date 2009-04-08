@@ -3,8 +3,9 @@
 
 """
 
-This is crufty old code that has been repurposed many times, and not
-carefully.  Sorry.
+This provides the web interface, in parallel to cmdline.py providing
+the command-line interface.
+
 
 """
 
@@ -13,23 +14,27 @@ import sys
 import cgi
 import glob
 import os.path
+from cStringIO import StringIO
 
 import html as h
 
 import plugin
-import ps_parse
-import ps_lex
-import xml_in
-import bld_xml_out
 import rif
 import error
 
-#
-# GLOBAL VARIABLES
-#
-# (This is a CGI, we can do this kind of stuff.  Heh.  Maybe someday
-# we'll turn this into a class called, um, ... Page? )
-#
+import xml_in
+import xml_out
+import dump2_out
+import prolog_out
+import func_to_pred
+import unnest
+
+#import ps_parse
+#import ps_lex
+#import xml_in
+#import bld_xml_out
+
+
 page = None
 
 def startPage(title):
@@ -60,15 +65,21 @@ def main_page(args):
     form << h.h3("Step 2: Provide Input") 
     select_input(form, args)
 
-    form << h.h3("Step 3: Select Output Processor") 
+    form << h.h3("Step 3: (Optional) Select transform or analysis plugins") 
+    select_middle(form, args)
+    
+    analysis_div = h.div()
+    page << analysis_div
+
+    form << h.h3("Step 4: Select Output Processor") 
     select_output_processor(form, args)
 
-    form << h.h3("Step 4: Begin Processing") 
+    form << h.h3("Step 5: Begin Processing") 
 
     form << h.br()
 
     output_div = h.div()
-    output_done = run(output_div, args)
+    output_done = run(output_div, args, analysis_div)
     page << form
     page << output_div
 
@@ -143,7 +154,7 @@ def select_processor(div, args, method, field_name):
                             value=p.id)
             
             examples = h.span()
-            if hasattr(p, 'examples') and p.examples:
+            if getattr(p, 'examples', []):
                 examples << h.br()
                 examples << "Load example input: "
                 for (name, text) in p.examples:
@@ -198,53 +209,90 @@ def select_input(div, args):
                        size="80",
                        value=input_location))
     
-    input_text=args.getvalue("input_text", default_input())
+    input_text=args.getvalue("input_text", "")
     div << h.p(('(Method 2) Input Text:'), h.br(),
                h.textarea(input_text,
                           cols="90", rows="10", name="input_text"))
 
-def run(page, args):
+def select_middle(div, args):
+
+    any = False
+    line = h.p("Select plugins to instantiate: ")
+    div << line
+    for p in plugin.registry:
+        if p.action_word() in ["transform", "analysis"]:
+            line << h.span(p.id)   # javascript so click makes a new block for it appear below....
+            line << " "
+            any = True
+    if not any:
+        line << "(none available)."
+
+class OptionSet (object):
+    pass
+
+def run(outdiv, args, middiv):
+
+    options = OptionSet()
+    options.plugins = [ args.getfirst("input_processor"),
+                        args.getfirst("output_processor"),
+                        ] + args.getlist("plugin")
+    
+    # get other "options" out of args...
+    #    they're named (pluginid_optionname):   xml_out_indent=
+    
+    for p in plugin.registry:
+        for option in getattr(p, 'options', []):
+            key = p.id + "_" + option.name
+            values = args.getlist(key)
+            if values:
+                setattr(options, key, values[0])
+            else:
+                default = getattr(option, 'default', None)
+                if default:
+                    setattr(options, key, default)
+
+    try:
+        (iproc,) = plugin.get_plugins(["input"], options)
+    except ValueError:
+        outdiv << h.p('No input processor selected.')
+        return False
 
     input_text = input_text=args.getvalue("input_text", "")
     input_text = input_text.replace("\r\n", "\n")
-
-    input_processor_id = args.getfirst("input_processor")
-    iproc = None
-    if input_processor_id:
-        for p in plugin.registry:
-            if hasattr(p, 'parse'):
-                if p.id == input_processor_id:
-                    iproc = p
-                    break
-    else:
-        page << h.p('No input processor selected.')
-        return False
-            
     try:
         doc = iproc.parse(input_text)
     except error.SyntaxError, e:
         err = ""
         err += e.message + "\n"
         err += e.illustrate_position()
-        page << h.pre("Error\n"+err,
+        outdiv << h.pre("Error\n"+err,
                       style="padding: 1em; border:2px solid red;")
         return False
 
-    
-    output_processor_id = args.getfirst("output_processor")
-    if output_processor_id:
-        oproc = None
-        for p in plugin.registry:
-            if hasattr(p, 'serialize'):
-                if p.id == output_processor_id:
-                    oproc = p
-                    break
-        output = oproc.serialize(doc)
-        page << h.pre(output, style="padding:1em; border:1px solid black;")
-        return True 
-    else:
-        page << h.p('No output processor selected.')
+
+    for p in plugin.get_plugins(["transform","analysis"], options):
+        if isinstance(p, plugin.TransformPlugin):
+            doc = p.transform(doc)
+        elif isinstance(p, plugin.AnalysisPlugin):
+            report = p.analyze(doc)
+            d = h.div()
+            d << h.p("Report from %s plugin:" % p.id)
+            d << h.pre(report, style="padding:1em; border:1px solid black;")
+            middiv << d
+        else:
+            raise RuntimeError
+
+
+    try:
+        (oproc,) = plugin.get_plugins(["output"], options)
+    except ValueError:
+        outdiv << h.p('No output processor selected.')
         return False
+
+    buffer = StringIO()
+    oproc.serialize(doc, buffer)
+    outdiv << h.pre(buffer.getvalue(), style="padding:1em; border:1px solid black;")
+    return True 
         
 
             
@@ -261,186 +309,3 @@ def cgiMain():
     handle_example_input(args)
     main_page(args)
 
-def xdefault_input() :
-        return """Document(
-  Prefix(cpt <http://example.com/concepts#>)
-  Prefix(ppl <http://example.com/people#>)
-  Prefix(bks <http://example.com/books#>)
-
-  Group
-  (
-    Forall ?Buyer ?Item ?Seller (
-        cpt:buy(?Buyer ?Item ?Seller) :- cpt:sell(?Seller ?Item ?Buyer)
-    )
- 
-    cpt:sell(ppl:John bks:LeRif ppl:Mary)
-  )
-)
-    """
-
-def default_input():
-    return """
-<!-- Example 7 from RIF BLD July 2008 Draft -->
-<!DOCTYPE Document [
-  <!ENTITY ppl  "http://example.com/people#">
-  <!ENTITY cpt  "http://example.com/concepts#">
-  <!ENTITY dc   "http://purl.org/dc/terms/">
-  <!ENTITY rif  "http://www.w3.org/2007/rif#">
-  <!ENTITY func "http://www.w3.org/2007/rif-builtin-function#">
-  <!ENTITY pred "http://www.w3.org/2007/rif-builtin-predicate#">
-  <!ENTITY xs   "http://www.w3.org/2001/XMLSchema#">
-]>
-
-<Document 
-    xmlns="http://www.w3.org/2007/rif#"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xs="http://www.w3.org/2001/XMLSchema#">
-  <payload>
-   <Group>
-    <id>
-      <Const type="&rif;iri">http://sample.org</Const>
-    </id>
-    <meta>
-      <Frame>
-        <object>
-          <Const type="&rif;local">pd</Const>
-        </object>
-        <slot ordered="yes">
-          <Const type="&rif;iri">&dc;publisher</Const>
-          <Const type="&rif;iri">http://www.w3.org/</Const>
-        </slot>
-        <slot ordered="yes">
-          <Const type="&rif;iri">&dc;date</Const>
-          <Const type="&xs;date">2008-04-04</Const>
-        </slot>
-      </Frame>
-    </meta>
-    <sentence>
-     <Forall>
-       <declare><Var>item</Var></declare>
-       <declare><Var>deliverydate</Var></declare>
-       <declare><Var>scheduledate</Var></declare>
-       <declare><Var>diffduration</Var></declare>
-       <declare><Var>diffdays</Var></declare>
-       <formula>
-         <Implies>
-           <if>
-             <And>
-               <formula>
-                 <Atom>
-                   <op><Const type="&rif;iri">&cpt;perishable</Const></op>
-                   <args ordered="yes"><Var>item</Var></args>
-                 </Atom>
-               </formula>
-               <formula>
-                 <Atom>
-                   <op><Const type="&rif;iri">&cpt;delivered</Const></op>
-                   <args ordered="yes">
-                     <Var>item</Var>
-                     <Var>deliverydate</Var>
-                     <Const type="&rif;iri">&ppl;John</Const>
-                   </args>
-                 </Atom>
-               </formula>
-               <formula>
-                 <Atom>
-                   <op><Const type="&rif;iri">&cpt;scheduled</Const></op>
-                   <args ordered="yes">
-                     <Var>item</Var>
-                     <Var>scheduledate</Var>
-                   </args>
-                 </Atom>
-               </formula>
-               <formula>
-                 <Equal>
-                   <left><Var>diffduration</Var></left>
-                   <right>
-                     <External>
-                       <content>
-                         <Expr>
-                           <op><Const type="&rif;iri">&func;subtract-dateTimes</Const></op>
-                           <args ordered="yes">
-                             <Var>deliverydate</Var>
-                             <Var>scheduledate</Var>
-                           </args>
-                         </Expr>
-                       </content>
-                     </External>
-                   </right>
-                 </Equal>
-               </formula>
-               <formula>
-                 <Equal>
-                   <left><Var>diffdays</Var></left>
-                   <right>
-                     <External>
-                       <content>
-                         <Expr>
-                           <op><Const type="&rif;iri">&func;days-from-duration</Const></op>
-                           <args ordered="yes">
-                             <Var>diffduration</Var>
-                           </args>
-                         </Expr>
-                       </content>
-                     </External>
-                   </right>
-                 </Equal>
-               </formula>
-               <formula>
-                 <External>
-                   <content>
-                     <Atom>
-                       <op><Const type="&rif;iri">&pred;numeric-greater-than</Const></op>
-                       <args ordered="yes">
-                         <Var>diffdays</Var>
-                         <Const type="&xs;integer">10</Const>
-                       </args>
-                     </Atom>
-                   </content>
-                 </External>
-               </formula>
-             </And>
-           </if>
-           <then>
-             <Atom>
-               <op><Const type="&rif;iri">&cpt;reject</Const></op>
-               <args ordered="yes">
-                 <Const type="&rif;iri">&ppl;John</Const>
-                 <Var>item</Var>
-               </args>
-             </Atom>
-           </then>
-         </Implies>
-       </formula>
-     </Forall>
-    </sentence>
-    <sentence>
-     <Forall>
-       <declare><Var>item</Var></declare>
-       <formula>
-         <Implies>
-           <if>
-             <Atom>
-               <op><Const type="&rif;iri">&cpt;unsolicited</Const></op>
-               <args ordered="yes"><Var>item</Var></args>
-             </Atom>
-           </if>
-           <then>
-             <Atom>
-               <op><Const type="&rif;iri">&cpt;reject</Const></op>
-               <args ordered="yes">
-                 <Const type="&rif;iri">&ppl;Fred</Const>
-                 <Var>item</Var>
-               </args>
-             </Atom>
-           </then>
-         </Implies>
-       </formula>
-     </Forall>
-    </sentence>
-   </Group>
-  </payload>
- </Document>
-"""
-
-# http://www.w3.org/RDF/Validator/

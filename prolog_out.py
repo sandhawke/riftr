@@ -295,7 +295,7 @@ def do(obj):
 
 
 class Plugin (plugin.OutputPlugin):
-   """RIF XML out."""
+   """Prolog out (very experimental)."""
 
    id=__name__
 
@@ -312,7 +312,7 @@ class Plugin (plugin.OutputPlugin):
 
    def serialize(self, doc, output_stream):
        AST2.default_namespace = rifns
-       self.ser.output_stream = output_stream
+       self.ser.stream = output_stream
        self.ser.do(doc)
   
 plugin.register(Plugin)
