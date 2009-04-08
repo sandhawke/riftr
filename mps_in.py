@@ -16,7 +16,7 @@ import rif
 import error
 import mps_lex
 import plugin
-import AST
+import AST2
 
 RIFNS = "http://www.w3.org/2007/rif#"
 RDFNS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -26,8 +26,18 @@ XSDNS = "http://www.w3.org/2001/XMLSchema#"
 #   cls = getattr(rif, type)
 #   return cls(**kwargs)
 
+#def node(type, **kwargs):
+#    return AST.Node( (RIFNS, type), **kwargs)
+
 def node(type, **kwargs):
-    return AST.Node( (RIFNS, type), **kwargs)
+    n = AST2.Instance(RIFNS+type)
+    for (k,v) in kwargs.items():
+        if v is None:
+            continue
+        if isinstance(v, basestring):
+            v = AST2.string(v)
+        setattr(n, RIFNS+k, v)
+    return n
 
 def iri(part1, part2=""):
    """node('IRI', RIFNS+"local"
@@ -124,7 +134,7 @@ def parse(str):
       e.input_text = str
       raise e
    except lex.LexError, e:
-      raise error.LexerError(ps_lex.lexer.lineno,
+      raise error.LexerError(mps_lex.lexer.lineno,
                              len(str) - len(e.text),
                              input_text = str)
 

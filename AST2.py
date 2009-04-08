@@ -314,6 +314,9 @@ class Sequence (object) :
     def append(self, new):
         self.items.append(new)
 
+    def __add__(self, other):
+        return Sequence(items=(self.items + other.items))
+
 datatypes = {}
 
 class BaseDataValue (object):

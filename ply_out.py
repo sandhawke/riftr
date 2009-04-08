@@ -5,18 +5,16 @@
 
 """
 
-import serializer
+import serializer2
 import plugin
 import bnf_tools
 from cStringIO import StringIO
-
-import AST
 
 def position_after(big, little):
     l = len(little)
     return big.index(little) + l
 
-class Serializer(serializer.General):
+class Serializer(serializer2.General):
 
     def __init__(self, indent_factor=4):
         super(Serializer, self).__init__(indent_factor=indent_factor)

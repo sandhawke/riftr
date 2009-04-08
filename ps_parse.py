@@ -25,9 +25,19 @@ XSDNS = "http://www.w3.org/2001/XMLSchema#"
 #   cls = getattr(rif, type)
 #   return cls(**kwargs)
 
-import AST
+import AST2
+#def node(type, **kwargs):
+#    return AST.Node( (RIFNS, type), **kwargs)
+
 def node(type, **kwargs):
-    return AST.Node( (RIFNS, type), **kwargs)
+    n = AST2.Instance(RIFNS+type)
+    for (k,v) in kwargs.items():
+        if v is None:
+            continue
+        if isinstance(v, basestring):
+            v = AST2.string(v)
+        setattr(n, RIFNS+k, v)
+    return n
 
 def iri(part1, part2=""):
    """node('IRI', RIFNS+"local"
@@ -91,14 +101,15 @@ def p_CLAUSE_2(t):
 
 def p_Implies_1(t):
    '''Implies   :  ATOMIC COLONDASH FORMULA'''
-   t[0] = node('Implies', then=t[1], if_=t[3])
+   t[0] = node('Implies', then=t[1])
+   setattr(t[0], RIFNS+"if", t[3])   # workaround python "if" keyword
 
 def p_Implies_2(t):
    # is the metadata on the AND or the Rule?
    # ...remove IRIMETA_opt
    '''Implies   : KW_And LPAREN ATOMIC_star RPAREN COLONDASH FORMULA '''
-   t[0] = node('Implies', then=node('And', formula=t[3]), if_=t[6])
-
+   t[0] = node('Implies', then=node('And', formula=t[3]))
+   setattr(t[0], RIFNS+"if", t[6])   # workaround python "if" keyword
 
 def p_PROFILE(t):
    '''PROFILE   : TERM '''
@@ -139,7 +150,7 @@ def p_ATOMIC(t):
 def p_Atom_1(t):
    # was UNITERM
    '''Atom           : Const LPAREN TERM_star RPAREN'''
-   t[0] = node('Atom', op=t[1], args=AST.Sequence(t[3]))
+   t[0] = node('Atom', op=t[1], args=t[3])
 
 def p_Atom_2(t):
    # was UNITERM
@@ -186,7 +197,7 @@ def p_TERM_2(t):
 # was UNITERM
 def p_Expr_1(t):
    '''Expr           : Const LPAREN TERM_star RPAREN '''
-   t[0] = node('Expr', op=t[1], args=AST.Sequence(t[3]))
+   t[0] = node('Expr', op=t[1], args=t[3])
 
 def p_Expr_2(t):
    '''Expr           : Const LPAREN Name_arrow_TERM_plus RPAREN '''
@@ -198,27 +209,32 @@ def p_Const_1(t):
 
 def p_Const_2(t):
    '''Const          : STRING_HAT_HAT SYMSPACE '''
-   t[0] = node('Const', lexrep=t[1], datatype=iri(t[2]))
+   #t[0] = node('Const', lexrep=t[1], datatype=iri(t[2]))
+   t[0] = AST2.obtainDataValue(lexrep=t[1], datatype=t[2])
 
 # MINE
 def p_CONSTSHORT_1(t):
    '''CONSTSHORT    : STRING'''
-   t[0] = node('Const', datatype=iri(XSDNS+"string"), lexrep=t[1])
+   #t[0] = node('Const', datatype=iri(XSDNS+"string"), lexrep=t[1])
+   t[0] = AST2.obtainDataValue(datatype=XSDNS+"string", lexrep=t[1])
 def p_CONSTSHORT_2(t):
    '''CONSTSHORT    : INTEGER'''
-   t[0] = node('Const', datatype=iri(XSDNS+"integer"), lexrep=t[1])
+   #t[0] = node('Const', datatype=iri(XSDNS+"integer"), lexrep=t[1])
+   t[0] = AST2.obtainDataValue(datatype=XSDNS+"integer", lexrep=t[1])
 def p_CONSTSHORT_3(t):
    '''CONSTSHORT    : DECIMAL'''
-   t[0] = node('Const', datatype=iri(XSDNS+"decimal"), lexrep=t[1])
+   #t[0] = node('Const', datatype=iri(XSDNS+"decimal"), lexrep=t[1])
+   t[0] = AST2.obtainDataValue(datatype=XSDNS+"decimal", lexrep=t[1])
 def p_CONSTSHORT_4(t):
    '''CONSTSHORT    : ANGLEBRACKIRI
                     | BARE_IRI
                     | EXPANDED_CURIE'''
-   t[0] = node('Const', datatype=RIF_IRI, lexrep=t[1])
+   #t[0] = node('Const', datatype=RIF_IRI, lexrep=t[1])
+   t[0] = AST2.obtainDataValue(datatype=RIFNS+"iri", lexrep=t[1])
 def p_CONSTSHORT_5(t):
    '''CONSTSHORT    : LOCALNAME'''
-   t[0] = node('Const', datatype=iri(RIFNS+"local"), lexrep=t[1])
-
+   # t[0] = node('Const', datatype=iri(RIFNS+"local"), lexrep=t[1])
+   t[0] = AST2.obtainDataValue(datatype=RIFNS+"local", lexrep=t[1])
 
 def p_Var(t):
    '''Var            : QUESTION STRING 
@@ -249,11 +265,13 @@ def p_EXPANDED_CURIE(t):
 def p_IRICONST_1(t):
    '''IRICONST       : ANGLEBRACKIRI
                      | EXPANDED_CURIE'''
-   t[0] = node('Const', datatype=RIF_IRI, lexrep=t[1])
+   #t[0] = node('Const', datatype=RIF_IRI, lexrep=t[1])
+   t[0] = AST2.obtainDataValue(datatype=RIFNS+"iri", lexrep=t[1])
 def p_IRICONST_2(t):
    '''IRICONST       : STRING_HAT_HAT SYMSPACE'''
-   t[0] = node('Const', datatype=iri(t[2]), lexrep=t[1])
-   require_iri(t)
+   #t[0] = node('Const', datatype=iri(t[2]), lexrep=t[1])
+   t[0] = AST2.obtainDataValue(datatype=t[2], lexrep=t[1])
+   #require_iri(t)
 
 def require_iri(t):
    if t[0].datatype == RIF_IRI:
@@ -322,9 +340,9 @@ def build_list(t):
    """Used at the action for our standard "star" productions
    """
    if (len(t)>1):
-      t[0] = t[1] + [t[2]]
+      t[0] = t[1] + AST2.Sequence(items=[t[2]])
    else:
-      t[0] = []
+      t[0] = AST2.Sequence()
 
 
 def p_ATOMIC_star(t):
@@ -382,9 +400,9 @@ def p_Var_plus(t):
    '''Var_plus : Var_plus Var 
     | Var '''
    if (len(t)>2):
-      t[0] = t[1] + [t[2]]
+      t[0] = t[1] + AST2.Sequence(items=[t[2]])
    else:
-      t[0] = [t[1]]
+      t[0] = AST2.Sequence(items=[t[1]])
 
 
 # Kleene opt (?) expansion productions
@@ -457,8 +475,8 @@ def parse(str):
       # strictly speaking, neither of these is part of the resulting
       # abstract document, but we do want to keep them and pass them 
       # along, for user happiness (ie nice qnames).
-      result._base = parser.my_base
-      result._prefix_map = parser.prefix_map
+      ###result._base = parser.my_base
+      ###result._prefix_map = parser.prefix_map
       return result
    except error.ParserError, e:
       e.input_text = str

@@ -124,7 +124,7 @@ def t_BARE_WORD(t):
                 if t.value in scope:
                     t.type='VARNAME'
                     return t
-            raise lex.LexError('undeclared variable %s used' % t.value)
+            raise lex.LexError('undeclared variable %s used' % t.value,"s")
             # ... else let it be returned as a BARE_WORD to be declared
             # (we don't check that it's being declared as a VARIABLE.)
     if t.lexer.recognize_keywords:
@@ -256,7 +256,7 @@ lexer.scopes = []    # stack of collections of variable names
 
 def round_trip(s, type):
     try:
-        t = token_list(s)
+        t = token_list(s)[:]
         #print "Tokens:", t
     except ply.lex.LexError, e:
         return False
@@ -268,7 +268,7 @@ def round_trip(s, type):
         return True
     return False
 
-def token_list(s):
+def old___token_list(s):
     lexer.input(s)
     tokens = []
     while True:
@@ -276,6 +276,13 @@ def token_list(s):
         if not tok: break      # No more input
         tokens.append(tok)
     return tokens
+
+def token_list(s):
+    lexer.input(s)
+    while True:
+        tok = lex.token()
+        if not tok: break      # No more input
+        yield tok
 
 def show_types(s):
     for t in token_list(s):
@@ -287,22 +294,22 @@ def demo():
     >>> show_types("foo")
     BARE_WORD
 
-    >>> token_list("aNd")
+    >>> token_list("aNd")[:]
     [LexToken(KW_And,'aNd',1,0)]
 
     >>> lexer.recognize_keywords = False
 
-    >>> token_list("aNd")
+    >>> token_list("aNd")[:]
     [LexToken(BARE_WORD,'aNd',1,0)]
 
-    >>> token_list("?foo")
+    >>> token_list("?foo")[:]
     [LexToken(BARE_WORD,'foo',1,0)]
 
     """
     import sys
 
-    if len(sys.argv) == 1:
-        return
+    #if len(sys.argv) == 1:
+    #    return
     
     # if we have ANY argument, read stdin....!
     lexer.recognize_keywords = True

@@ -28,8 +28,8 @@ import prolog_out
 import func_to_pred
 import unnest
 
-#import ps_parse
-import ps_lex
+import ps_parse
+#import ps_lex
 import bld_xml_out
 import fsxml_out
 import xps_out

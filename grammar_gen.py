@@ -182,7 +182,7 @@ def general_action(terms):
             args.append(key+"=t[%d]" % value[0])
         else:
             s = ", ".join(["t[%d]"%i for i in value])
-            args.append(key+"=AST.Sequence(items=[%s])" % s)
+            args.append(key+"=AST2.Sequence(items=[%s])" % s)
     return "t[0] = node('%s', %s)" % (cls, ",".join(args))
 
 p = []

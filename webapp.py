@@ -217,7 +217,7 @@ def select_input(div, args):
 def select_middle(div, args):
 
     any = False
-    line = h.p("Select plugins to instantiate: ")
+    line = h.p("[NOT WORKING RIGHT NOW].  Select plugins to instantiate: ")
     div << line
     for p in plugin.registry:
         if p.action_word() in ["transform", "analysis"]:
