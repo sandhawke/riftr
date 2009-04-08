@@ -10,12 +10,15 @@ Do this stuff with some sort of rules...?
 """
 
 import re
-import copy
 import htmlentitydefs
 
-import AST
+import AST2
 import plugin
 
+NS = "http://www.w3.org/2009/02/blindfold/ns#"
+
+def deepcopy(n):
+    return n.deepcopy()
 
 ################################################################
 
@@ -29,7 +32,7 @@ class TokenSet:
         """Run through a grammar, converting the literals into token
         references, and build up this TokenSet.
         """
-        return AST.map(str_to_tok, grammar, self)
+        return grammar.map_replace(str_to_tok, self)
 
     def get_name(self, text):
         try:
@@ -76,9 +79,9 @@ def is_word(text):
 
 def str_to_tok(node, tokens):
     
-    if is_type(node, "Literal"):
-        name = tokens.get_name(node.text)
-        node = AST.Node(("", "Reference"), name=name)
+    if node.has_type("Literal"):
+        name = tokens.get_name(node.text.the.lexrep)
+        node = AST2.Instance(("Reference"), name=AST2.string(name))
     
     return node
 
@@ -132,24 +135,27 @@ def char_name(char):
 
 ################################################################    
 
-def is_type(node, type):
-    
-    return getattr(node, "_type", (None, None))[1] == type
 
 def convert_to_yacc_form(root):
 
+    save = AST2.default_namespace
+    AST2.default_namespace = NS
+
     additions = []
-    root = AST.map(convert_plus, root, additions)
-    root = AST.map(convert_star, root, additions)
-    root = AST.map(convert_optional, root, additions)
+    root = root.map_replace(convert_plus, additions)
+    root = root.map_replace(convert_star, additions)
+    root = root.map_replace(convert_optional, additions)
+    #root.productions=AST2.Sequence()
     for p in additions:
-        root.productions.append(p)
+        root.productions.the.append(p)
 
-    root = AST.map(convert_Alt_to_AltN, root)
-    root = AST.map(convert_AltN_to_branches, root)
-
+    root = root.map_replace(convert_Alt_to_AltN)
+    root = root.map_replace(convert_AltN_to_branches)
 
     # disallow nested Alt
+
+    save = AST2.default_namespace
+
 
 class Plugin (plugin.TransformPlugin) :
     """Convert (arbitrary) grammars to yacc-style grammars.  Kind of like converting logical formula to Conjunctive Normal Form.
@@ -165,77 +171,73 @@ plugin.register(Plugin)
 
 def convert_plus(node, additions):
     
-    if is_type(node, 'Plus'):
-        name = "_plus_gen_%d" % len(additions)
-        e = AST.Node(('', 'Alt'), 
-                     left=copy.deepcopy(node.expr),
-                     right=AST.Node(('', 'Seq'),
-                                    left=AST.Node(('','Reference'),
+    if node.has_type('Plus'):
+        name = AST2.string("_plus_gen%d" % len(additions))
+        e = AST2.Instance(('Alt'), 
+                     left=deepcopy(node.expr.the),
+                     right=AST2.Instance(('Seq'),
+                                    left=AST2.Instance(('Reference'),
                                                   name=name),
-                                    right=copy.deepcopy(node.expr)
+                                    right=deepcopy(node.expr.the)
                                     )
                      )
         
-        additions.append(AST.Node(('', 'Production'), name=name, expr=e))
-        node = AST.Node(('', 'Reference'), name=name)
+        additions.append(AST2.Instance(('Production'), name=name, expr=e))
+        node = AST2.Instance(('Reference'), name=name)
     return node
 
 def convert_star(node, additions):
     
-    if is_type(node, 'Star'):
-        name = "_star_gen_%d" % len(additions)
-        e = AST.Node(('', 'Alt'), 
-                     left=AST.Node(('','Reference'), name='EMPTY'),
-                     right=AST.Node(('', 'Seq'),
-                                    left=AST.Node(('','Reference'),
+    if node.has_type('Star'):
+        name = AST2.string("_star_gen%d" % len(additions))
+        e = AST2.Instance(('Alt'), 
+                     left=AST2.Instance(('Reference'), name='EMPTY'),
+                     right=AST2.Instance(('Seq'),
+                                    left=AST2.Instance(('Reference'),
                                                   name=name),
-                                    right=copy.deepcopy(node.expr)
+                                    right=deepcopy(node.expr.the)
                                     )
                      )
         
-        additions.append(AST.Node(('', 'Production'), name=name, expr=e))
-        node = AST.Node(('', 'Reference'), name=name)
+        additions.append(AST2.Instance(('Production'), name=name, expr=e))
+        node = AST2.Instance(('Reference'), name=name)
     return node
 
 
 def convert_optional(node, additions):
     
-    if is_type(node, 'Optional'):
-        name = "_optional_gen_%d" % len(additions)
-        e = AST.Node(('', 'Alt'), 
-                     left=AST.Node(('','Reference'), name='EMPTY'),
-                     right=copy.deepcopy(node.expr)
+    if node.has_type('Optional'):
+        name = AST2.string("_optional_gen%d" % len(additions))
+        e = AST2.Instance(('Alt'), 
+                     left=AST2.Instance(('Reference'), name=AST2.string('EMPTY')),
+                     right=deepcopy(node.expr.the)
                      )
         
-        additions.append(AST.Node(('', 'Production'), name=name, expr=e))
-        node = AST.Node(('', 'Reference'), name=name)
+        additions.append(AST2.Instance(('Production'), name=name, expr=e))
+        node = AST2.Instance(('Reference'), name=name)
     return node
 
 
 def convert_Alt_to_AltN(node):
 
-    if is_type(node, "Alt"):
-        exprs = []
-        if is_type(node.left, "AltN"):
-            exprs.extend(node.left.exprs)
-        else:
-            exprs.append(node.left)
-
-        if is_type(node.right, "AltN"):
-            exprs.extend(node.right.exprs)
-        else:
-            exprs.append(node.right)
-        return AST.Node(('', 'AltN'), exprs=exprs)
+    if node.has_type("Alt"):
+        exprs = AST2.Sequence()
+        for side in (node.left.the, node.right.the):
+            if side.has_type("AltN"):
+                exprs.extend(side.exprs.the.items)
+            else:
+                exprs.append(side)
+        return AST2.Instance(('AltN'), exprs=exprs)
     else:
         return node
 
 def convert_AltN_to_branches(node):
 
-    if is_type(node, "Production"):
-        if is_type(node.expr, 'AltN'):
-            node.branches = node.expr.exprs
+    if node.has_type("Production"):
+        if node.expr.the.has_type('AltN'):
+            node.branches = node.expr.the.exprs.the
         else:
-            node.branches = [node.expr]
+            node.branches = AST2.Sequence([node.expr.the])
     return node
 
         

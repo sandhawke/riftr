@@ -62,6 +62,22 @@ XS = "http://www.w3.org/2001/XMLSchema#"
 RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
 
 default_namespace = None
+def q(name):
+    '''Add the default_namespace prefix if name is unqualified.
+
+    At some point we'll probably want:
+
+      (1) to do full qname/curie expansion
+          (using the Guha rule -- if the prefix is declared, then
+          it's a qname, otherwise it's a URI)
+      (2) have some connection/portal/state/constructor object,
+          so this isn't module-global.
+
+    '''
+    if default_namespace and name.find(":") == -1:
+        return default_namespace + name
+    return name
+
 
 class Multi (object) :
     """
@@ -96,6 +112,15 @@ class Multi (object) :
         if values:
             for value in values:
                 self.add(value)
+
+    def deepcopy(self):
+        ''' I know python has a deepcopy, but I can't figure out how
+        to get it to work right in the presence of my getattr.  dumb. '''
+        n = Multi()
+        for v in self.values:
+            n.values.append(v.deepcopy())
+        assert n == self and n is not self
+        return n
 
     def add(self, new):
         debug('ast2-multi-add', 'multi add', new)
@@ -163,14 +188,15 @@ class Instance (object) :
 
     def __init__(self, primary_type=None, **kwargs):
         object.__setattr__(self, "dict", {})
-        object.__setattr__(self, "primary_type", primary_type)
+        object.__setattr__(self, "primary_type", q(primary_type))
         for (prop, value) in kwargs.items():
             setattr(self, prop, value)
 
     def has_primary_type(self, type):
-        if default_namespace and type.find(":") == -1:
-            type = default_namespace + type
-        return self.primary_type == type
+        return self.primary_type == q(type)
+
+    def has_type(self, type):
+        return self.primary_type == q(type)
 
     @property
     def properties(self):
@@ -195,7 +221,7 @@ class Instance (object) :
                         raise RuntimeError('bad AST tree')
         return 
 
-    def map_replace(self, func):
+    def map_replace(self, func, *args, **kwargs):
         '''call the func on each descendant Instance, replacing it
         with whatever Instance func returns.  Works from the leaves
         up, operating on children before their parents.  If func
@@ -205,10 +231,12 @@ class Instance (object) :
         debug('ast2-map(', 'begin')
         for prop in self.properties:
             multi = getattr(self, prop)
-            self.list_map(multi.values, func, True)
+            self.list_map(multi.values, func, True, args, kwargs)
+        new_self = func(self, *args, **kwargs)
         debug('ast2-map)')
+        return new_self
 
-    def list_map(self, values, func, collapse_dups):
+    def list_map(self, values, func, collapse_dups, args, kwargs):
         '''call func on each item in this array of instances and
         return a new array of the resulting instances; used by map_in_place'''
 
@@ -216,11 +244,11 @@ class Instance (object) :
         for value in values:
 
             if isinstance(value, Sequence):
-                self.list_map(value.items, func, False)
+                self.list_map(value.items, func, False, args, kwargs)
                 result.append(value)
             elif isinstance(value, Instance):
-                value.map_replace(func)
-                new = func(value)
+                new = value.map_replace(func, *args, **kwargs)
+                # new = func(value, *args, **kwargs)
                 if collapse_dups:
                     if new in result:
                         pass
@@ -231,7 +259,7 @@ class Instance (object) :
             elif isinstance(value, BaseDataValue):
                 result.append(value)
             else:
-                raise RuntimeError('bad AST tree')
+                raise RuntimeError('bad AST tree:'+`value`)
 
         values[:] = result
 
@@ -239,22 +267,37 @@ class Instance (object) :
 
 
     def __setattr__(self, prop, value):
+        if prop[0] is "_":
+            raise AttributeError
         assert not isinstance(value, Multi)
         assert isinstance(prop, basestring)   # unicode?   IRI.
-        if default_namespace and prop.find(":") == -1:
-            prop = default_namespace + prop
+        prop = q(prop)
         debug('ast2', 'adding',prop,"=",value)
         self.dict.setdefault(prop, Multi()).add(value)
 
     def __getattr__(self, prop):
-        if default_namespace and prop.find(":") == -1:
-            prop = default_namespace + prop
+        if prop[0] is "_":
+            raise AttributeError
+
+        prop = q(prop)
         debug('ast2-get', 'returning attr for', prop)
         return self.dict.setdefault(prop, Multi())
     
+    def deepcopy(self):
+        n = Instance(self.primary_type)
+        for p,v in self.dict.items():
+            n.dict[p] = v.deepcopy()
+        assert n == self and n is not self
+        return n
+    
+    def __getstate__(self):
+        return (self.primary_type, self.dict)
+
+    def __setstate__(self, state):
+        (self.primary_type, self.dict) = state
+
     def __cmp__(self, other):
         return cmp(self.dict, other.dict)
-
 
     def __str__(self):
         return "Instance("+self.primary_type+", ...)"
@@ -265,8 +308,6 @@ class Instance (object) :
             s += `prop`+"="+`value`+", "
         s += ")"
         return s
-
-        
 
 
     def to_python(self, map):
@@ -311,8 +352,20 @@ class Sequence (object) :
     def __init__(self, items=None):
         self.items = items or []
 
+    def deepcopy(self):
+        n = Sequence()
+        for v in self.items:
+            n.items.append(v.deepcopy())
+        assert n == self and n is not self
+        return n
+
     def append(self, new):
         self.items.append(new)
+
+    def extend(self, new):
+        if isinstance(new, Sequence):
+            new = new.items
+        self.items.extend(new)
 
     def __add__(self, other):
         return Sequence(items=(self.items + other.items))
@@ -341,6 +394,11 @@ class BaseDataValue (object):
             return cmp(self.lexrep, other.lexrep)
         else:
             return c1
+
+    def deepcopy(self):
+        n = obtainDataValue(self.lexrep, self.datatype)
+        assert n == self and n is not self
+        return n
 
 def obtainDataValue(lexrep, datatype):
     """

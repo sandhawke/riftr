@@ -21,6 +21,8 @@ import ply.lex
 
 import blindfold_lex as mylex
 
+from debugtools import debug
+
 import AST2
 import plugin
 import error
@@ -29,12 +31,15 @@ import ply_out
 NS = "http://www.w3.org/2009/02/blindfold/ns#"
 
 def node(type, **kwargs):
+    debug('blindfold', 'new node', type)
     n = AST2.Instance(NS+type)
     for (k,v) in kwargs.items():
+        debug('blindfold', '...', k, '=', v)
         if v is None:
             continue
         if isinstance(v, basestring):
             v = AST2.string(v)
+        debug('blindfold', '... setattr', n, NS+k, v)
         setattr(n, NS+k, v)
     return n
 
