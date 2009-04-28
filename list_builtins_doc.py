@@ -1,3 +1,15 @@
+#!/usr/bin/env python
+#      -*-mode: python -*-    -*- coding: utf-8 -*-
+"""
+
+This is a partial database and generator for the documentation
+of builtins.
+
+At this writing, it just has the list builtins.
+
+
+"""
+
 
 functions = []
 predicates = []
@@ -257,23 +269,25 @@ x.examples = [
     Example([[0, 1, 2, 3, [7, 8]], [7, 8]],True,''),
     Example([[0, 1, 2, 3, [7, 8]], [7, 7]],False,'')]
 
-functions.append(concatenate)
 functions.append(count)
-functions.append(delete)
-functions.append(distinct_values)
-functions.append(except__)
-functions.append(get)
-functions.append(index_of)
-functions.append(insert_before)
-functions.append(intersect)
-functions.append(remove)
-functions.append(reverse)
+functions.append(get)    # nth
 functions.append(sublist)
-functions.append(union)
+functions.append(concatenate)
+functions.append(insert_before)
+functions.append(delete)
+functions.append(reverse)
 
-predicates.append(deep_equal)
+functions.append(index_of)
+functions.append(remove)
+
+functions.append(union)
+functions.append(distinct_values)
+functions.append(intersect)
+functions.append(except__)
+
 predicates.append(is_list)
 predicates.append(list_contains)
+predicates.append(deep_equal)
 
 
 ################################################################
@@ -307,37 +321,36 @@ def h(i):
     print ""
     print "==== <tt>func:%s</tt> %s====" % (i.name(), adapted)
     print "<ul>"
-    print "<li>"
-    print "<em>Schema</em>:"
-    print sub("<p><tt>(%s; func:%s(%s))</tt></p>" % (args, i.name(), args))
+    print "  <li>"
+    print "    <em>Schema</em>:"
+    print sub("      <p><tt>(%s; func:%s(%s))</tt></p>" % (args, i.name(), args))
 
     if i.optional:
         args2 = " ".join([qm(str(x)) for x in i.args if x not in i.optional])
-        print sub("<p><tt>(%s; func:%s(%s))</tt></p>" % (args2, i.name(), args2))
+        print sub("      <p><tt>(%s; func:%s(%s))</tt></p>" % (args2, i.name(), args2))
 
-    print "</li>"
-    print "<li>"
-    print "<em>Domains</em>:"
-    print "<p>... (to do)</p>"
-    print "</li>"
-    print "<li>"
-    print "<em>Informal Mapping</em>"
-    print "<p>"+sub(str(i.__doc__))+"</p>"
+    print "  </li>"
+    print "  <li>"
+    print "    <em>Domains</em>:"
+    print "      <p>... (to do)</p>"
+    print "  </li>"
+    print "  <li>"
+    print "    <em>Informal Mapping</em>"
+    print "      <p>"+sub(str(i.__doc__))+"</p>"
 
 
-    print "<p>If an argument value is outside of its domain, the value of the function is left unspecified.</p>"
-    print "</li>"
+    print "      <p>If an argument value is outside of its domain, the value of the function is left unspecified.</p>"
+    print "  </li>"
     if getattr(i, 'examples', False):
-        print "<li>"
-        print "<em>Examples</em>"
-        print "<pre>"
+        print "  <li>"
+        print "    <em>Examples</em>"
+        lines = []
         for e in getattr(i, 'examples', []):
             s = "%s(%s) = %s" % (i.name(), " ".join([str(x) for x in e.args]), e.result)
             s = s.replace('[', 'list(').replace(']', ')').replace(",", " ")
-            print s
-
-        print "</pre>"
-        print "</li>"
+            lines.append(s)
+        print "      <pre>%s</pre>" % "\n".join(lines)
+        print "  </li>"
     print "</ul>"
 
 
