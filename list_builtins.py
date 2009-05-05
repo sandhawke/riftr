@@ -33,6 +33,11 @@ class Example:
         self.result = result
         self.comment = comment
 
+    def __repr__(self):
+        return ('Example('
+                +`self.args`+','
+                +`self.result`+','
+                +`self.comment`+')')
 class Builtin:
 
     @classmethod
@@ -573,7 +578,7 @@ def h(i):
     print "</ul>"
 
 
-if True:
+if False:
 
 
     print ""
@@ -592,3 +597,30 @@ if True:
         h(i)
     print
 
+
+def pp(x):
+
+    name = "x"
+    if x.is_predicate:
+        print name+" = Builtin_Predicate()"
+    else:
+        print name+" = Builtin_Function()"
+    print x.__name__ + " = x"
+    print name+".python_name = "+`x.__name__`
+    # print name+".name = "+`x.name()`
+    print name+".text = "+`x.__doc__.strip().replace('    ', ' ').replace('  ', ' ').replace('  ', ' ').replace('  ', ' ')`
+    print name+'.optional = '+`x.optional`
+    print name+'.from_xpath = '+`x.from_xpath`
+    print name+'.uses_equality = '+`getattr(x, 'uses_equality', 'False')`
+    print name+".args = "+`x.args`
+    print name+".examples = [\n    "+",\n    ".join([repr(y) for y in getattr(x, 'examples', [])])+"]"
+    print 
+
+if True:
+    for i in functions + predicates:
+        pp(i)
+    for x in functions:
+        print "functions.append(%s)" % x.__name__
+    print
+    for x in predicates:
+        print "predicates.append(%s)" % x.__name__
