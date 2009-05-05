@@ -108,6 +108,8 @@ def delete(list, match_value):
 def _run_examples(i):
 
     import list_builtins
+    passed = 0
+    failed = 0
 
     for e in getattr(i, 'examples', []):
         f = getattr(list_builtins, i.python_name)
@@ -117,9 +119,13 @@ def _run_examples(i):
             result = "(unspecified)"
         if result == e.result:
             pass
+            passed += 1
         else:
+            failed += 1
             print >>sys.stderr, "        %s(%s) = %s" % (i.name(), " ".join([str(x) for x in e.args]), e.result),
             print >>sys.stderr, '  ** but got', result
+
+    return (passed, failed)
 
 if __name__ == "__main__":
 
@@ -128,6 +134,6 @@ if __name__ == "__main__":
 
     print "Running tests"
     for i in list_builtins_doc.predicates + list_builtins_doc.functions:
-        print "* ", i.name()
-        _run_examples(i)
+        (p, f) = _run_examples(i)
+        print "* %-16s passed=%3i  failed=%3i" % (i.name(), p, f)
     print "Done."
