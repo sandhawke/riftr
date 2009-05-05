@@ -7,39 +7,9 @@ of builtins.
 
 At this writing, it just has the list builtins.
 
-
-Domain...
-
-Math...
-
-IEXT(...)
-II(...) = t / f
-
-
-" The value space of xs:string for all arguments. "
-Lists, for all arguments
-
-DOMAIN:
-
-  The range of ILIST [BLD 3.2 (item 5)], for all arguments list-1, ... list-n
-    
-MAPPING:
-
-  Informally: this builtin returns a list containing the elements from
-  list-1, ... list-n, in order.
-
-  Formally: IEXT( ?arg1 ?arg2 ; concat (?arg1 ?arg2)) = IEXT(
-
-
-MEMBER:
-
-   II( ?item ?list ; member ( ?item ?list ) ) = t iff 
-
-
-  
-
 """
 
+import sys
 
 functions = []
 predicates = []
@@ -265,6 +235,7 @@ x = Builtin_Function()
 sublist = x
 x.python_name = 'sublist'
 x.text = "Returns a list, containing (in order) the items starting at position 'start' and continuing up to, but not including, the 'stop' position. The 'stop' position may be omitted, in which case it defaults to the length of the list."
+x.note = "This differs from xpath's subsequence function in using a 'stop' position parameter instead of a 'length' parameter (in addition to the name change, the zero-based indexing, and allowing negative indexes)."
 x.optional = ['stop']
 x.from_xpath = 'subsequence'
 x.uses_equality = 'False'
@@ -294,7 +265,8 @@ x.examples = [
     Example([0,1,2], [0,1,2]),
     Example([], []),
     Example([0], [0]),
-    Example([[0,1,[20,21]]], [0,1,[20,21]]),
+    Example([0,1,[20,21]], [0,1,[20,21]]),
+    Example([[0,1]], [[0,1]]),
 ]
 
 
@@ -504,7 +476,7 @@ def h(i, func="func"):
     print "</ul>"
 
 
-if True:
+if __name__ == "__main__":
 
     print "=== Predicates on RIF Lists ==="
     for i in predicates:
