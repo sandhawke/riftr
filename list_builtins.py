@@ -13,14 +13,13 @@ def list_contains(list, match_value):
 def make_list(*args):
     return [x for x in args]
 
+def append(list, *args):
+    return list + [x for x in args]
+
 def count(list):
     return len(list)
 
 def get(list, position):
-    if position < 0:
-        position = len(list) + position
-        if position  < 0:
-            position = 0
     return list[position]
 
 def sublist(list, start, stop=None):
@@ -36,13 +35,15 @@ def concatenate(*args):
     return result
 
 def insert_before(old_list, position, new_item):
+    dummy = old_list[position]  # raise an index error if no such element
     return old_list[0:position] + [new_item] + old_list[position:]
 
 def remove(old_list, position):
     if position < 0:
-        position = len(old_list) + position
-        if position  < 0:
-            position = 0
+        position += len(old_list)
+        if position < 0:
+            raise IndexError
+    dummy = old_list[position]  # raise an index error if no such element
     return old_list[0:position] + old_list[position+1:]
 
 def reverse(old_list):

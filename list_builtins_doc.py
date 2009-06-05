@@ -76,6 +76,20 @@ class Builtin_Function (Builtin) :
 nary = ['list-1', '...', 'list-n']
 
 x = Builtin_Function()
+append = x
+x.python_name = 'append'
+x.text = 'Returns a list consisting of all the items in list-1, followed by item-i, for each i, 1 <= i <= n.'
+x.from_xpath = False
+x.uses_equality = 'False'
+x.args = ['list', 'item-1', '...', 'item-n']
+x.examples = [
+    Example([[0, 1, 2], 3],[0,1,2,3]),
+    Example([[0, 1, 2], 3, 4],[0,1,2,3,4]),
+    Example([[1, 1], [1], [1], [[1]]],[1,1,[1],[1],[[1]]]),
+    Example([[], 1],[1]),
+    ]
+
+x = Builtin_Function()
 concatenate = x
 x.python_name = 'concatenate'
 x.text = 'Returns a list consisting of all the items in list-1, followed by all the items in list-i, for each i <= n.'
@@ -108,7 +122,7 @@ x.python_name = 'delete'
 x.text = 'Returns a list which contains all the items in old-list, in the same order, except those which are equal to ?match-value.'
 x.from_xpath = True
 x.uses_equality = True
-x.args = ['list-1', 'match-value']
+x.args = ['old-list', 'match-value']
 x.domain = {'match-value': 'unrestricted'}
 x.examples = [
     Example([[0,1,2,3,4], 2],[0,1,3,4]),
@@ -155,7 +169,7 @@ x.examples = [
     Example([[0, 1, 2, 3, 4], 4],4,''),
     Example([[0, 1, 2, 3, 4], -1],4,''),
     Example([[0, 1, 2, 3, 4], -5],0,''),
-    Example([[0, 1, 2, 3, 4], -10],0,''),
+    Example([[0, 1, 2, 3, 4], -10],"(unspecified)",''),
     Example([[0, 1, 2, 3, 4], 5],"(unspecified)",'')]
 
 x = Builtin_Function()
@@ -181,12 +195,10 @@ x.args = ['list-1', 'position', 'new-item']
 x.examples = [
     Example([[0, 1, 2, 3, 4], 0, 99],[99, 0, 1, 2, 3, 4],''),
     Example([[0, 1, 2, 3, 4], 1, 99],[0, 99, 1, 2, 3, 4],''),
-    Example([[0, 1, 2, 3, 4], 5, 99],[0, 1, 2, 3, 4, 99],''),
-    Example([[0, 1, 2, 3, 4], 6, 99],[0, 1, 2, 3, 4, 99],''),
-    Example([[0, 1, 2, 3, 4], 10, 99],[0, 1, 2, 3, 4, 99],''),
+    Example([[0, 1, 2, 3, 4], 5, 99],"(unspecified)",''),
     Example([[0, 1, 2, 3, 4], -1, 99],[0, 1, 2, 3, 99, 4],''),
     Example([[0, 1, 2, 3, 4], -5, 99],[99, 0, 1, 2, 3, 4],''),
-    Example([[0, 1, 2, 3, 4], -10, 99],[99, 0, 1, 2, 3, 4],'')]
+    Example([[0, 1, 2, 3, 4], -10, 99],"(unspecified)",'')]
 
 x = Builtin_Function()
 intersect = x
@@ -213,11 +225,11 @@ x.examples = [
     Example([[0, 1, 2, 3, 4], 0],[1, 2, 3, 4],''),
     Example([[0, 1, 2, 3, 4], 1],[0, 2, 3, 4],''),
     Example([[0, 1, 2, 3, 4], 4],[0, 1, 2, 3],''),
-    Example([[0, 1, 2, 3, 4], 5],[0, 1, 2, 3, 4],''),
-    Example([[0, 1, 2, 3, 4], 6],[0, 1, 2, 3, 4],''),
+    Example([[0, 1, 2, 3, 4], 5],"(unspecified)",''),
+    Example([[0, 1, 2, 3, 4], 6],"(unspecified)",''),
     Example([[0, 1, 2, 3, 4], -1],[0, 1, 2, 3],''),
     Example([[0, 1, 2, 3, 4], -5],[1, 2, 3, 4],''),
-    Example([[0, 1, 2, 3, 4], -6],[1, 2, 3, 4],'')]
+    Example([[0, 1, 2, 3, 4], -6],"(unspecified)",'')]
 
 x = Builtin_Function()
 reverse = x
@@ -335,6 +347,7 @@ functions.append(make_list)
 functions.append(count)
 functions.append(get)    # nth
 functions.append(sublist)
+functions.append(append)
 functions.append(concatenate)
 functions.append(insert_before)
 functions.append(remove)
