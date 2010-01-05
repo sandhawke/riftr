@@ -1,18 +1,29 @@
 #!/usr/bin/env python2.5
 #      -*-mode: python -*-    -*- coding: utf-8 -*-
-
 """
+This module provides a fairly general plugin interface.  Each plugin
+has a name, some documentation, zero of more configuration options,
+and a run() method.  What we factor out here, mostly, is the user
+interface for those configuration options.  We provide both a unix
+command line interface and a web forms interface.
+
+(This really belongs in a toolkit; it has nothing to do with riftr,
+except that's where I first used it.)
+
+
+
+
 
 TODO: 
 
      -- use a plugins directory, so they don't need to be enumerated
         somewhere?
 
-     -- find a way to allow the same intermediate plugin to be used
-        multiple times with different options...?  (and in the XML
-        form?)  In the cmdline form, we could exec something which
-        which attaches the argument's affect to a prior compatible
-        plugin.
+          ==> or just an all_plugins.py module which has all the details
+              about all the "on" ones.
+             
+          ==> or just like now; have them register themselves, and control
+              which ones are active via "import".
 
      -- html for options.
 
@@ -32,7 +43,7 @@ Every plugin should:
 
                 If there's only one plugin in a module, it's
                 reasonable to use __name__, so the plugin id is the
-                module name.
+                module name.   Unless it was imported with a path.  :-(
 
         plugin.__doc__
 
@@ -81,11 +92,15 @@ import optparse
 from debugtools import debug
 from cStringIO import StringIO
 
+#import debugtools
+#debugtools.tags.add("plugin")
+
 registry = []
 
 
 class Plugin (object):
-    """Must have a doc attribute
+    """Each plugin should provide its own __doc__ string, used in
+    displaying information about the plugin.
     """
 
 
@@ -93,13 +108,16 @@ class Plugin (object):
     def add_to_OptionParser(cls, parser, group):
 
         group.add_option("--"+cls.id,
-                         action="append_const",
-                         const=cls.id,
-                         dest="plugins",
+                         action="callback",
+                         callback=append_plugin_instance,
+                         callback_args= (cls,) ,
                          help= ( ("Use this %s plugin. " % cls.action_word())+
                                  cls.__doc__ 
                                  ))
 
+def append_plugin_instance(option, opt, value, parser, cls):
+    p = instantiate_with_options(cls, parser.values)
+    parser.values.ensure_value("plugins", []).append(p)
 
 class InputPlugin (Plugin):
     """Must have a parse() method"""
@@ -182,7 +200,7 @@ def add_to_OptionParser(parser):
     for plugin in registry:
         #print plugin.id
         group = optparse.OptionGroup(parser,
-                                     "For %s plugin" % (plugin.id))
+                                     "For %s plugin (modify settings BEFORE calling plugin)" % (plugin.id))
 
         plugin.add_to_OptionParser(parser, group)
 
@@ -190,8 +208,8 @@ def add_to_OptionParser(parser):
             option.add_to_OptionParser(plugin, parser, group)
         parser.add_option_group(group)
 
-def get_plugins(actions, options):
-    """ Yields sequence of INSTANTIATIONS of plugins which which:
+def XXXget_plugins(actions, options):
+    """ Yields sequence of INSTANTIATIONS of plugins which:
             1.  have their id present in the list options.plugins
                 (and use this order for results); and
             2.  have an action word ("input", "transform", etc]
@@ -204,13 +222,33 @@ def get_plugins(actions, options):
                 if plugin.id == plugin_id:
                     yield instantiate_with_options(plugin, options)
 
+def get_plugins(actions, options):
+    return [p for p in getattr(options, "plugins") if (p.action_word in actions)]
+
+def get_one_plugin(actions, options):
+    p = get_plugins(actions, options)
+    if len(p) < 1:
+        raise RuntimeError("No %s plugin selected" % actions)
+    if len(p) > 1:
+        raise RuntimeError("More than one %s plugin selected" % actions)
+    return p[0]
 
 def instantiate_with_options(plugin, options):
 
     kwargs = {}
     for option in getattr(plugin, 'options', ()):
         key = plugin.id + "_" + option.name
-        value = getattr(options, key)
+        if getattr(option, "values", []):
+            value = []
+            for v in option.values:
+                k2 = key + "_" + v.id
+                if getattr(options, k2, None):
+                    value.append(v)
+            if getattr(option, "maxcard", None) == 1:
+                if len(value) > 1:
+                    raise optparse.OptionValueError("plugin '%s' option '%s' can only have ONE of the values %s" % (plugin.id, option.name, [v.id for v in option.values]))
+        else:
+            value = getattr(options, key)
         kwargs[option.name] = value
     debug('plugin', 'instantiating', plugin.id, "with args", kwargs)
     return plugin(**kwargs)
@@ -221,38 +259,62 @@ class Option (object):
         self.name = name
         self.doc = doc
         self.__dict__.update(kwargs)
-        # eg:   default, metavar, values
+        # kwargs:
+        #  - default is (obviously) the default value
+        #  - metavar is an OptionParser thing, it's like FILE or something, used
+        #    in the automatic documentation
+        #
+        # maybe: (not for cmd line?)
+        #  - values is a list of allowed values (for constrained options)
+        #  - maxcard is 1 or None, indicating how many values are allowed
 
     def add_to_OptionParser(self, plugin, parser, group):
 
         key = plugin.id + "_" + self.name
-        if getattr(self, 'default', None) is not None:
-            parser.set_defaults(**{key: self.default})
-        kwarg = {}
-        if getattr(self, 'metavar', False):
-            kwarg['metavar'] = self.metavar
-        group.add_option("--"+key,
-                          action="store",
-                          dest=key,
-                          help=self.doc + " [default: %default]",
-                          **kwarg)
+
+        if getattr(self, "values", []):
+            for value in self.values:
+                k2 = key + "_" + value.id
+                doc = getattr(value,  "__doc__", "")
+                if doc is None:
+                    doc = ""
+                group.add_option("--"+k2,
+                                 action="store_const",      
+                                 const=True,
+                                 dest=k2,
+                                 default=(value == getattr(self, 'default', None)),
+                                 help=doc + " [default: %default]",
+                                 )
+        else:
+            if getattr(self, 'default', None) is not None:
+                parser.set_defaults(**{key: self.default})
+            kwarg = {}
+            if getattr(self, 'metavar', False):
+                kwarg['metavar'] = self.metavar
+            group.add_option("--"+key,
+                              action="store",      
+                              dest=key,
+                              help=self.doc + " [default: %default]",
+                              **kwarg)
+
         
 class TextOption (Option):
+    """Multiline or one line?    int value, etc?"""
     pass
 
 class SelectOption (Option):
     pass
 
-
-class RadioOption (SelectOption):
+class RadioOption (SelectOption):   #SelectOne
     """Select one....  radio or drop down?  Depends on what other
     content we have about it?  And how many there are?"""
 
     pass
 
-class CheckboxOption (SelectOption):
+class CheckboxOption (SelectOption):    #SelectMulti
     """Select multiple...
     """
     pass
+
 
 
