@@ -19,6 +19,7 @@ from cStringIO import StringIO
 import html as h
 
 import plugin
+import plugins.test_1
 import rif
 import error
 
@@ -152,7 +153,34 @@ def select_processor(div, args, method, field_name):
                 button = h.input(type="radio",
                             name=field_name,
                             value=p.id)
-            
+
+            optdiv = h.div()
+            for option in getattr(p, "options", []):
+                # should this be here or in plugin.py?
+                key = p.id + "__" + option.name
+                if getattr(option, "values", None) is not None:
+                    if getattr(option, "maxcard", None) == 1:
+                        for v in option.values:
+                            #  ? if v.id == getattr(option, "default", None)
+                            #  + we need to use the current/args value
+                            optdiv << h.input(type="radio",
+                                           name=key,
+                                           value=v.id)
+                            optdiv << h.span(v.id)
+
+                    else:
+                        for v in option.values:
+                            optdiv << h.input(type="checkbox",
+                                           name=key+"__"+v.id,
+                                           value=v.id)
+                            optdiv << h.span(v.id)
+                else:
+                    optdiv << h.p(option.name, ": ", 
+                                h.input(type="textarea",
+                                        name=key,
+                                        rows="4",
+                                        cols="80"))
+
             examples = h.span()
             if getattr(p, 'examples', []):
                 examples << h.br()
@@ -162,6 +190,7 @@ def select_processor(div, args, method, field_name):
                                         value=name)
 
             div << h.p(button, desc, examples)
+            div << optdiv
 
 def load_example_texts():
     
@@ -232,10 +261,19 @@ class OptionSet (object):
 
 def run(outdiv, args, middiv):
 
+    return
+
     options = OptionSet()
-    options.plugins = [ args.getfirst("input_processor"),
-                        args.getfirst("output_processor"),
-                        ] + args.getlist("plugin")
+    options.plugins = []
+    for id in [ args.getfirst("input_processor"),
+                args.getfirst("output_processor"),
+                ] + args.getlist("plugin") :
+        cls = plugin.plugin_by_id(id)
+        p = plugin.instantiate_with_options(cls, options)
+        options.plugins.append(p)
+
+    # uhhhh, this is kind of nonsense....
+
     
     # get other "options" out of args...
     #    they're named (pluginid_optionname):   xml_out_indent=

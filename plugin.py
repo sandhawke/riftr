@@ -208,6 +208,12 @@ def add_to_OptionParser(parser):
             option.add_to_OptionParser(plugin, parser, group)
         parser.add_option_group(group)
 
+def plugin_by_id(id):
+    for plugin in registry:
+        if plugin.id == id:
+            return plugin
+    return None
+
 def XXXget_plugins(actions, options):
     """ Yields sequence of INSTANTIATIONS of plugins which:
             1.  have their id present in the list options.plugins
@@ -240,13 +246,17 @@ def instantiate_with_options(plugin, options):
         key = plugin.id + "_" + option.name
         if getattr(option, "values", []):
             value = []
-            for v in option.values:
-                k2 = key + "_" + v.id
-                if getattr(options, k2, None):
-                    value.append(v)
+            for provided in getattr(options, key).split(","):
+                found = False
+                for v in option.values:
+                    if v.id == provided:
+                        value.append(v)
+                        found = True
+                if not found:
+                    raise optparse.OptionValueError("--%s value %s not one of %s" % (key, repr(provided), [v.id for v in option.values]))
             if getattr(option, "maxcard", None) == 1:
                 if len(value) > 1:
-                    raise optparse.OptionValueError("plugin '%s' option '%s' can only have ONE of the values %s" % (plugin.id, option.name, [v.id for v in option.values]))
+                    raise optparse.OptionValueError("--%s can only have ONE of the values %s" % (key, [v.id for v in option.values]))
         else:
             value = getattr(options, key)
         kwargs[option.name] = value
@@ -263,41 +273,41 @@ class Option (object):
         #  - default is (obviously) the default value
         #  - metavar is an OptionParser thing, it's like FILE or something, used
         #    in the automatic documentation
-        #
-        # maybe: (not for cmd line?)
         #  - values is a list of allowed values (for constrained options)
         #  - maxcard is 1 or None, indicating how many values are allowed
 
     def add_to_OptionParser(self, plugin, parser, group):
 
         key = plugin.id + "_" + self.name
-
+        if getattr(self, 'default', None) is not None:
+            parser.set_defaults(**{key: self.default})
+        kwarg = {}
+        if getattr(self, 'metavar', False):
+            kwarg['metavar'] = self.metavar
+            
         if getattr(self, "values", []):
-            for value in self.values:
-                k2 = key + "_" + value.id
-                doc = getattr(value,  "__doc__", "")
-                if doc is None:
-                    doc = ""
-                group.add_option("--"+k2,
-                                 action="store_const",      
-                                 const=True,
-                                 dest=k2,
-                                 default=(value == getattr(self, 'default', None)),
-                                 help=doc + " [default: %default]",
-                                 )
+            allowed_values = "; allowed: " 
+            if getattr(self, "maxcard", None) is None:
+                allowed_values += "zero or more of "
+            allowed_values += ", ".join([v.id for v in self.values])
         else:
-            if getattr(self, 'default', None) is not None:
-                parser.set_defaults(**{key: self.default})
-            kwarg = {}
-            if getattr(self, 'metavar', False):
-                kwarg['metavar'] = self.metavar
-            group.add_option("--"+key,
-                              action="store",      
-                              dest=key,
-                              help=self.doc + " [default: %default]",
-                              **kwarg)
+            allowed_values = ""
 
+        # it's tempting to use "choices", but that can't handle our comma-separated thing;
+        # and the error messages are confusing if people get the wrong cardinality.
+
+        # shall we do special handling for boolean values, recognized by default of True or False?
+
+        group.add_option("--"+key,
+                          action="store",      
+                          dest=key,
+                          help=self.doc + " [default: %default" + allowed_values+"]",
+                          **kwarg)
+
+    def html(self):
         
+        pass
+
 class TextOption (Option):
     """Multiline or one line?    int value, etc?"""
     pass
