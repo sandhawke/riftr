@@ -55,7 +55,7 @@ def ns_split(term):
     return ns, local
 
 
-def do_element(tree, rif_locals, prefix=""):
+def do_element(tree, prefix=""):
     """Recursively traverse the input XML tree, printing
     the resulting RDF/XML."""
 
@@ -98,9 +98,8 @@ def do_element(tree, rif_locals, prefix=""):
             print prefix+('    <value rdf:resource=%s />' % 
                           quoteattr(tree.text))
         elif t == rifxmlns + "local":
-            print prefix+('    <value rdf:nodeID=%s />' % 
-                          quoteattr(nodeid(rif_locals, tree.text)))
-
+            print prefix+('    <value><Local><name>%s</name></Local></value>' % 
+                          escape(tree.text))
         else:
             print prefix+'    <value rdf:datatype=%s>%s</value>' % (
                 quoteattr(tree.get("type")),
@@ -108,7 +107,7 @@ def do_element(tree, rif_locals, prefix=""):
                 )
     else:
         for child in tree.getchildren():
-            do_element(child, rif_locals,prefix+indent)
+            do_element(child, prefix+indent)
 
     print prefix + "</"+local+">"
 
@@ -117,31 +116,18 @@ def handle_meta(tree):
     # rdf...?   Not implemented yet.
     return
                     
-def nodeid(rif_locals, label):
-    """Return a node-id for the this rif:local, using rif_locals to
-    keep track and re-use them."""
-    return rif_locals.setdefault(label, "local_%d" % len(rif_locals))
-
-def finish_locals(rif_locals):
-    for (key, value) in rif_locals.items():
-        print indent+"<Local rdf:nodeID=%s rdfs:label=%s />" % (
-            quoteattr(value), 
-            quoteattr(key) )
 
 def main():
 
     doc = etree.fromstring(sys.stdin.read())
 
     if doc.tag != rif.Document:
-        raise Exception, "Root element is not rif:Document"
+        raise RuntimeError, "Root element is not rif:Document"
 
     print '<rdf:RDF xmlns="%s"' % rifrdfns
     print '         xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"'
-    #print '         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"'
     print '         >'
-    rif_locals = {}
-    do_element(doc, rif_locals,indent)
-    finish_locals(rif_locals)
+    do_element(doc, indent)
     print '</rdf:RDF>'
 
 
