@@ -145,9 +145,23 @@ class Multi (object) :
     def __repr__(self):
         return "Multi(values="+`self.values`+")"
 
-    def __cmp__(self, other):
-        assert isinstance(other, Multi)
-        return cmp(sorted(self.values), sorted(other.values))
+    def __eq__(self, other):
+        if not isinstance(other, Multi):
+            return False
+
+        others = other.values[:]
+        for v1 in self.values:
+            found = False
+            for v2 in others:
+                if v1 == v2:
+                    found = True
+                    others.remove(v2)
+                    break
+            if not found:
+                return False
+        if others:
+            return False
+        return True
 
     @property
     def the(self):
@@ -173,6 +187,16 @@ class Multi (object) :
             return self.values[0]
         else:
             return None
+
+    def diff(self, other, prefix=""):
+        if not isinstance(other, Multi):
+            print "Value type mismatch", self.__class__, other.__class__
+            return False
+
+        #for v in self.values:
+        #    for u in other.values:
+        #        if 
+            
 
 class Instance (object) :
     """
@@ -263,9 +287,6 @@ class Instance (object) :
 
         values[:] = result
 
-
-
-
     def __setattr__(self, prop, value):
         if prop[0] is "_":
             raise AttributeError
@@ -296,8 +317,17 @@ class Instance (object) :
     def __setstate__(self, state):
         (self.primary_type, self.dict) = state
 
-    def __cmp__(self, other):
-        return cmp(self.dict, other.dict)
+    def __eq__(self, other):
+        if not isinstance(other, Instance):
+            return False
+        k1 = sorted(self.dict.keys())
+        k2 = sorted(other.dict.keys())
+        if k1 != k2:
+            return False
+        for k in k1:
+            if not self.dict[k] == other.dict[k]:
+                return False
+        return True
 
     def __str__(self):
         return "Instance("+self.primary_type+", ...)"
@@ -344,6 +374,35 @@ class Instance (object) :
                     args[attr] = value.the.to_python(map)
         return cls(**args)
 
+    def diff(self, other, prefix=""):
+        """print/return the differences with another AST
+        
+        still rough
+        """
+        if not isinstance(other, Instance):
+            print "Value type mismatch", self.__class__, other.__class__
+            return False
+
+        if self.primary_type != other.primary_type:
+            print "Primary Type Difference", self.primary_type, "<>", other.primary_type
+            return False
+
+        print prefix, self.primary_type
+        for p in self.properties:
+            if p not in other.dict:
+                print "Only self has ", p
+        for p in other.properties:
+            if p not in self.dict:
+                print "Only other has ", p
+        all_passed = True                
+        for p in sorted(self.properties):
+            print prefix+"  ", p
+            vo = getattr(self, p)
+            vn = getattr(other, p)
+            result = vo.diff(vn, prefix+"  ")
+            if result is False:
+                all_passed = False
+        return all_passed
 
 class Sequence (object) :
 
@@ -370,6 +429,14 @@ class Sequence (object) :
     def __add__(self, other):
         return Sequence(items=(self.items + other.items))
 
+    def __eq__(self, other):
+        if len(self.items) != len(other.items) :
+            return False
+        for i in range(0, len(self.items)):
+            if not self.items[i] == other.items[i]:
+                return False
+        return True
+                
 datatypes = {}
 
 class BaseDataValue (object):
@@ -388,6 +455,11 @@ class BaseDataValue (object):
     def to_python(self, map=None):
         raise RuntimeError("Don't know how to convert to python datatype: "+`self.datatype`)
 
+    def __eq__(self, other):
+        return (isinstance(other, BaseDataValue) and
+                self.datatype == other.datatype and
+                self.lexrep == other.lexrep)
+                   
     def __cmp__(self, other):
         c1 = cmp(self.datatype, other.datatype)
         if c1 == 0:
