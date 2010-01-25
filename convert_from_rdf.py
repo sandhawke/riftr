@@ -17,6 +17,7 @@ import rdflib.RDFS as RDFS
 import rdflib.URIRef as URIRef
 
 indent = "  "
+rdfns = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 rifrdfns = "http://www.w3.org/2007/rifr#"
 rifxmlns = "http://www.w3.org/2007/rif#"
 
@@ -146,6 +147,13 @@ def do_property(out, graph, node, p, prefix):
             out.write(prefix+"<"+localize(p)+' ordered="yes">\n')
             for i in graph.items(value):
                 to_rif(out, graph, i, prefix+indent)
+            out.write(prefix+"</"+localize(p)+">\n")
+        elif isinstance(value, rdflib.Literal):
+            # needed for location & profile
+            assert value.datatype == None
+            assert value.language == None
+            out.write(prefix+"<"+localize(p)+">")
+            out.write(saxutils.escape(unicode(value)))
             out.write(prefix+"</"+localize(p)+">\n")
         else:
             out.write(prefix+"<"+localize(p)+">\n")

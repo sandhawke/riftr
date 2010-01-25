@@ -262,6 +262,7 @@ def nodeText(node):
     if (node.nodeType == node.TEXT_NODE or
         node.nodeType == node.CDATA_SECTION_NODE):
         return node.data
+    #print >>sys.stderr, "should be no markup, but was: "+`nodeContents(node)`+", node type "+str(node.nodeType)+"; while ELEMENT is nodetype "+str(node.ELEMENT_NODE)
     raise UnexpectedContent("should be no markup, but was: "+`nodeContents(node)`+", node type "+str(node.nodeType))
         
 def nodeContentsWithoutMarkup(node):

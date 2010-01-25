@@ -68,6 +68,10 @@ def do_element(tree, prefix=""):
 
     if tree.get("ordered") == "yes":
         attrs += ' rdf:parseType="Collection"'
+    else:
+        # Workaround syntax error in the current test suite
+        if tree.tag == rif.slot :
+            attrs += ' rdf:parseType="Collection"'
 
     id_element = tree.find(rif.id)
     if id_element is not None:
@@ -76,6 +80,14 @@ def do_element(tree, prefix=""):
         # without making up an IRI.
         iri = id_element.find(rif.Const).text
         attrs += ' rdf:about=%s' % quoteattr(iri)
+
+    if tree.tag == rif.location:
+        print prefix + "<location>%s</location>" % escape(tree.text)
+        return
+
+    if tree.tag == rif.profile:
+        print prefix + "<profile>%s</profile>" % escape(tree.text)
+        return
 
     print prefix + "<"+local+attrs+">"
 
@@ -87,8 +99,11 @@ def do_element(tree, prefix=""):
         print prefix+indent+"<name>%s</name>" % escape(tree.text)
     elif tree.tag == rif.Const:
         t = tree.get("type")
+        text = tree.text
+        if text is None:   # etree does this?!
+            text = ""
         if t == 'http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral':
-            (val, lang) = tree.text.rsplit('@', 1)
+            (val, lang) = text.rsplit('@', 1)
             if lang == "":
                 print prefix+'    <value>%s</value>' % escape(val)
             else:
@@ -96,14 +111,14 @@ def do_element(tree, prefix=""):
                     quoteattr(lang), escape(val) )
         elif t == rifxmlns + "iri":
             print prefix+('    <value rdf:resource=%s />' % 
-                          quoteattr(tree.text))
+                          quoteattr(text))
         elif t == rifxmlns + "local":
             print prefix+('    <value><Local><name>%s</name></Local></value>' % 
-                          escape(tree.text))
+                          escape(text))
         else:
             print prefix+'    <value rdf:datatype=%s>%s</value>' % (
                 quoteattr(tree.get("type")),
-                escape(tree.text)
+                escape(text)
                 )
     else:
         for child in tree.getchildren():
@@ -117,19 +132,18 @@ def handle_meta(tree):
     return
                     
 
-def main():
-
-    doc = etree.fromstring(sys.stdin.read())
-
-    if doc.tag != rif.Document:
-        raise RuntimeError, "Root element is not rif:Document"
-
+def do_document(doc):
     print '<rdf:RDF xmlns="%s"' % rifrdfns
     print '         xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"'
     print '         >'
     do_element(doc, indent)
     print '</rdf:RDF>'
 
+def main():
+    doc = etree.fromstring(sys.stdin.read())
+    if doc.tag != rif.Document:
+        raise RuntimeError, "Root element is not rif:Document"
+    do_document(doc)
 
 if __name__ == "__main__":
     main()

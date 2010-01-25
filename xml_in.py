@@ -4,6 +4,7 @@
 
 Parse the RIF XML Syntax to AST2
 
+This seems massively complicated; revisit it...???
 
 """
 
@@ -132,6 +133,12 @@ class Parser:
             elif child.nodeType == child.ELEMENT_NODE:
                 result = self.value_of_element(child)
                 debug('xml_in', "value_inside:", result)
+                yield result
+            elif child.nodeType == child.TEXT_NODE:
+                # uh oh... multiple non-white text node children???
+                # that means there's markup in this, I think.....
+                result = AST2.string(child.data)
+                debug('xml_in', 'dubious mixed content', result)
                 yield result
             else:
                 raise xx.UnexpectedContent

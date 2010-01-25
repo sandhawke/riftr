@@ -125,6 +125,12 @@ class InputPlugin (Plugin):
     def parse(self, input_text):
         raise RuntimeError("Not implemented")
 
+    def parse_file(self, filename):
+        stream = open(filename, "r")
+        input_text = stream.read()
+        stream.close()
+        return self.parse(input_text)
+
     @classmethod
     def action_word(cls):
         return "input"
