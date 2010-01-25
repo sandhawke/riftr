@@ -17,7 +17,7 @@ import rdflib.RDFS as RDFS
 import rdflib.URIRef as URIRef
 
 indent = "  "
-rifrdfns = "http://www.w3.org/2007/rif#"
+rifrdfns = "http://www.w3.org/2007/rifr#"
 rifxmlns = "http://www.w3.org/2007/rif#"
 
 RIF = rdflib.Namespace(rifrdfns)
@@ -86,17 +86,17 @@ def to_rif(out, graph, node, prefix="", root=False):
     cls = graph.value(node, RDF.type)
 
     if cls == RIF.Var:
-        varname = graph.value(node, RDFS.label)
+        varname = graph.value(node, RIF.name)
         out.write(prefix+"<Var>")
         irimeta(out, graph, node, prefix, True)
         out.write(saxutils.escape(varname)+"</Var>\n")
         return
 
     if cls == RIF.Const:
-        value = graph.value(node, RDF.value)
+        value = graph.value(node, RIF.value)
         if isinstance(value, rdflib.BNode):
             datatype = rifxmlns + "local"
-            lexrep = graph.value(value, RDFS.label)
+            lexrep = graph.value(value, RIF.name)
         elif isinstance(value, rdflib.URIRef):
             datatype = rifxmlns + "iri"
             lexrep = unicode(value)

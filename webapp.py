@@ -48,39 +48,39 @@ def startPage(title):
         page.head << h.stylelink("http://validator.w3.org/base.css")
 
 
-def main_page(args):
+def main_page(state):
     global page
 
     startPage("Highly Experimental RIF Demonstration Page")	
     page << h.h2("Highly Experimental RIF Demonstration Page")
     page << h.p("This page currently only does translations between RIF XML and RIF PS, but the idea is to have various non-RIF languages supported as well")
 
-    #for k in args.keys():
-    #    page << h.p(`k`, '=', `args[k]`)
+    #for k in state.keys():
+    #    page << h.p(`k`, '=', `state[k]`)
 
     form = h.form(method="GET", class_="f")	
     
     form << h.h3("Step 1: Select Input Processor") 
-    select_input_processor(form, args)
+    select_input_processor(form, state)
 
     form << h.h3("Step 2: Provide Input") 
-    select_input(form, args)
+    select_input(form, state)
 
     form << h.h3("Step 3: (Optional) Select transform or analysis plugins") 
-    select_middle(form, args)
+    select_middle(form, state)
     
     analysis_div = h.div()
     page << analysis_div
 
     form << h.h3("Step 4: Select Output Processor") 
-    select_output_processor(form, args)
+    select_output_processor(form, state)
 
     form << h.h3("Step 5: Begin Processing") 
 
     form << h.br()
 
     output_div = h.div()
-    output_done = run(output_div, args, analysis_div)
+    output_done = run(output_div, state, analysis_div)
     page << form
     page << output_div
 
@@ -128,13 +128,13 @@ def main_page(args):
     print page
     # cgi.print_environ()    
 
-def select_input_processor(div, args):
-    select_processor(div, args, 'parse', 'input_processor')
+def select_input_processor(div, state):
+    select_processor(div, state, 'parse', 'input_processor')
 
-def select_output_processor(div, args):
-    select_processor(div, args, 'serialize', 'output_processor')
+def select_output_processor(div, state):
+    select_processor(div, state, 'serialize', 'output_processor')
 
-def select_processor(div, args, method, field_name):
+def select_processor(div, state, method, field_name):
 
     for p in plugin.registry:
         if hasattr(p, method):
@@ -144,7 +144,7 @@ def select_processor(div, args, method, field_name):
                 desc.append(h.span('  (See ', h.a('language specification', 
                                                 href=p.spec), ")"))
 
-            if args.getfirst(field_name) == p.id:
+            if args .getfirst(field_name) == p.id:
                 button = h.input(type="radio",
                             name=field_name,
                             checked='YES',
@@ -153,33 +153,6 @@ def select_processor(div, args, method, field_name):
                 button = h.input(type="radio",
                             name=field_name,
                             value=p.id)
-
-            optdiv = h.div()
-            for option in getattr(p, "options", []):
-                # should this be here or in plugin.py?
-                key = p.id + "__" + option.name
-                if getattr(option, "values", None) is not None:
-                    if getattr(option, "maxcard", None) == 1:
-                        for v in option.values:
-                            #  ? if v.id == getattr(option, "default", None)
-                            #  + we need to use the current/args value
-                            optdiv << h.input(type="radio",
-                                           name=key,
-                                           value=v.id)
-                            optdiv << h.span(v.id)
-
-                    else:
-                        for v in option.values:
-                            optdiv << h.input(type="checkbox",
-                                           name=key+"__"+v.id,
-                                           value=v.id)
-                            optdiv << h.span(v.id)
-                else:
-                    optdiv << h.p(option.name, ": ", 
-                                h.input(type="textarea",
-                                        name=key,
-                                        rows="4",
-                                        cols="80"))
 
             examples = h.span()
             if getattr(p, 'examples', []):
@@ -190,7 +163,7 @@ def select_processor(div, args, method, field_name):
                                         value=name)
 
             div << h.p(button, desc, examples)
-            div << optdiv
+            div << render_options_panel(p, state)
 
 def load_example_texts():
     
@@ -256,41 +229,64 @@ def select_middle(div, args):
     if not any:
         line << "(none available)."
 
-class OptionSet (object):
-    pass
+class State (object):
+    """Mixes the CGI/Query arguments with the plugin default values,
+    and provides a trivial (json-like) interface.
+
+    state.component_id.option_name = value/[value1, value2, value3, ...]
+
+    Do we do the plugin instantiation here?
+    """
+    
+    def __init__(self, cgi_args):
+
+        for p in plugin.registry:
+            for option in getattr(p, 'options', []):
+                key = p.id + "__" + option.name
+                values = args.getlist(key)
+                if values:
+                    self.set(p, option, values[0])
+                else:
+                    default = getattr(option, 'default', None)
+                    if default is not None:
+                        self.set(p, option, default)
+
+
+    def get(self, component, option):
+        return getattr(getattr(self, component.id), option.name)
+
+    def set(self, component, option, value):
+        try:
+            o = getattr(self, component.id)
+        except AttributeError:
+            o = object()
+            setattr(self, component.id, o)
+        setattr(o, option.name, value)
+
+    # can we compare to defaults and avoid a ton of state in the URL?
 
 def run(outdiv, args, middiv):
 
     return
 
-    options = OptionSet()
-    options.plugins = []
+    state = State()
+    state.plugins = []
     for id in [ args.getfirst("input_processor"),
                 args.getfirst("output_processor"),
                 ] + args.getlist("plugin") :
         cls = plugin.plugin_by_id(id)
-        p = plugin.instantiate_with_options(cls, options)
-        options.plugins.append(p)
+        p = plugin.instantiate_with_state(cls, state)
+        state.plugins.append(p)
 
     # uhhhh, this is kind of nonsense....
 
     
-    # get other "options" out of args...
+    # get other state out of args...
     #    they're named (pluginid_optionname):   xml_out_indent=
     
-    for p in plugin.registry:
-        for option in getattr(p, 'options', []):
-            key = p.id + "_" + option.name
-            values = args.getlist(key)
-            if values:
-                setattr(options, key, values[0])
-            else:
-                default = getattr(option, 'default', None)
-                if default:
-                    setattr(options, key, default)
 
     try:
-        (iproc,) = plugin.get_plugins(["input"], options)
+        (iproc,) = plugin.get_plugins(["input"], state)
     except ValueError:
         outdiv << h.p('No input processor selected.')
         return False
@@ -308,7 +304,7 @@ def run(outdiv, args, middiv):
         return False
 
 
-    for p in plugin.get_plugins(["transform","analysis"], options):
+    for p in plugin.get_plugins(["transform","analysis"], state):
         if isinstance(p, plugin.TransformPlugin):
             doc = p.transform(doc)
         elif isinstance(p, plugin.AnalysisPlugin):
@@ -322,7 +318,7 @@ def run(outdiv, args, middiv):
 
 
     try:
-        (oproc,) = plugin.get_plugins(["output"], options)
+        (oproc,) = plugin.get_plugins(["output"], state)
     except ValueError:
         outdiv << h.p('No output processor selected.')
         return False
@@ -344,6 +340,7 @@ def cgiMain():
 
     load_example_texts()
     args = cgi.FieldStorage()
+    state = State(args)
     handle_example_input(args)
     main_page(args)
 

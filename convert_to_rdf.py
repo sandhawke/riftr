@@ -6,39 +6,58 @@ Convert a RIF XML document (from stdin) into a RIF-in-RDF/XML document
 (stdout).  Assumes input is schema-valid RIF.  Should work for all
 dialects.
 
+By Sandro Hawke, sandro@w3.org, Jan 24 2010.
+
+
+Copyright © 2010 World Wide Web Consortium, (Massachusetts Institute
+of Technology, European Research Consortium for Informatics and
+Mathematics, Keio University). All Rights Reserved. This work is
+distributed under the W3C® Software License [1] in the hope that it
+will be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+[1] http://www.w3.org/Consortium/Legal/2002/copyright-software-20021231
+
 """
 
 import sys
 import xml.etree.cElementTree as etree
-import xml.sax.saxutils as saxutils
+from xml.sax.saxutils import quoteattr, escape
+
+indent = "  "
 
 #
 # Namespace Handling
 # 
 
-rifrdfns = "http://www.w3.org/2007/rif#"
+rifrdfns = "http://www.w3.org/2007/rifr#"
 rifxmlns = "http://www.w3.org/2007/rif#"
 
 class RIFNS (object):
+    """
+    For conveniences, lets us write rif.foo as shorthand for
+    "{"+rifxmlns+"}"+"foo".
+    """
     def __getattr__(self, term):
         return "{" + rifxmlns + "}" + term
 
 rif = RIFNS()
 
 def ns_split(term):
+    """
+    Take apart an ElementTree namespaced name, returning the namespace
+    and a localpart.
+    """
+
     (ns, local) = term.split("}")
     assert ns[0] == "{"
     ns = ns[1:]
     return ns, local
 
-#
-# Recursively traverse the XML tree, changing it as necessary
-# from RIF XML to RIF-in-RDF/XML
-#
-# This code assumes the RIF input is schema-valid.  No input
-# validation is done.
-#
+
 def do_element(tree, rif_locals, prefix=""):
+    """Recursively traverse the input XML tree, printing
+    the resulting RDF/XML."""
 
     (ns,local) = ns_split(tree.tag)
 
@@ -56,7 +75,7 @@ def do_element(tree, rif_locals, prefix=""):
         # would make a lot of sense, too, for when you want metadata
         # without making up an IRI.
         iri = id_element.find(rif.Const).text
-        attrs += ' rdf:about=%s' % saxutils.quoteattr(iri)
+        attrs += ' rdf:about=%s' % quoteattr(iri)
 
     print prefix + "<"+local+attrs+">"
 
@@ -65,48 +84,39 @@ def do_element(tree, rif_locals, prefix=""):
         # but still process it normally, as well.
 
     if tree.tag == rif.Var:
-        print prefix+"    <rdfs:label>%s</rdfs:label>" % saxutils.escape(tree.text)
+        print prefix+indent+"<name>%s</name>" % escape(tree.text)
     elif tree.tag == rif.Const:
         t = tree.get("type")
-        # do we need special handling for rif:local or rif:iri, or do we
-        # just pretend they are RDF datatypes for this purpose?
-
         if t == 'http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral':
             (val, lang) = tree.text.rsplit('@', 1)
             if lang == "":
-                print prefix+'    <rdf:value>%s</rdf:value>' % saxutils.escape(val)
+                print prefix+'    <value>%s</value>' % escape(val)
             else:
-                print prefix+'    <rdf:value xml:lang=%s>%s</rdf:value>' % (
-                    saxutils.quoteattr(lang), saxutils.escape(val) )
+                print prefix+'    <value xml:lang=%s>%s</value>' % (
+                    quoteattr(lang), escape(val) )
         elif t == rifxmlns + "iri":
-            print prefix+('    <rdf:value rdf:resource=%s />' % 
-                          saxutils.quoteattr(tree.text))
+            print prefix+('    <value rdf:resource=%s />' % 
+                          quoteattr(tree.text))
         elif t == rifxmlns + "local":
-            print prefix+('    <rdf:value rdf:nodeID=%s />' % 
-                          saxutils.quoteattr(nodeid(rif_locals, tree.text)))
+            print prefix+('    <value rdf:nodeID=%s />' % 
+                          quoteattr(nodeid(rif_locals, tree.text)))
 
         else:
-            print prefix+'    <rdf:value rdf:datatype=%s>%s</rdf:value>' % (
-                saxutils.quoteattr(tree.get("type")),
-                saxutils.escape(tree.text)
+            print prefix+'    <value rdf:datatype=%s>%s</value>' % (
+                quoteattr(tree.get("type")),
+                escape(tree.text)
                 )
     else:
         for child in tree.getchildren():
-            do_element(child, rif_locals,prefix+"    ")
+            do_element(child, rif_locals,prefix+indent)
 
     print prefix + "</"+local+">"
 
 def handle_meta(tree):
     # queue up any metadata that we can say in RDF to be emitted as
-    # rdf
+    # rdf...?   Not implemented yet.
     return
                     
-    for frame in tree.findall(rif.Frame):
-        obj = frame.find(rif.object)   # node-id for local?
-        # ...
-        for slot in frame.findall(rif.slot):
-            (prop, value) = slot.getchildren()
-
 def nodeid(rif_locals, label):
     """Return a node-id for the this rif:local, using rif_locals to
     keep track and re-use them."""
@@ -114,9 +124,9 @@ def nodeid(rif_locals, label):
 
 def finish_locals(rif_locals):
     for (key, value) in rif_locals.items():
-        print "    <Local rdf:nodeID=%s rdfs:label=%s />" % (
-            saxutils.quoteattr(value), 
-            saxutils.quoteattr(key) )
+        print indent+"<Local rdf:nodeID=%s rdfs:label=%s />" % (
+            quoteattr(value), 
+            quoteattr(key) )
 
 def main():
 
@@ -127,10 +137,10 @@ def main():
 
     print '<rdf:RDF xmlns="%s"' % rifrdfns
     print '         xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"'
-    print '         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"'
+    #print '         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"'
     print '         >'
     rif_locals = {}
-    do_element(doc, rif_locals,"    ")
+    do_element(doc, rif_locals,indent)
     finish_locals(rif_locals)
     print '</rdf:RDF>'
 

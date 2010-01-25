@@ -17,7 +17,7 @@ class P (plugin.InputPlugin) :
     options = [
         plugin.Option('option_1', 'Option 1', metavar="X", default=100),
         plugin.Option('color', 'The Color Option', default=Blue.id,
-                      values=[Red, Blue, Green], maxcard=1)
+                      values=[Red, Blue, Green], maxcard=None)
         ]
 
     def __init__(self, **kwargs):
