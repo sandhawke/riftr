@@ -21,10 +21,17 @@ from cStringIO import StringIO
 
 from debugtools import debug
 import debugtools
-#debugtools.tags.add('all')
+# debugtools.tags.add('serializer')
 
 import AST2
 import qname
+
+
+def utf8(s):
+    if isinstance(s, unicode):
+        return s.encode('utf-8')
+    else:
+        return s
 
 class General (object):
 
@@ -174,14 +181,14 @@ class General (object):
             lines = arg.split("\n")
             for line in lines[:-1]:
                 self.out(line)
-            self.stream.write(lines[-1])
+            self.stream.write(utf8(lines[-1]))
             if lines[-1]:
                 self.at_left_margin = False
             
         keep = kwargs.get("keep", 0) 
         if keep > 0.5:  # make this flexible later
             if_keep = kwargs.get("if_keep", getattr(self, "if_keep", " "))
-            self.stream.write(if_keep)
+            self.stream.write(utf8(if_keep))
         else:
             self.lend()
 
@@ -245,12 +252,13 @@ class General (object):
         if self.root is not None:
             self.short_count = {}
             self.ns_add_tree(self.root)
-            debug('serializer', 'short_count:',self.short_count)
-            (count, best_short) = sorted(
-               [(count, short) for (short, count) in self.short_count.items()]
-               )[-1]
-            debug('serializer', 'count, best_short =', count, best_short)
-            self.nsmap.bind('', self.nsmap.getLong(best_short))
+            if self.short_count:
+                debug('serializer', 'short_count:',self.short_count)
+                (count, best_short) = sorted(
+                   [(count, short) for (short, count) in self.short_count.items()]
+                   )[-1]
+                debug('serializer', 'count, best_short =', count, best_short)
+                self.nsmap.bind('', self.nsmap.getLong(best_short))
             
             self.out_xml(self.root, is_root=True)
 

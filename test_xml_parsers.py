@@ -10,6 +10,7 @@ from rdflib import RDF
 
 import xml_in
 import xml_in_etree
+import xml_out
 import error
 
 count = 0
@@ -44,6 +45,28 @@ def load(module, filename):
 def loop(filename):
     global count
 
+    note("---")
+    count += 1
+    old = load(xml_in_etree, filename)
+    tmpfile = "/tmp/test_xml_parsers_%03d" % count
+    tmpstream = open(tmpfile, "w")
+    xml_out.Plugin().serialize(old, tmpstream)
+    tmpstream.close()
+    new = load(xml_in_etree, tmpfile)
+
+    same = (old == new)
+    same2 = (new == old)
+    assert same == same2
+    if same:
+        good.append(filename)
+        print "%3d. good: %s" % (count-1, filename.rsplit("/",1)[1])
+    else:
+        note("%s\n    %s %d" % (filename, tmpfile, count-1))
+        print "%3d. bad:  %s" % (count-1, filename.rsplit("/",1)[1])
+
+def loop2(filename):
+    global count
+
     count += 1
     old = load(xml_in, filename)
     new = load(xml_in_etree, filename)
@@ -55,7 +78,7 @@ def loop(filename):
         good.append(filename)
         print "%3d. good: %s" % (count-1, filename.rsplit("/",1)[1])
     else:
-        note("%s %d" % (filename, count-1))
+        note("%s %s %d" % (filename, tmpfile, count-1))
         print "%3d. bad:  %s" % (count-1, filename.rsplit("/",1)[1])
 
 def main():

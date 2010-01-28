@@ -53,6 +53,11 @@ class Serializer(serializer2.General):
     def do_StringValue(self, obj):
         self.xml_set_text(obj.lexrep)
 
+    def do_PlainLiteral(self, obj):
+        (text, lang) = obj.lexrep.rsplit("@",1)
+        assert lang == ""
+        self.xml_set_text(text)
+
     def do_Const(self, obj):    # was BaseDataValue
         value = getattr(obj, rifns+"value").the
         self.xml_begin(rifns+'Const', {(None, 'type'):value.datatype})
@@ -92,7 +97,7 @@ class Plugin (plugin.OutputPlugin):
        self.ser = Serializer(**kwargs)
 
    def serialize(self, doc, output_stream):
-       self.ser.output_stream = output_stream
+       self.ser.stream = output_stream
        self.ser.do(doc)
   
 plugin.register(Plugin)

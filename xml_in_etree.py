@@ -30,14 +30,26 @@ class Parser (object):
     # back and forth between decode_instance and decode_property.
 
     def decode_instance(self, element):
-        """
-        ...
+        """Given an xml element which represents an instance of a
+        syntactic element (such as <Document> or <Atom> or <Var>),
+        return an AST2.Instance with the same data.
         """
         instance = AST2.Instance(iri_from_tag(element.tag))
 
-        # even Var and Const need this, since they can contain <meta>
-        # elements.    @@@ need RIF Approved test case for this
-
+        if element.tag == RIF.List:
+            # rif:List just directly contains more instances; we treat it
+            # as if it had an implicit inner element:  <items ordered="yes">
+            #
+            # and yes, it is forbidden from having <id> or <meta> (!!?!)
+            instance.items = AST2.Sequence(items)
+            text = element.text or ""
+            for child in element.getchildren():
+                assert_white(text)
+                text = child.tail or ""
+                instance.items.append(self.decode_instance(child))
+            assert_white(text)
+            return instance
+        
         text = element.text or ""
         for child in element.getchildren():
             assert_white(text)
@@ -47,13 +59,6 @@ class Parser (object):
         if element.tag == RIF.Var:
             instance.name = AST2.StringValue(text)
         elif element.tag == RIF.Const:
-            # We can't just USE the value as the Const, since it can
-            # have metadata, and out DataValues (quite reasonably)
-            # cannot.
-
-            # We could just do instance.lexrep and instance.type, but
-            # we'd like some tools working with the AST to have easy access
-            # to the python versions, I think...
             instance.value = AST2.DataValue(text, element.get("type"))
         else:
             assert_white(text)
@@ -61,9 +66,10 @@ class Parser (object):
         return instance
 
     def decode_property(self, element, instance):
-        """Called for each child element of an instance to glean what
-        it can from that instance to set properties of the instance
-        as necessary."""
+        """Given an xml element which represents a property (such as
+        <id> or <declare> or <op>, and an AST2.Instance, set the
+        appropriate property value on that instance.
+        """
 
         children = [x for x in element.getchildren()]
         if children or element.get("ordered") == "yes":
@@ -89,7 +95,7 @@ class Parser (object):
 
 def assert_white(text):
     if text is not None and text.strip() != "":
-        raise RuntimeError, "unexpected character content"
+        raise RuntimeError, "unexpected character content: %s" % repr(text)
 
 class Plugin (plugin.InputPlugin):
    """RIF XML Syntax Input (etree version)"""
