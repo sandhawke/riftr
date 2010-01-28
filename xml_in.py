@@ -56,7 +56,12 @@ class Parser:
         if (ns == RIFNS and local == u"Const"):
             datatype = node.getAttribute('type')
             lexrep = xx.nodeContents(node)    # this is so wrong.... markup should cause an error!
-            v = AST2.DataValue(lexrep, datatype)
+            
+            # WAS:  v = AST2.DataValue(lexrep, datatype)
+            v  = AST2.Instance(ns_join(ns, local))
+            vv = AST2.DataValue(lexrep, datatype)
+            setattr(v, RIFNS+'value', vv)
+            
             debug('xml_in)', "It's a data value:", v)
             return v
 
@@ -163,12 +168,8 @@ class Plugin (plugin.InputPlugin):
 plugin.register(Plugin)
 
 if __name__ == "__main__":
+    import xml_out
+
+    docnode = Plugin().parse(sys.stdin.read())
+    xml_out.Plugin().serialize(docnode, sys.stdout)
     
-    import sys
-
-    s = sys.stdin.read()
-    p = Parser(rif.bld_schema)
-    p.root = xml.dom.minidom.parseString(s)
-    doc = p.value_of_element(p.root.documentElement)
-    print doc
-

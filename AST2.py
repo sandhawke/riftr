@@ -59,7 +59,8 @@ import debugtools
 from debugtools import debug
 
 XS = "http://www.w3.org/2001/XMLSchema#"
-RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+RDF = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+RDF_TYPE = RDF+"type"
 
 default_namespace = None
 def q(name):
@@ -607,10 +608,19 @@ class StringValue (BaseDataValue) :
 
     """
 
-    __slots__ = ['value', 'datatype']   # keep dt around...???
+    __slots__ = ['value', 'datatype']   # keep dt around, for subtypes
 
-    def __init__(self, lexrep, datatype):
+    @property
+    def serialize_as_type(self):
+        return "StringValue"
+
+    def __init__(self, lexrep, datatype=None):
         self.lexrep = lexrep
+        if datatype is None:
+            datatype = XS+"string"
+        else:
+            if datatype != XS+"string":
+                raise ValueError
         self.datatype = datatype
 
     def to_python(self, map=None):
@@ -618,6 +628,27 @@ class StringValue (BaseDataValue) :
 
 datatypes[XS+"string"] = [StringValue]
 
+class PlainLiteral (BaseDataValue) :
+    
+    __slots__ = ['value', 'datatype']   # keep dt around...???
+
+    @property
+    def serialize_as_type(self):
+        return "PlainLiteral"
+
+    def __init__(self, lexrep, datatype=None):
+        self.lexrep = lexrep
+        if datatype is None:
+            datatype = RDF+"PlainLiteral"
+        else:
+            if datatype != RDF+"PlainLiteral":
+                raise ValueError
+        self.datatype = datatype
+
+    def to_python(self, map=None):
+        return self.lexrep
+
+datatypes[RDF+"string"] = [PlainLiteral]
 
 class UnimplementedDataValue (BaseDataValue) :
 

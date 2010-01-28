@@ -14,6 +14,11 @@ import xml_in
 
 rifns = xml_in.RIFNS
 
+rank = {
+    rifns+"id": "01",
+    rifns+"meta": "02",
+    }
+
 class Serializer(serializer2.General):
 
     def default_do(self, obj):
@@ -21,7 +26,11 @@ class Serializer(serializer2.General):
         if isinstance(obj, AST2.Instance):
             classname = obj.primary_type
             self.xml_begin(classname)
-            for prop in obj.properties:
+            properties = obj.properties
+            properties = sorted(properties,
+                                key=lambda x: rank.get(x,"99")+x
+                                )
+            for prop in properties:
                 for value in getattr(obj, prop).values:
                     if prop == AST2.RDF_TYPE and value.lexrep == classname:
                         continue
@@ -37,16 +46,20 @@ class Serializer(serializer2.General):
 
     def do_Var(self, obj):
         self.xml_begin(rifns+'Var')
+        # @@@ <id> and <meta>
         self.xml_set_text(getattr(obj, rifns+"name").the.lexrep)
         self.xml_end()
 
     def do_StringValue(self, obj):
         self.xml_set_text(obj.lexrep)
 
-    def do_BaseDataValue(self, obj):
-        self.xml_begin(rifns+'Const', {(None, 'type'):obj.datatype})
-        self.xml_set_text(obj.lexrep)
+    def do_Const(self, obj):    # was BaseDataValue
+        value = getattr(obj, rifns+"value").the
+        self.xml_begin(rifns+'Const', {(None, 'type'):value.datatype})
+        # @@@ <id> and <meta>
+        self.xml_set_text(value.lexrep)
         self.xml_end()
+
 
     def do_Sequence(self, obj):
         self.current_element.setAttributeNS(None, "ordered", "yes")

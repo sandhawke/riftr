@@ -26,6 +26,12 @@ from xml.sax.saxutils import quoteattr, escape
 
 indent = "  "
 
+def utf8(s):
+    if isinstance(s, unicode):
+        return s.encode('utf-8')
+    else:
+        return s
+
 #
 # Namespace Handling
 # 
@@ -82,12 +88,14 @@ def do_element(tree, prefix=""):
         attrs += ' rdf:about=%s' % quoteattr(iri)
 
     if tree.tag == rif.location:
-        print prefix + "<location>%s</location>" % escape(tree.text)
+        print prefix + "<location>%s</location>" % utf8(escape(tree.text))
         return
 
     if tree.tag == rif.profile:
-        print prefix + "<profile>%s</profile>" % escape(tree.text)
+        print prefix + "<profile>%s</profile>" % utf8(escape(tree.text))
         return
+
+    # @@@ what about Lists ?
 
     print prefix + "<"+local+attrs+">"
 
@@ -96,7 +104,8 @@ def do_element(tree, prefix=""):
         # but still process it normally, as well.
 
     if tree.tag == rif.Var:
-        print prefix+indent+"<name>%s</name>" % escape(tree.text)
+        print prefix+indent+"<name>%s</name>" % utf8(escape(tree.text))
+        # @@@ what about the metadata?
     elif tree.tag == rif.Const:
         t = tree.get("type")
         text = tree.text
@@ -105,20 +114,20 @@ def do_element(tree, prefix=""):
         if t == 'http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral':
             (val, lang) = text.rsplit('@', 1)
             if lang == "":
-                print prefix+'    <value>%s</value>' % escape(val)
+                print prefix+'    <value>%s</value>' % utf8(escape(val))
             else:
                 print prefix+'    <value xml:lang=%s>%s</value>' % (
-                    quoteattr(lang), escape(val) )
+                    utf8(quoteattr(lang)), utf8(escape(val)) )
         elif t == rifxmlns + "iri":
             print prefix+('    <value rdf:resource=%s />' % 
-                          quoteattr(text))
+                          utf8(quoteattr(text)))
         elif t == rifxmlns + "local":
             print prefix+('    <value><Local><name>%s</name></Local></value>' % 
-                          escape(text))
+                          utf8(escape(text)))
         else:
             print prefix+'    <value rdf:datatype=%s>%s</value>' % (
-                quoteattr(tree.get("type")),
-                escape(text)
+                utf8(quoteattr(tree.get("type"))),
+                utf8(escape(text))
                 )
     else:
         for child in tree.getchildren():

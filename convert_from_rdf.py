@@ -114,7 +114,7 @@ def to_rif(out, graph, node, prefix="", root=False):
                 lexrep = unicode(value)
         out.write(prefix+"<Const type=%s>" % saxutils.quoteattr(datatype))
         irimeta(out, graph, node, prefix, True)
-        out.write(saxutils.escape(lexrep))
+        out.write(saxutils.escape(lexrep).encode("utf-8"))
         out.write("</Const>\n")
         return
 

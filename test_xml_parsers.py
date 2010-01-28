@@ -8,34 +8,33 @@ import os
 import rdflib 
 from rdflib import RDF
 
-#import convert_to_rdf
-import xml_in_etree
-import convert_from_rdf
 import xml_in
+import xml_in_etree
 import error
 
 count = 0
 
 bad = [
-    'Named_Argument_Uniterms_non-polymorphic-premise.rif',   # slot <Name>
-    'Unordered_Relations-premise.rif',    # slot <Name>
-    'OpenLists-premise.rif', # no ordered on args
+    #'Named_Argument_Uniterms_non-polymorphic-premise.rif',   # slot <Name>
+    #'Unordered_Relations-premise.rif',    # slot <Name>
+    #'OpenLists-premise.rif', # no ordered on args
 ]
 
 good = []
 
 def note(text):
-    ff=open("bad-loops", "a")
+    ff=open("bad-parser", "a")
     ff.write(text)
     ff.write("\n")
     ff.close()
 
-def load(filename):
-    parser = xml_in.Plugin()
+def load(module, filename):
+    parser = module.Plugin()
     try:
         result = parser.parse_file(filename)
     except Exception, e:
         note("error parsing %s: %s" % (filename, str(e)))
+        result = ""
         
         #print >>sys.stderr, filename+":", e.message
         #print >>sys.stderr, e.illustrate_position()
@@ -43,46 +42,15 @@ def load(filename):
     return result
 
 def loop(filename):
-    inf = open(filename, "r")
-    doc = etree.fromstring(inf.read())
-    inf.close()
-
     global count
-    tmpfile = "/tmp/convert_rdf_loop_%04d.rdf" % count
-    tmpfile2 = "/tmp/convert_rdf_loop_%04d.rif" % count
-    count += 1 
-    save = sys.stdout
-    sys.stdout = open(tmpfile, "w")
-    xml_in_etree.do_document(doc)
-    sys.stdout.close()
-    sys.stdout = save
-    #print "Done.   See", tmpfile
 
-    inf = open(tmpfile, "r")
-    graph = rdflib.ConjunctiveGraph()
-    try:
-        graph.parse(inf, "application/rdf+xml")
-    except Exception, e:
-        note("error parsing %s: %s" % (filename, str(e)))
-        
-    inf.close()
-    docs = graph.subjects(RDF.type, convert_from_rdf.RIF.Document)
-    docs = [x for x in docs]
-    if len(docs) == 1:
-        doc = docs[0]
-    else:
-        raise RuntimeError
-    out = open(tmpfile2, "w")
-    convert_from_rdf.to_rif(out, graph, doc, root=True)
-    #print "Done.  See", tmpfile2
-    out.close()
+    count += 1
+    old = load(xml_in, filename)
+    new = load(xml_in_etree, filename)
 
-    old = load(filename)
-    new = load(tmpfile2)
     same = (old == new)
     same2 = (new == old)
     assert same == same2
-    #print same
     if same:
         good.append(filename)
         print "%3d. good: %s" % (count-1, filename.rsplit("/",1)[1])
