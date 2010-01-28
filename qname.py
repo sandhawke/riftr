@@ -257,7 +257,7 @@ class Map:
         return long+local
 
     def __str__(self):
-        return "qname.Map("+str(self._long)+")"
+        return "qname.Map("+str(self._long)+", "+str(self._short)+")"
 
     def iteritems(self):
         return self._long.iteritems()

@@ -98,6 +98,8 @@ def to_rif(out, graph, node, prefix="", root=False):
         if isinstance(value, rdflib.BNode):
             datatype = rifxmlns + "local"
             lexrep = graph.value(value, RIF.name)
+            if lexrep is None:
+                lexrep = "**MISSING**"
         elif isinstance(value, rdflib.URIRef):
             datatype = rifxmlns + "iri"
             lexrep = unicode(value)
@@ -118,6 +120,15 @@ def to_rif(out, graph, node, prefix="", root=False):
         out.write("</Const>\n")
         return
 
+    if cls == RIF.List:
+        out.write(prefix+"<List>")
+        irimeta(out, graph, node, prefix, True)
+        items = graph.value(node, RIF.items)
+        for i in graph.items(items):
+            to_rif(out, graph, i, prefix+indent)
+        out.write("</List>\n")
+        return
+        
     attrs = ""
     if root:
         attrs += ' xmlns="http://www.w3.org/2007/rif#"'

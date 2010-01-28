@@ -41,12 +41,12 @@ class Parser (object):
             # as if it had an implicit inner element:  <items ordered="yes">
             #
             # and yes, it is forbidden from having <id> or <meta> (!!?!)
-            instance.items = AST2.Sequence(items)
+            instance.items = AST2.Sequence()
             text = element.text or ""
             for child in element.getchildren():
                 assert_white(text)
                 text = child.tail or ""
-                instance.items.append(self.decode_instance(child))
+                instance.items.the.append(self.decode_instance(child))
             assert_white(text)
             return instance
         

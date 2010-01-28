@@ -11,7 +11,8 @@ from rdflib import RDF
 #import convert_to_rdf
 import xml_in_etree
 import convert_from_rdf
-import xml_in
+import rdfxml_out
+#import xml_in
 import error
 
 count = 0
@@ -25,17 +26,18 @@ bad = [
 good = []
 
 def note(text):
-    ff=open("bad-loops", "a")
+    ff=open("bad-loops-2", "a")
     ff.write(text)
     ff.write("\n")
     ff.close()
 
 def load(filename):
-    parser = xml_in.Plugin()
+    parser = xml_in_etree.Plugin()
     try:
         result = parser.parse_file(filename)
     except Exception, e:
         note("error parsing %s: %s" % (filename, str(e)))
+        result = None
         
         #print >>sys.stderr, filename+":", e.message
         #print >>sys.stderr, e.illustrate_position()
@@ -43,20 +45,20 @@ def load(filename):
     return result
 
 def loop(filename):
-    inf = open(filename, "r")
-    doc = etree.fromstring(inf.read())
-    inf.close()
+    #inf = open(filename, "r")
+    #doc = etree.fromstring(inf.read())
+    #inf.close()
+
 
     global count
     tmpfile = "/tmp/convert_rdf_loop_%04d.rdf" % count
     tmpfile2 = "/tmp/convert_rdf_loop_%04d.rif" % count
     count += 1 
-    save = sys.stdout
-    sys.stdout = open(tmpfile, "w")
-    xml_in_etree.do_document(doc)
-    sys.stdout.close()
-    sys.stdout = save
-    #print "Done.   See", tmpfile
+    f1 = open(tmpfile, "w")
+    doc = load(filename)
+    rdfxml_out.Plugin().serialize(doc, f1)
+    f1.close()
+    print "Done.   See", tmpfile
 
     inf = open(tmpfile, "r")
     graph = rdflib.ConjunctiveGraph()
@@ -71,10 +73,10 @@ def loop(filename):
     if len(docs) == 1:
         doc = docs[0]
     else:
-        raise RuntimeError
+        raise RuntimeError, "Found %d rifr:Documents in graph" % len(docs)
     out = open(tmpfile2, "w")
     convert_from_rdf.to_rif(out, graph, doc, root=True)
-    #print "Done.  See", tmpfile2
+    print "Done.  See", tmpfile2
     out.close()
 
     old = load(filename)
@@ -82,7 +84,7 @@ def loop(filename):
     same = (old == new)
     same2 = (new == old)
     assert same == same2
-    #print same
+    print same
     if same:
         good.append(filename)
         print "%3d. good: %s" % (count-1, filename.rsplit("/",1)[1])
@@ -101,6 +103,7 @@ def main():
                 if filename in bad:
                     continue
                 f = root+"/"+filename
+                print f
                 loop(f)
 
     note('done, %d good' % len(good))

@@ -146,6 +146,9 @@ class Multi (object) :
     def __repr__(self):
         return "Multi(values="+`self.values`+")"
 
+    def __len__(self):
+        return len(self.values)
+
     def __eq__(self, other):
         if not isinstance(other, Multi):
             return False
@@ -431,6 +434,8 @@ class Sequence (object) :
         return Sequence(items=(self.items + other.items))
 
     def __eq__(self, other):
+        if not isinstance(other, Sequence):
+            return False
         if len(self.items) != len(other.items) :
             return False
         for i in range(0, len(self.items)):

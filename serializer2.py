@@ -21,7 +21,8 @@ from cStringIO import StringIO
 
 from debugtools import debug
 import debugtools
-# debugtools.tags.add('serializer')
+#debugtools.tags.add('serializer')
+#debugtools.tags.add('build_domap')
 
 import AST2
 import qname
@@ -35,9 +36,10 @@ def utf8(s):
 
 class General (object):
 
-    def __init__(self, stream=sys.stdout, indent_factor=4):
+    def __init__(self, stream=sys.stdout, indent_factor=4, **kwargs):
         self.stream = stream
         self.indent_factor = int(indent_factor)
+        self.__dict__.update(kwargs)
 
         self.build_domap()
 
@@ -85,6 +87,7 @@ class General (object):
             typenames = []
             if isinstance(obj, AST2.BaseDataValue):
                 typenames.append(obj.serialize_as_type)
+                typenames.append("BaseDataValue")
 
             if isinstance(obj, AST2.Sequence):
                 typenames.append("Sequence")
@@ -103,10 +106,14 @@ class General (object):
                 typenames.append(type(obj).__name__)
             debug('serializer(', 'typenames', typenames)
 
+            doer = self.default_do
             for t in typenames:
-                doer = self.domap.get(t, self.default_do)
-                if doer is not self.default_do:
+                try:
+                    doer = self.domap[t]
                     break
+                except KeyError:
+                    pass
+
             debug('serializer', 'doer:', doer)
 
             doer(obj)
@@ -293,24 +300,24 @@ class General (object):
         if is_root:
             self.out('<?xml version="1.0"?>')
             for short in self.nsmap.shortNames():
-                long1 = self.nsmap.getLong(short)
+                long_ = self.nsmap.getLong(short)
                 
                 # temp hack!    I'm losing the trailing # on rifns
-                if long1.endswith("/") or long1.endswith("#"):
-                    long = long
+                if long_.endswith("/") or long_.endswith("#"):
+                    long_ = long_
                 else:
-                    long = long1 + "#"
+                    long_ = long_ + "#"
 
                 if short == "":
-                    attrs["xmlns"] = long
+                    attrs["xmlns"] = long_
                 elif short == "xmlns":
                     pass
                 else:
                     # this is iffy; we still want this ns declared
                     # if it's used for any attributes in the default ns,
                     # I think...
-                    if self.nsmap.getShort(long1) != "":
-                        attrs["xmlns:"+short] = long
+                    if self.nsmap.getShort(long_) != "":
+                        attrs["xmlns:"+short] = long_
 
         attr_text = ""
         for key in sorted(attrs.keys()):
@@ -376,6 +383,9 @@ class Element (object) :
 
     def setAttributeNS(self, ns, local, value):
         self.attr[(ns, local)]=value
+
+    def getAttributeNS(self, ns, local):
+        return self.attr.get( (ns, local), None )
 
     
             
