@@ -13,6 +13,7 @@ import xml.etree.cElementTree as etree
 
 import AST2
 import plugin
+import error
 
 from xmlns import RIF, split, iri_from_tag
 
