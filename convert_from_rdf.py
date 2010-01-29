@@ -176,11 +176,11 @@ def do_property(out, graph, node, p, prefix):
             assert value.language == None
             out.write(prefix+"<"+localize(p)+">")
             out.write(saxutils.escape(unicode(value)))
-            out.write(prefix+"</"+localize(p)+">\n")
+            out.write("</"+localize(p)+">\n")
         else:
             out.write(prefix+"<"+localize(p)+">\n")
             to_rif(out, graph, value, prefix+indent)
-            out.write(prefix+"</"+localize(p)+">\n")
+            out.write("</"+localize(p)+">\n")
 
 if __name__ == "__main__":
     main()

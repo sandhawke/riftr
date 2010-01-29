@@ -17,12 +17,13 @@ import error
 
 count = 0
 
-bad = [
+skip = [
     'Named_Argument_Uniterms_non-polymorphic-premise.rif',   # slot <Name>
     'Unordered_Relations-premise.rif',    # slot <Name>
-    'OpenLists-premise.rif', # no ordered on args
+#    'OpenLists-premise.rif', # no ordered on args
 ]
 
+bad = []
 good = []
 
 def note(text):
@@ -55,7 +56,7 @@ def loop(filename):
     tmpfile2 = "/tmp/convert_rdf_loop_%04d.rif" % count
     count += 1 
     f1 = open(tmpfile, "w")
-    doc = load(filename)
+    doc = xml_in_etree.Plugin().parse_file(filename)
     rdfxml_out.Plugin().serialize(doc, f1)
     f1.close()
     print "Done.   See", tmpfile
@@ -89,6 +90,7 @@ def loop(filename):
         good.append(filename)
         print "%3d. good: %s" % (count-1, filename.rsplit("/",1)[1])
     else:
+        bad.append(filename)
         note("%s %d" % (filename, count-1))
         print "%3d. bad:  %s" % (count-1, filename.rsplit("/",1)[1])
 
@@ -100,14 +102,14 @@ def main():
     for root, dirs, files in os.walk('/home/sandro/5/rules/test/repository/tc'):
         for filename in files:
             if filename.endswith("premise.rif"):
-                if filename in bad:
+                if filename in skip:
                     continue
                 f = root+"/"+filename
                 print f
                 loop(f)
 
     note('done, %d good' % len(good))
-    print "%d good" % len(good)
+    print "%d good, %d bad" % (len(good), len(bad))
 
 if __name__ == "__main__":
     main()
