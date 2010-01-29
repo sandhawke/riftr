@@ -94,16 +94,25 @@ def to_rif(out, graph, node, prefix="", root=False):
         return
 
     if cls == RIF.Const:
+        #print "CONST"
+        #for s, p, o in graph:
+        #    if s == node:
+        #        print "PV:   ",p,o
+        #        for ss,pp,oo in graph:
+        #            if ss == o:
+        #                print "          ",pp, oo
+        #
         value = graph.value(node, RIF.value)
-        if isinstance(value, rdflib.BNode):
-            datatype = rifxmlns + "local"
-            lexrep = graph.value(value, RIF.name)
-            if lexrep is None:
-                lexrep = "**MISSING**"
-        elif isinstance(value, rdflib.URIRef):
+        #print "VALUE", `value`, value
+        #if isinstance(value, rdflib.BNode):
+        #    datatype = rifxmlns + "local"
+        #    lexrep = graph.value(value, RIF.name)
+        #    if lexrep is None:
+        #        lexrep = "**MISSING**"
+        if isinstance(value, rdflib.URIRef):
             datatype = rifxmlns + "iri"
             lexrep = unicode(value)
-        else:
+        elif isinstance(value, rdflib.Literal):
             if value.datatype is None:
                 if value.language is None:
                     lang=""
@@ -114,6 +123,8 @@ def to_rif(out, graph, node, prefix="", root=False):
             else:
                 datatype = value.datatype
                 lexrep = unicode(value)
+        else:
+            raise RuntimeError, value
         out.write(prefix+"<Const type=%s>" % saxutils.quoteattr(datatype))
         irimeta(out, graph, node, prefix, True)
         out.write(saxutils.escape(lexrep).encode("utf-8"))
