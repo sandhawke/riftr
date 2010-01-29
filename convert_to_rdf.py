@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*-mode: python -*-  -*- coding: utf-8 -*-
 """
+[This code is out of date.  The current version is to use xml_in_etree.py and
+rdfxml_out.py plugins together.  This version does not include Lists, and may have
+other bugs.]
 
 Convert a RIF XML document (from stdin) into a RIF-in-RDF/XML document
 (stdout).  Assumes input is schema-valid RIF.  Should work for all
