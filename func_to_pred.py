@@ -30,8 +30,9 @@ calculate/assign predicate.   Needed for Prolog.
 
 
    def __init__(self, calc_pred=None):
-       self.calc_pred = AST2.obtainDataValue(qname.common.uri(calc_pred),
-                                             rifns+"iri")
+       self.calc_pred = (calc_pred or 
+                         AST2.obtainDataValue(qname.common.uri(calc_pred),
+                                              rifns+"iri"))
        self.v_count = 0
 
    def transform(self, instance):

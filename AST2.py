@@ -25,7 +25,8 @@ but now, using AST, we say instead:
     mydoc = AST.Instance('Document', group=g, meta=m)
 
 In addition to Nodes, we have special additional types for Sequence
-and DataValue.   
+and DataValue.  We also have Multi, to support properties which have
+multiple values (foreign to python, natural to RDF).
 
 Related Modules:
 
@@ -46,8 +47,13 @@ Issues:
   * Instead of default_namespace, have a qname map.  (but only use it
     when there's no match, so it never intercepts?)
 
+       -- have it be in a Factory
+
   * It's so hard to know if we should just use an xml dom or an rdf
     graph as the AST...  :-(
+
+  * rename as absyn or absynt, and bring in Serializer/Writer and
+    Parser/Reader.
 
 """
 

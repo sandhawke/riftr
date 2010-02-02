@@ -6,10 +6,7 @@
 Needs some (optional) stuff before it can be serious
 
    -- iterative deepening
-   -- link to a library for handling builtins
 
-sandro@waldron:~/riftr$ time swipl -g '[fp], halt.'
-?- tell(pdump), listing(frame), told.
 
 """
 
@@ -29,6 +26,7 @@ import escape
 import query
 import test_cases
 import error
+import func_to_pred
 
 rifns = xml_in.RIFNS
 rif_bif = 'http://www.w3.org/2007/rif-builtin-function#'
@@ -272,7 +270,7 @@ class Serializer(serializer2.General):
             self.outk(")")
 
     def handle_builtin_atom(self, obj):
-        pred = obj.op.the
+        pred = obj.op.the.value.the
         if pred.datatype == rifns+"iri":
             (ns, local) = qname.uri_split(pred.lexrep)
             if ns == rif_bip:
@@ -282,11 +280,17 @@ class Serializer(serializer2.General):
                 attr = getattr(self, method_name, None)
                 if attr:
                     attr(*arg)
-                    return
+                else:
+                    self.outk(method_name)
+                    self.outk("(")
+                    self.do(obj.args.the)
+                    self.outk(")")
+                return
         raise MissingBuiltin  # it's not builtin
 
     def builtin_calc(self, var, expr):
-        func = expr.op.the
+        # not currently used...
+        func = expr.op.the.value.the
         if func.datatype == rifns+"iri":
             (ns, local) = qname.uri_split(func.lexrep)
             if ns == rif_bif:
@@ -327,7 +331,17 @@ class Serializer(serializer2.General):
         self.in_external = False
 
     def do_Expr(self, obj):
-        self.do(obj.op.the)
+        op = obj.op.the.value.the
+        if op.datatype == rifns+"iri":
+            (ns, local) = qname.uri_split(op.lexrep)
+            if ns == rif_bif:
+                name = "builtin_"+local.replace("-","_")
+                self.outk(name)
+            else:
+                self.do(op)
+        else:
+            self.do(op)
+
         self.outk("(")
         self.do(obj.args.the)
         self.outk(")")
@@ -364,6 +378,15 @@ class Serializer(serializer2.General):
             self.outk(", ")
             self.do(o)
             self.outk(")")
+
+    def do_List(self, obj):
+        self.outk('[') 
+        items = obj.items.the.items
+        for item in items[:-1]:
+            self.do(item)
+            self.outk(', ')
+        self.do(items[-1])
+        self.outk(']')
 
 _default_serializer = Serializer()
 
@@ -428,11 +451,16 @@ def run_query(kb, query, msg):
     nsmap.defaults = [qname.common]
 
     to_pl.write("% "+msg)
-    Plugin(nsmap=nsmap, supress_nsmap=True).serialize(kb, to_pl)
-    Plugin(nsmap=nsmap).serialize(query, to_pl)
+    rifeval = AST2.Instance('Const', 
+                            value=AST2.DataValue(rif_bip+'eval',
+                                                 rifns+'iri'))
+    kb_pform = func_to_pred.Plugin(calc_pred=rifeval).transform(kb)
+    query_pform = func_to_pred.Plugin(calc_pred=rifeval).transform(query)
+    Plugin(nsmap=nsmap, supress_nsmap=True).serialize(kb_pform, to_pl)
+    Plugin(nsmap=nsmap).serialize(query_pform, to_pl)
     to_pl.close()
     popen = subprocess.Popen(
-        ["swipl", "-q", "-g", "[run_query], run_query(%s, %s), halt." %
+        ["swipl", "-q", "-g", "[builtins], run_query(%s, %s), halt." %
          (atom_quote(to_pl.name), atom_quote(from_pl.name))
          ],
         bufsize=0, # unbuffered for now at least

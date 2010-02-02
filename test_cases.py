@@ -73,7 +73,14 @@ def Core_PET_filenames():
 
 def load(filename):
     parser = xml_in_etree.Plugin()
-    result = parser.parse_file(filename)
+    with open(filename) as f:
+        text = f.read()
+
+    # workaround for bug in current RIF test suite
+    text = text.replace("http://example.com/example#",
+                        "http://example.org/#")
+        
+    result = parser.parse(text)
 
     #note("error parsing %s: %s" % (filename, str(e)))
     #result = ""
