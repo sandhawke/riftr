@@ -27,6 +27,7 @@ import AST2
 import xml_in
 import escape
 import query
+import test_cases
 
 rifns = xml_in.RIFNS
 rif_bif = 'http://www.w3.org/2007/rif-builtin-function#'
@@ -400,8 +401,8 @@ def run_query(kb, query):
     """assert the document, then query for the pattern, returning
     all the sets of bindings."""
 
-    to_pl = tempfile.NamedTemporaryFile('wb', delete=False)
-    from_pl = tempfile.NamedTemporaryFile('rb', delete=False)
+    to_pl = tempfile.NamedTemporaryFile('wb', dir="testing_tmp", delete=False)
+    from_pl = tempfile.NamedTemporaryFile('rb', dir="testing_tmp", delete=False)
     
     print to_pl.name, from_pl.name
     nsmap = qname.Map()
@@ -409,7 +410,8 @@ def run_query(kb, query):
     Plugin(nsmap=nsmap, supress_nsmap=True).serialize(kb, to_pl)
     Plugin(nsmap=nsmap).serialize(query, to_pl)
     to_pl.close()
-    subprocess.check_call(["swipl", "-g", "[run_query], run_query(%s, %s), halt." %
+    # do something with stderr...?
+    subprocess.check_call(["swipl", "-q", "-g", "[run_query], run_query(%s, %s), halt." %
                           (atom_quote(to_pl.name), atom_quote(from_pl.name))])
     result = read_solutions(from_pl)
     return result
@@ -432,5 +434,27 @@ def test():
     else:
         print "Failed."
 
+def test2():
+    
+    for test, prem, conc in test_cases.PET_AST():
+
+        print '\n\nTest %s:' % test
+        pattern = query.from_conclusion(conc)
+
+        try:
+            result = run_query(prem, pattern)
+        except Exception, e:
+            print `e`
+            continue 
+
+        if result:
+            n = 1
+            for r in result:
+                print "Result %d: %s" % (n, r)
+                n += 1
+            print "PASSED"
+        else:
+            print "Failed."
+
 if __name__=="__main__":
-    test()                    
+    test2()                    
