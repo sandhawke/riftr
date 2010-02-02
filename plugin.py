@@ -235,14 +235,14 @@ def XXXget_plugins(actions, options):
                     yield instantiate_with_options(plugin, options)
 
 def get_plugins(actions, options):
-    return [p for p in getattr(options, "plugins") if (p.action_word in actions)]
+    return [p for p in getattr(options, "plugins") if (p.action_word() in actions)]
 
 def get_one_plugin(actions, options):
     p = get_plugins(actions, options)
     if len(p) < 1:
-        raise RuntimeError("No %s plugin selected" % actions)
+        raise RuntimeError("No %s plugin selected." % actions )
     if len(p) > 1:
-        raise RuntimeError("More than one %s plugin selected" % actions)
+        raise RuntimeError("More than one %s plugin selected." % actions)
     return p[0]
 
 def instantiate_with_options(plugin, options):

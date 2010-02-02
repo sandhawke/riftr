@@ -62,7 +62,9 @@ XS = "http://www.w3.org/2001/XMLSchema#"
 RDF = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 RDF_TYPE = RDF+"type"
 
+# @@@@ Should use a factory for this...
 default_namespace = None
+
 def q(name):
     '''Add the default_namespace prefix if name is unqualified.
 

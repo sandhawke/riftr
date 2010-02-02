@@ -21,24 +21,27 @@ from debugtools import debug
 import rif
 import error
 import plugin
-import xml_in
+###import xml_in
+import xml_in_etree
 import xml_out
 import dump2_out
 import prolog_out
 import func_to_pred
 import unnest
 
-import ps_parse
-#import ps_lex
-import bld_xml_out
-import fsxml_out
-import xps_out
-#import gend_mps_in
-import blindfold
-import bnf_out
-import ply_out
-import dump_out
-import plugins.test_1
+# one of these messes up namespace handling in AST2
+# ...
+###import ps_parse
+####import ps_lex
+###import bld_xml_out
+###import fsxml_out
+###import xps_out
+####import gend_mps_in
+###import blindfold
+###import bnf_out
+###import ply_out
+###import dump_out
+###import plugins.test_1
 
 def run():
 
@@ -80,11 +83,7 @@ def run():
 
     debug('cmdline', 'read %d bytes' % len(input_text))
 
-    try:
-        (iproc,) = plugin.get_plugins(["input"], options)
-    except ValueError:
-        print >>sys.stderr, "No input plugin selected"
-        return
+    iproc = plugin.get_one_plugin(["input"], options)
             
     try:
         doc = iproc.parse(input_text)
@@ -109,12 +108,7 @@ def run():
 
     out_stream = sys.stdout
 
-    try:
-        (oproc,) = plugin.get_plugins(["output"], options)
-    except ValueError:
-        print >>sys.stderr, "No output plugin selected"
-        return
-            
+    oproc = plugin.get_one_plugin(["output"], options)
 
     debug('cmdline', 'Output processor=', oproc)
     oproc.serialize(doc, out_stream)

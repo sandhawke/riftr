@@ -8,6 +8,8 @@ Needs some (optional) stuff before it can be serious
    -- iterative deepening
    -- link to a library for handling builtins
 
+sandro@waldron:~/riftr$ time swipl -g '[fp], halt.'
+?- tell(pdump), listing(frame), told.
 
 """
 
@@ -16,12 +18,15 @@ import serializer2
 import plugin
 from cStringIO import StringIO
 import re
+import tempfile
+import subprocess
 
 from debugtools import debug
 import qname
 import AST2
 import xml_in
 import escape
+import query
 
 rifns = xml_in.RIFNS
 rif_bif = 'http://www.w3.org/2007/rif-builtin-function#'
@@ -30,17 +35,44 @@ rif_bip = 'http://www.w3.org/2007/rif-builtin-predicate#'
 class MissingBuiltin (Exception):
     pass
 
+################################################################
+#
+#  swipl atom quoting
+#
+
 safe_atom = re.compile("[a-z][a-zA-Z_0-9]*$")
 def atom_quote(s):
     if isinstance(s, unicode):
         s = s.encode('utf-8')
     m = safe_atom.match(s)
     if m is None:
-        return "'"+s.replace("'", "\\\'")+"'"
-    else:
-        return s
+        # it seems like we don't actually need to escape anything else...
+        s = "'"+s.replace('\\', '\\\\').replace(r"'", r"\'")+"'"
+    return s
+
+def atom_unquote(s):
+    if s[0] == "'":
+        s = s[1:-1]
+        s = s.replace("\'", "'")
+        s = s.replace("\\\\", "\\")
+    return s
 
 class Serializer(serializer2.General):
+
+    def __init__(self, supress_nsmap=False, **kwargs):
+        serializer2.General.__init__(self, **kwargs)
+        self.assertional = True
+        self.metadata = []
+        self.if_keep = ""
+        self.in_external = False
+        if 'nsmap' in kwargs:
+            self.nsmap = kwargs['nsmap']
+        else:
+            self.nsmap = qname.Map()
+            self.nsmap.defaults = [qname.common]
+        self.supress_nsmap = supress_nsmap
+        self.atom_prefix = ""   # or "riftr_"
+
 
     def default_do(self, obj):
 
@@ -60,17 +92,19 @@ class Serializer(serializer2.General):
     def do_IntValue(self, obj):
         self.outk(str(obj.value))
 
-    def do_BaseDataValue(self, obj):
-        if obj.datatype == rifns+"iri":
-            self.iri(obj.lexrep)
-        elif obj.datatype == rifns+"local":
-            self.local(obj.lexrep)
+    def do_Const(self, obj):
+        value = getattr(obj, rifns+"value").the
+        if value.datatype == rifns+"iri":
+            self.iri(value.lexrep)
+        elif value.datatype == rifns+"local":
+            self.local(value.lexrep)
         else:
             self.outk('data(')
-            self.outk(atom_quote(obj.lexrep))
+            self.outk(atom_quote(value.lexrep))
             self.outk(", ")
-            self.iri(obj.datatype)
-            self.outk(", ", obj.serialize_as_type)
+            self.iri(value.datatype)
+            #  hmmm   what was I thinking with this next line?
+            #self.outk(", ", value.serialize_as_type)
             self.outk(')')
 
     def iri(self, text):
@@ -87,10 +121,12 @@ class Serializer(serializer2.General):
         #for short in self.nsmap.shortNames():
             #self.out(':- rdf_register_ns('+short+', '+atom_quote(self.nsmap.getLong(short)), ").")
 
-        self.out('\n% This namespace table isnt actually used yet.')
-        for short in self.nsmap.shortNames():
-            self.out('ns('+short+', '+atom_quote(self.nsmap.getLong(short)), ").")
-        self.out('\n')
+        if not self.supress_nsmap:
+            self.out('\n% This namespace table isnt actually used yet.')
+            self.out(':- discontiguous(ns/2).')
+            for short in self.nsmap.shortNames():
+                self.out('ns('+short+', '+atom_quote(self.nsmap.getLong(short)), ").")
+            self.out('\n')
 
     def local(self, text):
         self.outk(atom_quote(self.atom_prefix+text))
@@ -103,20 +139,39 @@ class Serializer(serializer2.General):
         self.do(obj.items[-1])
         #self.outk(']')
         
-    # strings?   data values?
-
     def do_Document(self, obj):
-        self.out("\n% very rough machine-translated by riftr\n\n")
-        self.metadata = []
-        self.if_keep = ""
-        self.in_external = False
-        self.nsmap = qname.Map()
-        self.nsmap.defaults = [qname.common]
-        self.atom_prefix = ""   # or "riftr_"
+        self.out("\n% very rough machine-translated Document by riftr\n\n")
         buf = self.str_do(obj.payload.the)
         self.irimap()
         self.flush_metadata()
         self.stream.write(buf)
+
+    def do_Query(self, obj):
+        self.out("\n% very rough machine-translated Query by riftr\n\n")
+        self.assertional = False
+        self.indent += 1
+        buf = self.str_do(obj.pattern.the)
+        self.indent -= 1
+
+        self.irimap()
+        self.flush_metadata()
+
+        self.out("query(Bindings) :-")
+        self.indent += 1
+        self.outk("Bindings = [")
+        try:
+            vars = [v for v in obj.selected.the]
+        except:
+            vars = []
+        if len(vars) > 1:
+            for v in vars[0:-1]:
+                self.do(v)
+                self.outk(", ")
+        if vars:
+            self.do(vars[-1])
+        self.out("],")
+        self.stream.write(buf)
+        self.out(".")
 
     def handle_metadata(self, obj):
         '''Show the id/meta for any given object'''
@@ -147,20 +202,24 @@ class Serializer(serializer2.General):
         self.handle_metadata(obj)
         for s in obj.sentence.values:
             self.do(s)
+            self.out(".\n\n")
         #self.flush_metadata()
 
     def do_Forall(self, obj):
         # ignore declares
         for formula in obj.formula.values:
             self.do(formula)
-            self.out(".\n\n")
+            #self.out(".\n\n")
 
     def do_Implies(self, obj):
+        was_assertional = self.assertional
+        self.assertional = False
         self.do(obj.then.the)
         self.out(" :- ")
         self.indent += 1
         self.do(getattr(obj, "if").the)
         self.indent -= 1
+        self.assertional = was_assertional
 
     def do_And(self, obj):
         values = obj.formula.values
@@ -274,7 +333,10 @@ class Serializer(serializer2.General):
         if obj.slot.values:
             for slot in obj.slot.values[:-1]:
                 self.single_frame(subj, slot)
-                self.out(",")
+                if self.assertional:
+                    self.out(".")                
+                else:
+                    self.out(",")
             self.single_frame(subj, obj.slot.values[-1])
 
     def single_frame(self, subj, slot):
@@ -316,3 +378,59 @@ class Plugin (plugin.OutputPlugin):
        self.ser.do(doc)
   
 plugin.register(Plugin)
+
+
+def read_solutions(stream):
+    """
+    Read sets of atoms from the stream, one per line, with a blank
+    line between each set.
+    """
+    results = []
+    binding = []
+    for line in stream:
+        line = line.strip()
+        if line == "end marker":   # could never appear in data unquoted
+            results.append(binding)
+            binding = []
+        else:
+            binding.append(atom_unquote(line))
+    return results
+            
+def run_query(kb, query):
+    """assert the document, then query for the pattern, returning
+    all the sets of bindings."""
+
+    to_pl = tempfile.NamedTemporaryFile('wb', delete=False)
+    from_pl = tempfile.NamedTemporaryFile('rb', delete=False)
+    
+    print to_pl.name, from_pl.name
+    nsmap = qname.Map()
+    nsmap.defaults = [qname.common]
+    Plugin(nsmap=nsmap, supress_nsmap=True).serialize(kb, to_pl)
+    Plugin(nsmap=nsmap).serialize(query, to_pl)
+    to_pl.close()
+    subprocess.check_call(["swipl", "-g", "[run_query], run_query(%s, %s), halt." %
+                          (atom_quote(to_pl.name), atom_quote(from_pl.name))])
+    result = read_solutions(from_pl)
+    return result
+
+def test():
+    import xml_in_etree
+
+    tc = 'Frames'
+               
+    kb = xml_in_etree.Plugin().parse_file('tc/%s/%s-premise.rif' % (tc, tc))
+    conclusion = xml_in_etree.Plugin().parse_file('tc/%s/%s-conclusion.rif' % (tc, tc))
+    pattern = query.from_conclusion(conclusion)
+                    
+    result = run_query(kb, pattern)
+    if result:
+        n = 1
+        for r in result:
+            print "Result %d: %s" % (n, r)
+            n += 1
+    else:
+        print "Failed."
+
+if __name__=="__main__":
+    test()                    
