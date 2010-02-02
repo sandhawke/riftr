@@ -107,11 +107,15 @@ class Plugin (object):
     @classmethod
     def add_to_OptionParser(cls, parser, group):
 
+        try:
+            action_word = cls.action_word()+" "
+        except AttributeError:
+            action_word = ""
         group.add_option("--"+cls.id,
                          action="callback",
                          callback=append_plugin_instance,
-                         callback_args= (cls,) ,
-                         help= ( ("Use this %s plugin. " % cls.action_word())+
+                         callback_args= (cls,),
+                         help= ( ("Use this %splugin. " % action_word)+
                                  cls.__doc__ 
                                  ))
 
@@ -233,6 +237,24 @@ def XXXget_plugins(actions, options):
             if plugin.action_word() in actions:
                 if plugin.id == plugin_id:
                     yield instantiate_with_options(plugin, options)
+
+class Collection (object):
+    def __init__(self, plugins=None):
+        self.plugins = plugins or []
+    def can_run(self, attr):
+        matches = [p for p in self.plugins if hasattr(p, attr)]
+        return len(matches) == 1
+    def __getattr__(self, attr):
+        matches = [p for p in self.plugins if hasattr(p, attr)]
+        if len(matches) == 1:
+            return getattr(p, attr)
+        if matches:
+            raise RuntimeError("Too many plugins (%d) offering %s." % (
+                    len(matches), attr))
+        raise RuntimeError("No plugins offering %s." % attr)
+
+def combined(options):
+    return Collection(options.plugins)
 
 def get_plugins(actions, options):
     return [p for p in getattr(options, "plugins") if (p.action_word() in actions)]

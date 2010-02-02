@@ -70,6 +70,13 @@ def run():
 
     debug('cmdline', 'args:', args)
     
+    plugins = plugin.combined(options)
+    if plugins.can_run("system_test"):
+        if plugins.system_test():
+            sys.exit(0)
+        else:
+            sys.exit(1)
+
     if len(args) != 1:
         parser.print_help()
         sys.exit(1)

@@ -489,5 +489,24 @@ def test2():
             global filenames
             print "Failed.   Files are:\n  %s\n  %s" % filenames
 
+
+class SysTestPlugin (plugin.Plugin):
+   """Run the RIF Test Suite through the prolog subsystem."""
+
+   id="run_prolog_tests"
+
+   options = [
+       ]
+
+
+   def __init__(self, **kwargs):
+       pass
+
+   def system_test(self):
+       test2()
+       # should return true if passed
+  
+plugin.register(SysTestPlugin)
+
 if __name__=="__main__":
     test2()                    
