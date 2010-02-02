@@ -28,6 +28,7 @@ import xml_in
 import escape
 import query
 import test_cases
+import error
 
 rifns = xml_in.RIFNS
 rif_bif = 'http://www.w3.org/2007/rif-builtin-function#'
@@ -124,7 +125,7 @@ class Serializer(serializer2.General):
 
         if not self.supress_nsmap:
             self.out('\n% This namespace table isnt actually used yet.')
-            self.out(':- discontiguous(ns/2).')
+            # self.out(':- discontiguous(ns/2).')
             for short in self.nsmap.shortNames():
                 self.out('ns('+short+', '+atom_quote(self.nsmap.getLong(short)), ").")
             self.out('\n')
@@ -270,7 +271,7 @@ class Serializer(serializer2.General):
                 if attr:
                     attr(*arg)
                     return
-        raise MissingBuiltin()
+        error.notify(MissingBuiltin('missing builtin atom: '+str(obj)))
                     
 
     def builtin_calc(self, var, expr):
@@ -285,7 +286,7 @@ class Serializer(serializer2.General):
                 if attr:
                     attr(var, *arg)
                     return
-        raise MissingBuiltin()
+        error.notify(MissingBuiltin('missing builtin calc: '+str(obj)))
 
     def builtin_subtract(self, var, left, right):
         self.do(var)
@@ -324,7 +325,7 @@ class Serializer(serializer2.General):
         elif op.datatype == rifns+"local":
             s = "local_"
         else:
-            raise RuntimeError()
+            notify(error.Structural('op is neither rif:local nor rif:iri'))
         if self.in_external:
             s = "external_"+s
         self.outk(atom_quote(s+op.lexrep))
@@ -395,24 +396,51 @@ def read_solutions(stream):
             binding = []
         else:
             binding.append(atom_unquote(line))
+    if binding:
+        error.notify(error.SyntaxErrorFromSubprocess('no end marker'))
     return results
             
-def run_query(kb, query):
+def run_query(kb, query, msg):
     """assert the document, then query for the pattern, returning
     all the sets of bindings."""
 
     to_pl = tempfile.NamedTemporaryFile('wb', dir="testing_tmp", delete=False)
     from_pl = tempfile.NamedTemporaryFile('rb', dir="testing_tmp", delete=False)
     
-    print to_pl.name, from_pl.name
+    debug('prolog', to_pl.name, from_pl.name)
+    global filenames
+    filenames = (to_pl.name, from_pl.name)
+
     nsmap = qname.Map()
     nsmap.defaults = [qname.common]
+
+    to_pl.write("% "+msg)
     Plugin(nsmap=nsmap, supress_nsmap=True).serialize(kb, to_pl)
     Plugin(nsmap=nsmap).serialize(query, to_pl)
     to_pl.close()
-    # do something with stderr...?
-    subprocess.check_call(["swipl", "-q", "-g", "[run_query], run_query(%s, %s), halt." %
-                          (atom_quote(to_pl.name), atom_quote(from_pl.name))])
+    popen = subprocess.Popen(
+        ["swipl", "-q", "-g", "[run_query], run_query(%s, %s), halt." %
+         (atom_quote(to_pl.name), atom_quote(from_pl.name))
+         ],
+        bufsize=0, # unbuffered for now at least
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        close_fds=True)
+
+    # to start reading this safely....?
+    # popen.stdout.setblocking(False)
+
+    (stdoutdata, stderrdata) = popen.communicate()
+    if stdoutdata: 
+        # since this doesn't seem to ever happen, I guess we can
+        # use this for the results feed
+        error.notify(error.UnexpectedOutputFromSubprocess(
+                     "===stdout===\n"+stdoutdata+"=========="))
+    if stderrdata:
+        error.notify(error.UnexpectedOutputFromSubprocess(
+                     "===stderr===\n"+stderrdata+"=========="))
+    if popen.returncode != 0:
+        error.notify(error.ErrorReturnFromSubprocess(str(popen.returncode)))
     result = read_solutions(from_pl)
     return result
 
@@ -436,15 +464,19 @@ def test():
 
 def test2():
     
-    for test, prem, conc in test_cases.PET_AST():
+    error.sink = sys.stdout
 
-        print '\n\nTest %s:' % test
+    n=1
+    for test, prem, conc in test_cases.Core_PET_AST():
+
+        print '\n\nTest %d: %s' % (n, test)
+        n+=1
         pattern = query.from_conclusion(conc)
 
         try:
-            result = run_query(prem, pattern)
+            result = run_query(prem, pattern, msg="From test "+test)
         except Exception, e:
-            print `e`
+            error.notify(e)
             continue 
 
         if result:
@@ -454,7 +486,8 @@ def test2():
                 n += 1
             print "PASSED"
         else:
-            print "Failed."
+            global filenames
+            print "Failed.   Files are:\n  %s\n  %s" % filenames
 
 if __name__=="__main__":
     test2()                    

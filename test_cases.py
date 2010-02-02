@@ -41,8 +41,15 @@ def read_list(code):
     """
     with open(class_dir+code+".txt") as f:
         tests = [line.strip() for line in f.readlines()]
+    tests = [test for test in tests if test not in blacklist]
     return tests
         
+blacklist = set([
+    "Builtins_base64Binary",   # doesn't exist any more, but in manifests
+    "RDF_Combination_Constant_Equivalence_Graph_Entailment", # also missing
+])
+
+
 bad_xml = [
     #'Named_Argument_Uniterms_non-polymorphic-premise.rif',   # slot <Name>
     #'Unordered_Relations-premise.rif',    # slot <Name>
@@ -55,6 +62,14 @@ def PET_filenames():
         yield (test, 
                tc_dir+test+"/"+test+"-premise.rif",
                tc_dir+test+"/"+test+"-conclusion.rif")
+
+def Core_PET_filenames():
+    core = set(read_list('Dialect=Core'))
+    for test in read_list('Type=PositiveEntailmentTest'):
+        if test in core:
+            yield (test, 
+                   tc_dir+test+"/"+test+"-premise.rif",
+                   tc_dir+test+"/"+test+"-conclusion.rif")
 
 def load(filename):
     parser = xml_in_etree.Plugin()
@@ -69,12 +84,11 @@ def load(filename):
 
     return result
 
-def PET_AST():
-    for test, prem, conc in PET_filenames():
+def Core_PET_AST():
+    for test, prem, conc in Core_PET_filenames():
         try:
             premise_node = load(prem)
             conclusion_node = load(conc)
             yield test, premise_node, conclusion_node
-        except:
-            print >>sys.stderr, 'error loading XML for test', test
-
+        except error.Error, e:
+            error.notify(e)

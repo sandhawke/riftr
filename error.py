@@ -10,7 +10,26 @@ class Error (RuntimeError):
 
 class InputError (Error):
     pass
-    
+
+class SubprocessProtocolError (Error):
+    pass
+
+class UnexpectedOutputFromSubprocess (SubprocessProtocolError):
+    pass
+
+class ErrorReturnFromSubprocess (SubprocessProtocolError):
+    pass
+
+class SyntaxErrorFromSubprocess (SubprocessProtocolError):
+    pass
+
+class MissingBuiltin (Error):
+    pass
+
+class Structural (Error):
+    """Like a syntax error, but in the AST"""
+    pass
+
 class SyntaxError (InputError):
 
    def __init__(self, line=0, pos=0, input_text=None, message=None):
@@ -51,7 +70,6 @@ class LexerError (SyntaxError):
     default_message = "unexpected character"
 
 
-
 # from PLY docs
 def find_column(input_text,pos):
     i = pos
@@ -74,3 +92,17 @@ def illustrate_position(input_text, line, col, prefix="==> "):
 #      print "==> "+s.split("\n")[line-1]
 #      print "  "+(" "*col)+"^---- near here"
 
+# where errors get logging; if None, then they are raised
+sink = None
+    
+def notify(condition):
+    """
+    Based on the run-time environment, we might continue after this
+    condition (excpetion/error) has occured.  it's like "raise", but
+    sometimes not.
+    """
+    if sink is None:
+        raise condition
+    else:
+        sink.write(str(condition))
+        sink.write("\n")
