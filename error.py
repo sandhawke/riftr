@@ -8,6 +8,9 @@
 class Error (RuntimeError):
     pass
 
+class NotImplemented (Error):
+    pass
+
 class InputError (Error):
     pass
 

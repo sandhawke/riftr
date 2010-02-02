@@ -254,7 +254,7 @@ class Collection (object):
         raise RuntimeError("No plugins offering %s." % attr)
 
 def combined(options):
-    return Collection(options.plugins)
+    return Collection(getattr(options, "plugins", []))
 
 def get_plugins(actions, options):
     return [p for p in getattr(options, "plugins") if (p.action_word() in actions)]

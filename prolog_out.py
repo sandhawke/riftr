@@ -79,8 +79,12 @@ class Serializer(serializer2.General):
     def default_do(self, obj):
 
         if isinstance(obj, AST2.Instance):
+            error.notify(error.NotImplemented("Not Implemented: "
+                                              +obj.primary_type))
             self.out("not_implemented('%s')" % obj.primary_type)
         else:
+            error.notify(error.NotImplemented("Not Implemented (obj): "+
+                                              str(type(obj))))
             self.out("not_implemented('%s')" % str(type(obj)))
 
     def do_Var(self, obj):
@@ -110,7 +114,11 @@ class Serializer(serializer2.General):
             self.outk(')')
 
     def iri(self, text):
-        (long, local) = qname.uri_split(text)
+        try:
+            (long, local) = qname.uri_split(text)
+        except qname.Unsplitable:
+            long = ""
+            local = text
         short = self.nsmap.getShort(long)
         if short != "rif":
             short = self.atom_prefix+short
@@ -143,10 +151,12 @@ class Serializer(serializer2.General):
         
     def do_Document(self, obj):
         self.out("\n% very rough machine-translated Document by riftr\n\n")
-        buf = self.str_do(obj.payload.the)
+        for v in obj.directive.values:
+            self.do(v)
+        if obj.payload.values:
+            self.do(obj.payload.the)
         self.irimap()
         self.flush_metadata()
-        self.stream.write(buf)
 
     def do_Query(self, obj):
         self.out("\n% very rough machine-translated Query by riftr\n\n")
@@ -215,10 +225,11 @@ class Serializer(serializer2.General):
 
     def do_Implies(self, obj):
         was_assertional = self.assertional
-        self.assertional = False
+        self.assertional = True
         self.do(obj.then.the)
         self.out(" :- ")
         self.indent += 1
+        self.assertional = False
         self.do(getattr(obj, "if").the)
         self.indent -= 1
         self.assertional = was_assertional
@@ -254,10 +265,11 @@ class Serializer(serializer2.General):
             pass
 
         self.do(obj.op.the)
-        self.outk("(")
-        self.do(obj.args.the)
-        self.outk(")")
-        
+        # surprisingly, the <args> is optional in the XML Schema
+        if obj.args.values:
+            self.outk("(")
+            self.do(obj.args.the)
+            self.outk(")")
 
     def handle_builtin_atom(self, obj):
         pred = obj.op.the
@@ -271,8 +283,7 @@ class Serializer(serializer2.General):
                 if attr:
                     attr(*arg)
                     return
-        error.notify(MissingBuiltin('missing builtin atom: '+str(obj)))
-                    
+        raise MissingBuiltin  # it's not builtin
 
     def builtin_calc(self, var, expr):
         func = expr.op.the
@@ -286,7 +297,7 @@ class Serializer(serializer2.General):
                 if attr:
                     attr(var, *arg)
                     return
-        error.notify(MissingBuiltin('missing builtin calc: '+str(obj)))
+        raise MissingBuiltin  # it's not builtin...
 
     def builtin_subtract(self, var, left, right):
         self.do(var)
@@ -308,7 +319,9 @@ class Serializer(serializer2.General):
         self.close_paren()
 
     def do_External(self, obj):
-        assert not self.in_external
+        # assert not self.in_external
+        #     externals CAN be nested, as in Builtins_Numeric
+        # External(pred:is-literal-short(External(xs:short("1"^^xs:string))))
         self.in_external = True
         self.do(obj.content.the)
         self.in_external = False
@@ -435,12 +448,13 @@ def run_query(kb, query, msg):
         # since this doesn't seem to ever happen, I guess we can
         # use this for the results feed
         error.notify(error.UnexpectedOutputFromSubprocess(
-                     "===stdout===\n"+stdoutdata+"=========="))
+                     "\n===stdout===\n"+stdoutdata+"=========="))
     if stderrdata:
         error.notify(error.UnexpectedOutputFromSubprocess(
-                     "===stderr===\n"+stderrdata+"=========="))
+                     "\n===stderr===\n"+stderrdata+"=========="))
     if popen.returncode != 0:
-        error.notify(error.ErrorReturnFromSubprocess(str(popen.returncode)))
+        error.notify(error.ErrorReturnFromSubprocess("Return code: "+
+                                                     str(popen.returncode)))
     result = read_solutions(from_pl)
     return result
 
@@ -454,28 +468,34 @@ def test():
     pattern = query.from_conclusion(conclusion)
                     
     result = run_query(kb, pattern)
+    pass_count = 0
+    fail_count = 0
     if result:
         n = 1
         for r in result:
             print "Result %d: %s" % (n, r)
             n += 1
+        pass_count += 1
     else:
         print "Failed."
+        fail_count += 1
 
 def test2():
     
     error.sink = sys.stdout
 
+    pass_count = 0
+    fail_count = 0
     n=1
     for test, prem, conc in test_cases.Core_PET_AST():
 
-        print '\n\nTest %d: %s' % (n, test)
+        print '\n\n\n\n\nTest %d: %s' % (n, test)
         n+=1
         pattern = query.from_conclusion(conc)
 
         try:
             result = run_query(prem, pattern, msg="From test "+test)
-        except Exception, e:
+        except error.Error, e:
             error.notify(e)
             continue 
 
@@ -485,10 +505,13 @@ def test2():
                 print "Result %d: %s" % (n, r)
                 n += 1
             print "PASSED"
+            pass_count += 1
         else:
             global filenames
             print "Failed.   Files are:\n  %s\n  %s" % filenames
+            fail_count += 1
 
+    print "\n\nPassed %d of %d (failed %d).\n" % (pass_count, n-1, fail_count)
 
 class SysTestPlugin (plugin.Plugin):
    """Run the RIF Test Suite through the prolog subsystem."""
