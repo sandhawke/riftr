@@ -191,3 +191,20 @@ builtin_except(Result, [Big, Small]) :-
                  \+ member(I, Small)
                 ), 
 		Result).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+:- discontiguous(eq/2).
+
+% Maybe we should normalize the data going in, knowing
+% that we can lose datatypes on the way out...???
+%
+%   
+
+eq(X,X).
+eg(data(L, T1), data(L, T2)) :-
+	promote(data(L, T1), data(L, T)),
+	promote(data(L, T2), data(L, T)).
+
+% needs depth limit...
+% needs 
