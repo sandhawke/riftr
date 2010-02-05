@@ -119,6 +119,7 @@ class Map:
     def __init__(self, defaults=None, short_base="ns"):
         self._long = {}
         self._short = {}
+        self._old_shorts = {}
         self.short_base = short_base      # see setattr
         self._highestKnownUsed = { short_base: 1 }
         self.defaults = defaults or []    # see setattr
@@ -141,8 +142,10 @@ class Map:
         except KeyError:
             pass
         self._long[short] = long
-        # might already have a shortname for this longname, but
-        # we'll keep the latest one.
+        # if we already have a shortname for this longname, remember it
+        # but use this latest one.
+        if long in self._short:
+            self._old_shorts.setdefault(long, []).append(self._short[long])
         self._short[long] = short
 
     def getShort(self, long, make=True):
@@ -245,6 +248,9 @@ class Map:
             if local:
                 return local
             else:
+                for short in self._old_shorts.get(long, []):
+                    if short:
+                        return short+joining_character+local
                 raise BlankQName, uri
 
     def uri(self, qname):
