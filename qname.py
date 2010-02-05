@@ -320,7 +320,11 @@ def guessShort(long):
     """
     m = nsPattern.match(long)
     if m:
-        return m.groups()[0]
+        text = m.groups()[0]
+        if text in common._long:
+            # don't guess something like "rdf"
+            raise KeyError, long
+        return text
     else:
         raise KeyError, long
     
