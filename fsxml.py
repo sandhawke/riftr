@@ -2,29 +2,75 @@
 #      -*-mode: python -*-    -*- coding: utf-8 -*-
 """
 
-A serialization of RDF graphs that's particularly elegant for graphs
-of the sort we get from mapping RIF to an RDF graph:
+Implements "Fully-Striped XML", another XML format for RDF Graphs.
 
-    - tree structured, from one root, or at least reachable from 
-      some root
-      (otherwise we need an fs:Document wrapper)
-    - exactly one rdf:type per instance
-      (otherwise we need explicit rdf:type arcs)
-    - lists have 0,2,3... items, no adjacent plain literals, no
-      per-item, xml:lank, no access by reference
-      (otherwise they need <li>
+The main advantage: it looks a lot normal XML, if one is being
+explicit about all the class and role names.  In some documents
+nothing from the fsxml namespace is needed.
 
+The idea was that this would be a good XML serialization of RDF Graphs
+describing RIF documents.  Unfortunately, it's a little late to be
+proposing such things.
 
-Basic rules:
+The basic structure is alternating Class and Property names, as one
+goes deeper into the XML tree, with the leaves being either RDF plain
+literals or datatyped values, serialized as strings wrapped in an
+element whose tag is the datatype name.   For example:
 
-    * start with a root instance (node); the tag is the class name
-    * for each triple with that node as the subject, emit one
-      child element, tag is property name
-      ...
+<foaf:PersonalProfileDocument fx:id="data:"
+     xmlns:foaf="http://xmlns.com/foaf/0.1/"
+     xmlns="http://www.w3.org/People/Sandro/data#"
+     xmlns:fx="http://www.w3.org/2010/fsxml#"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:xs="http://www.w3.org/2001/XMLSchema#"
+     xmlns:data="http://www.w3.org/People/Sandro/data#">
+    <dc:title>Sandro's (Mostly-Professional) Profile Document</dc:title>
+    <foaf:age><xs:decimal>44</xs:decimal></foaf:age>
+    <foaf:maker fx:ref="Sandro_Hawke" />
+    <foaf:primaryTopic fx:ref="Sandro_Hawke" />
+</foaf:PersonalProfileDocument>
 
+The elements in the fsxml (fx) namespace which are sometimes needed are:
 
+   fx:Graph  -- a wrapper, for use when the graph has no node which can
+                reach all the other nodes.
 
-[ code starting with convert_from_rdf.py ]
+   fx:Item   -- a placeholder (like rdf:Description) for when
+                no rdf:type is known
+
+                Note: for items with more than one rdf:type, one will
+                be used as the element tag and the others will appear
+                as rdf:type properties.
+
+   fx:id     -- a curie-valued attribute for stating a uri or nodeID
+                for a node (like rdf:nodeID and rdf:about, but a curie)
+                
+                Currently a "qname" or "<uri>", but may change to a
+                real curie.
+
+   fx:ref    -- a curie-valued attribute for linking to nodes (like
+                rdf:Resource)
+
+                Currently a "qname" or "<uri>", but may change to a
+                real curie.
+
+   fx:li --     a wrapper for the elements in an rdf:List; may be omitted
+                by writer in some cases where no ambiguity is created,
+                such as when there are two or more items in the list,
+                and certain conditions are met by any text items.
+                
+                Note: an empty list is serialized as a reference to
+                rdf:Empty.
+
+ ? fx:text  --  a virtual datatype for plain literals; probably never needed.
+
+A variant on this, called "Stripe-Skipped XML" is possible, equivalent
+to parseType="Resource", for use when most rdf:type information is
+absent.  the id just goes on the parent (property) element, as a ref.
+How is this signalled, for readers to know how to decode it?
+Actually, how are they each signaled?  Do we need an attribute?  The
+stripe-skipping code is less mature... in particular, it's probably
+broken around lists.
 
 
 """
@@ -48,7 +94,7 @@ class Writer (object) :
 
     def __init__(self, **kwargs):
 
-        self.indent = "  "
+        self.indent = "    "
         self.ns = "http://www.w3.org/2010/fsxml#"
 
         self.nsmap = qname.Map()
@@ -58,6 +104,8 @@ class Writer (object) :
         self.output_stream = None
         self.graph = None
         self.node_count = 0
+
+        self.skip_types = False
 
         self.__dict__.update(kwargs)
 
@@ -86,9 +134,11 @@ class Writer (object) :
     def xmlns_text(self):
         """Figure our what xmlns text we need to add to the root element
 
+        (rats, we're duplicating some xml machinery in serializer2.)
         """
 
         has_rdf_type = set()
+        short_count = {}
 
         # pre-populate the nsmap
         for s,p,o in self.graph:
@@ -98,14 +148,26 @@ class Writer (object) :
                     p = None   # DONT COUNT the firstthe rdf:type arc
             for term in s,p,o:
                 if isinstance(term, URIRef):
-                    self.curie(term)
+                    c = self.curie(term)
+                    short = c.split(":")[0]
+                    try:
+                        short_count[short] += 1
+                    except:
+                        short_count[short] = 1
                 try:
                     dt = term.datatype
                 except:
                     continue
                 if dt: 
                     self.qname(dt)
-        # and build the 
+
+        if short_count:
+            (count, best_short) = sorted(
+               [(count, short) for (short, count) in short_count.items()]
+               )[-1]
+            self.nsmap.bind('', self.nsmap.getLong(best_short))
+  
+        # and build the xmlns string
         attrs = []
         for short in self.nsmap.shortNames():
             val = saxutils.quoteattr(self.nsmap.getLong(short))
@@ -124,6 +186,7 @@ class Writer (object) :
         try:
             return self.nsmap.qname(s)
         except qname.Unsplitable:
+            # BUG ... actually, we CAN still split it well enough for CURIE.
             return "<"+s+">"
 
 
@@ -150,13 +213,7 @@ class Writer (object) :
         if node in self.done:
             print "Returning to node %s, id %s" % (node, self.done[node])
             raise Exception
-        id = None
-        if isinstance(node, URIRef):
-            id = node
-        elif isinstance(node, BNode):
-            if self.multiple_inbound(node):
-                id = "_:n%04"+str(self.node_count)
-                self.node_count += 1
+        id = self.id(node)
         if id:
             id = saxutils.quoteattr(self.curie(id))
             self.done[node] = id
@@ -164,8 +221,8 @@ class Writer (object) :
 
         attrs += attr_extra
 
-        self.out(prefix+"<"+self.qname(cls)+attrs+">\n")
-
+        if attr_extra or not self.skip_types:
+            self.out(prefix+"<"+self.qname(cls)+attrs+">\n")
 
         unique_POs = set()
         for x in self.graph.predicate_objects(node):
@@ -175,7 +232,8 @@ class Writer (object) :
         for p,o in sorted(unique_POs):
             self.do_property(node, p, o, prefix+self.indent)
 
-        self.out(prefix+"</"+self.qname(cls)+">\n")
+        if not self.skip_types:
+            self.out(prefix+"</"+self.qname(cls)+">\n")
 
     def multiple_inbound(self, node):
         count = 0
@@ -185,14 +243,7 @@ class Writer (object) :
                 return True
         return False
 
-    def one_in_none_out(self, node):
-        count = 0
-        for x in self.graph.subject_predicates(node):
-            count += 1
-            if count >= 2:
-                return False
-        if count == 0:
-            return False
+    def none_output(self, node):
         for x in self.graph.predicate_objects(node):
             return False
         return True
@@ -254,22 +305,41 @@ class Writer (object) :
 
             if value in self.done:
                 ref = self.done[value]
-            elif isinstance(value, URIRef) and self.one_in_none_out(value):
+            elif isinstance(value, URIRef) and self.none_output(value):
                 ref = saxutils.quoteattr(self.curie(value))
             else:
                 ref = None
 
-            if ref:
-                self.out(prefix+"<"+self.qname(p)+" ref="+ref+" />\n")
-            else:
-                self.out(prefix+"<"+self.qname(p)+">\n")
-                self.to_xml(value, prefix+self.indent)
-                self.out(prefix+"</"+self.qname(p)+">\n")
 
+            if ref:
+                self.out(prefix+"<"+self.qname(p)+" "+
+                         self.qname(self.ns+"ref")+"="+ref+" />\n")
+            else:
+                child_id = self.id(value)
+                if self.skip_types and child_id:
+                    # do ref AND value
+                    ref = saxutils.quoteattr(self.curie(child_id))
+                    self.out(prefix+"<"+self.qname(p)+" "+
+                             self.qname(self.ns+"ref")+"="+ref+" />\n")
+                    self.to_xml(value, prefix+self.indent)
+                    self.out(prefix+"</"+self.qname(p)+">\n")
+                else:
+                    self.out(prefix+"<"+self.qname(p)+">\n")
+                    self.to_xml(value, prefix+self.indent)
+                    self.out(prefix+"</"+self.qname(p)+">\n")
+
+    def id(self, node):
+        if isinstance(node, URIRef):
+            return unicode(node)
+        elif isinstance(node, BNode):
+            if self.multiple_inbound(node):
+                self.node_count += 1
+                return "_:n%04"+str(self.node_count)
+        return None
 
 if __name__ == "__main__":
     graph = rdflib.ConjunctiveGraph()
     graph.parse(sys.stdin, "application/rdf+xml")
-    w = Writer()
+    w = Writer(skip_types=True)
     w.serialize(graph, sys.stdout)
 
