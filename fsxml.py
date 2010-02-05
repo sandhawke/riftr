@@ -44,227 +44,232 @@ import rdf_roots
 import qname
 
 
-#class Writer (object) :
+class Writer (object) :
 
-#    def __init__
+    def __init__(self, **kwargs):
 
-indent = "  "
-rdfns = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+        self.indent = "  "
+        self.ns = "http://www.w3.org/2010/fsxml#"
 
-rifrdfns = "http://www.w3.org/2007/rifr#"
-rifxmlns = "http://www.w3.org/2007/rif#"
-fxns = "http://www.w3.org/2010/fsxml#"
-fxli = fxns+"li"
-fxid = fxns+"id"
+        self.nsmap = qname.Map()
+        self.nsmap.defaults = [qname.common]
+        self.nsmap.bind('fx', self.ns)
+        
+        self.output_stream = None
+        self.graph = None
+        self.node_count = 0
 
-nsmap = qname.Map()
-nsmap.defaults = [qname.common]
-nsmap.bind('fx', fxns)
+        self.__dict__.update(kwargs)
 
+    def out(self, text):
+        self.output_stream.write(text)
 
+    def serialize(self, graph, out):
+        
+        self.graph = graph
+        self.output_stream = out
 
-def main():
-
-    graph = rdflib.ConjunctiveGraph()
-    graph.parse(sys.stdin, "application/rdf+xml")
-
-    if len(sys.argv) == 2:
-        roots = [ URIRef(sys.argv[1]) ]
-    else:
         roots = rdf_roots.find_roots(graph)
 
-    attr = xmlns_text(graph)
+        attr = self.xmlns_text()
 
-    out = sys.stdout
-    done = {}
-    if len(roots) > 1:
-        out.write("<%s%s>\n" % (localize(fxns+"Graph"), attr))   # needs xmlns stuff, of course
-        for node in roots:    
-            to_xml(out, graph, node, done, prefix=indent)
-        out.write("</%s>\n" % localize(fxns+"Graph"))
-    else:
-        to_xml(out, graph, roots[0], done, attr_extra=attr)
+        self.done = {}
 
-def xmlns_text(graph):
-    """Figure our what xmlns text we need to add to the root element
-
-    """
-
-    has_rdf_type = set()
-
-    # pre-populate the nsmap
-    for s,p,o in graph:
-        if p == RDF.type:
-            if s not in has_rdf_type:
-                has_rdf_type.add(s)
-                p = None   # DONT COUNT the firstthe rdf:type arc
-        for term in s,p,o:
-            if isinstance(term, URIRef):
-                localize(term)
-            try:
-                dt = term.datatype
-            except:
-                continue
-            localize(dt)
-    # and build the 
-    attrs = []
-    for short in nsmap.shortNames():
-        val = saxutils.quoteattr(nsmap.getLong(short))
-        if short:
-            attrs.append(''' xmlns:%s=%s''' % (short, val))
+        if len(roots) > 1:
+            self.out("<%s%s>\n" % (self.qname(self.ns+"Graph"), attr))
+            for node in roots:    
+                self.to_xml(node, prefix=self.indent)
+            self.out("</%s>\n" % self.qname(self.ns+"Graph"))
         else:
-            attrs.append(''' xmlns=%s''' % val)
-    if attrs:
-        return "\n    "+"\n    ".join(attrs)
-    else:
-        return ""
+            self.to_xml(roots[0], attr_extra=attr)
 
+    def xmlns_text(self):
+        """Figure our what xmlns text we need to add to the root element
 
-def localize(node):
-    """ Temp Hack version of qname handling...
-    """
-    
-    s = unicode(node)
-    try:
-        return nsmap.qname(s)
-    except qname.Unsplitable:
-        # uuuuuh, not allowed in some contexts....  CATCH THAT.   (BUG)
-        return "<"+s+">"
-    
-node_count = 0
-def to_xml(out, graph, node, done, prefix="", attr_extra=""):
+        """
 
-    types = [ x for x in graph.objects(node, RDF.type) ]
-    if len(types) == 0:
-        cls = fxns+"Item"
-    elif len(types) == 1:
-        cls = types[0]
-    else:
-        # it'd be good to sort on some clever key, but without
-        # that, we still want to be deterministic.
-        cls = sorted(types)[0]
+        has_rdf_type = set()
 
-    attrs = ""
-
-    if node in done:
-        print "Returning to node %s, id %s" % (node, done[node])
-        raise Exception
-    id = None
-    if isinstance(node, URIRef):
-        id = node
-    elif isinstance(node, BNode):
-        if multiple_inbound(node, graph):
-            id = "_:n%04"+str(node_count)
-            node_count += 1
-    if id:
-        id = saxutils.quoteattr(localize(id))
-        done[node] = id
-        attrs += ' %s=%s' % (localize(fxid), id)
-            
-    attrs += attr_extra
-
-    out.write(prefix+"<"+localize(cls)+attrs+">\n")
-    
-
-    unique_POs = set()
-    for x in graph.predicate_objects(node):
-        if x == (RDF.type, cls):
-            continue
-        unique_POs.add(x)
-    for p,o in sorted(unique_POs):
-        do_property(out, graph, node, p, o, done, prefix+indent)
-
-    out.write(prefix+"</"+localize(cls)+">\n")
-
-def multiple_inbound(node, graph):
-    count = 0
-    for s in graph.subject_predicates(node):
-        count += 1
-        if count >= 2:
-            return True
-    return False
-
-def one_in_none_out(node, graph):
-    count = 0
-    for x in graph.subject_predicates(node):
-        count += 1
-        if count >= 2:
-            return False
-    if count == 0:
-        return False
-    for x in graph.predicate_objects(node):
-        return False
-    return True
-
-def need_li(items, done, graph):
-    """Do we need an <li> wrapper for the items in this list?
-
-    """
-    if len(items) == 1:
-        return True #  singleton list needs to be wrapped
-
-    previous_was_bare = False
-    for value in items:
-        if value in done:  
-            return True #  <li ref="...." />
-        if multiple_inbound(value, graph):
-            return True # MIGHT become "done" during earlier items
-        if isinstance(value, rdflib.Literal):
-            if value.language:
-                return True  #  <li xml:lang>...</li>
-            if not value.datatype:
-                if previous_was_bare:
-                    return True # <li>hello</li><li>world</li>
-                previous_was_bare = True
-                continue
-        previous_was_bare = False
-    return False
-
-def do_property(out, graph, node, p, value, done, prefix):
-
-    if (value == RDF.nil or 
-        graph.value(value, RDF.first, None, False, True)):
-        items = [ x for x in graph.items(value) ]
-
-        out.write(prefix+"<"+localize(p)+'>\n')
-        if need_li(items, done, graph): 
-            for i in items:
-                do_property(out, graph, None, fxli, i, done, prefix+indent)
-        else:
-            for i in items:
-                to_xml(out, graph, i, done, prefix+indent)
-        out.write(prefix+"</"+localize(p)+">\n")
-    elif isinstance(value, rdflib.Literal):
-        if value.datatype:
-            out.write(prefix+"<"+localize(p)+">")
-            out.write("<"+localize(value.datatype)+">")
-            out.write(saxutils.escape(unicode(value)).encode('utf-8'))
-            out.write("</"+localize(value.datatype)+">")
-            out.write("</"+localize(p)+">\n")
-        else:
-            if value.language:
-                lang_attr = " xml:lang="+saxutils.quoteattr(value.language)
+        # pre-populate the nsmap
+        for s,p,o in self.graph:
+            if p == RDF.type:
+                if s not in has_rdf_type:
+                    has_rdf_type.add(s)
+                    p = None   # DONT COUNT the firstthe rdf:type arc
+            for term in s,p,o:
+                if isinstance(term, URIRef):
+                    self.curie(term)
+                try:
+                    dt = term.datatype
+                except:
+                    continue
+                if dt: 
+                    self.qname(dt)
+        # and build the 
+        attrs = []
+        for short in self.nsmap.shortNames():
+            val = saxutils.quoteattr(self.nsmap.getLong(short))
+            if short:
+                attrs.append(''' xmlns:%s=%s''' % (short, val))
             else:
-                lang_attr = ""
-            out.write(prefix+"<"+localize(p)+lang_attr+">")
-            out.write(saxutils.escape(unicode(value)).encode('utf-8'))
-            out.write("</"+localize(p)+">\n")
-    else:
-
-        if value in done:
-            ref = done[value]
-        elif isinstance(value, URIRef) and one_in_none_out(value, graph):
-            ref = saxutils.quoteattr(localize(value))
+                attrs.append(''' xmlns=%s''' % val)
+        if attrs:
+            return "\n    "+"\n    ".join(attrs)
         else:
-            ref = None
+            return ""
 
-        if ref:
-            out.write(prefix+"<"+localize(p)+" ref="+ref+" />\n")
+
+    def curie(self,node):
+        s = unicode(node)
+        try:
+            return self.nsmap.qname(s)
+        except qname.Unsplitable:
+            return "<"+s+">"
+
+
+    def qname(self,node):
+        """Use this instead of curie if it's really going into XML as a qname"""
+        s = unicode(node)
+        return self.nsmap.qname(s)
+
+
+    def to_xml(self, node, prefix="", attr_extra=""):
+
+        types = [ x for x in self.graph.objects(node, RDF.type) ]
+        if len(types) == 0:
+            cls = self.ns+"Item"
+        elif len(types) == 1:
+            cls = types[0]
         else:
-            out.write(prefix+"<"+localize(p)+">\n")
-            to_xml(out, graph, value, done, prefix+indent)
-            out.write(prefix+"</"+localize(p)+">\n")
+            # it'd be good to sort on some clever key, but without
+            # that, we still want to be deterministic.
+            cls = sorted(types)[0]
+
+        attrs = ""
+
+        if node in self.done:
+            print "Returning to node %s, id %s" % (node, self.done[node])
+            raise Exception
+        id = None
+        if isinstance(node, URIRef):
+            id = node
+        elif isinstance(node, BNode):
+            if self.multiple_inbound(node):
+                id = "_:n%04"+str(self.node_count)
+                self.node_count += 1
+        if id:
+            id = saxutils.quoteattr(self.curie(id))
+            self.done[node] = id
+            attrs += ' %s=%s' % (self.qname(self.ns+"id"), id)
+
+        attrs += attr_extra
+
+        self.out(prefix+"<"+self.qname(cls)+attrs+">\n")
+
+
+        unique_POs = set()
+        for x in self.graph.predicate_objects(node):
+            if x == (RDF.type, cls):
+                continue
+            unique_POs.add(x)
+        for p,o in sorted(unique_POs):
+            self.do_property(node, p, o, prefix+self.indent)
+
+        self.out(prefix+"</"+self.qname(cls)+">\n")
+
+    def multiple_inbound(self, node):
+        count = 0
+        for s in self.graph.subject_predicates(node):
+            count += 1
+            if count >= 2:
+                return True
+        return False
+
+    def one_in_none_out(self, node):
+        count = 0
+        for x in self.graph.subject_predicates(node):
+            count += 1
+            if count >= 2:
+                return False
+        if count == 0:
+            return False
+        for x in self.graph.predicate_objects(node):
+            return False
+        return True
+
+    def need_li(self, items):
+        """Do we need an <li> wrapper for the items in this list?
+
+        """
+        if len(items) == 1:
+            return True #  singleton list needs to be wrapped
+
+        previous_was_bare = False
+        for value in items:
+            if value in self.done:  
+                return True #  <li ref="...." />
+            if self.multiple_inbound(value):
+                return True # MIGHT become "self.done" during earlier items
+            if isinstance(value, rdflib.Literal):
+                if value.language:
+                    return True  #  <li xml:lang>...</li>
+                if not value.datatype:
+                    if previous_was_bare:
+                        return True # <li>hello</li><li>world</li>
+                    previous_was_bare = True
+                    continue
+            previous_was_bare = False
+        return False
+
+    def do_property(self, node, p, value, prefix):
+
+        if (value == RDF.nil or 
+            self.graph.value(value, RDF.first, None, False, True)):
+            items = [ x for x in self.graph.items(value) ]
+
+            self.out(prefix+"<"+self.qname(p)+'>\n')
+            if self.need_li(items): 
+                for i in items:
+                    self.do_property(None, self.ns+"li", i, prefix+self.indent)
+            else:
+                for i in items:
+                    self.to_xml(i, prefix+self.indent)
+            self.out(prefix+"</"+self.qname(p)+">\n")
+        elif isinstance(value, rdflib.Literal):
+            if value.datatype:
+                self.out(prefix+"<"+self.qname(p)+">")
+                self.out("<"+self.qname(value.datatype)+">")
+                self.out(saxutils.escape(unicode(value)).encode('utf-8'))
+                self.out("</"+self.qname(value.datatype)+">")
+                self.out("</"+self.qname(p)+">\n")
+            else:
+                if value.language:
+                    lang_attr = " xml:lang="+saxutils.quoteattr(value.language)
+                else:
+                    lang_attr = ""
+                self.out(prefix+"<"+self.qname(p)+lang_attr+">")
+                self.out(saxutils.escape(unicode(value)).encode('utf-8'))
+                self.out("</"+self.qname(p)+">\n")
+        else:
+
+            if value in self.done:
+                ref = self.done[value]
+            elif isinstance(value, URIRef) and self.one_in_none_out(value):
+                ref = saxutils.quoteattr(self.curie(value))
+            else:
+                ref = None
+
+            if ref:
+                self.out(prefix+"<"+self.qname(p)+" ref="+ref+" />\n")
+            else:
+                self.out(prefix+"<"+self.qname(p)+">\n")
+                self.to_xml(value, prefix+self.indent)
+                self.out(prefix+"</"+self.qname(p)+">\n")
 
 
 if __name__ == "__main__":
-    main()
+    graph = rdflib.ConjunctiveGraph()
+    graph.parse(sys.stdin, "application/rdf+xml")
+    w = Writer()
+    w.serialize(graph, sys.stdout)
+
