@@ -10,6 +10,7 @@ TODO: formalize syntax errors    cf xx.UnexpectedContent
 
 import sys
 import xml.etree.cElementTree as etree
+import xml.parsers.expat
 
 import AST2
 import plugin
