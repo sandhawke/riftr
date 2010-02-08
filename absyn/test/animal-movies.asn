@@ -1,0 +1,15 @@
+
+default namespace = "http://example.com/animals#"
+
+class Animal
+   property mother : Animal
+   property father : Animal
+
+   subclass Human
+      property favoriteMovie : Movie
+
+class Movie
+   property subject: Animal
+   #property title: xsd:string
+   #property year: xsd:int
+

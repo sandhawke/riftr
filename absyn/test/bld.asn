@@ -1,0 +1,130 @@
+#
+#  This defines the RDF graph pattern of BLD documents
+#  stored as triples
+#
+#  **FOR NOW** we use "*" in the places BLD expects that,
+#  but we actually want it to be lists in the RDF.
+#
+
+default namespace rif = "http://www.w3.org/2007/rif#"
+namespace xs = "http://www.w3.org/2001/XMLSchema#"
+
+class Document
+      property directive : Import*
+      property payload : Group?
+
+class Annotatable abstract
+   property id : xs:anyURI?
+   property meta : list of Frame?
+
+   #
+   # Rule Language
+   #
+
+   subclass Document
+
+   subclass Sentence abstract
+
+      subclass Group
+         property sentence : Sentence*
+
+      subclass Rule abstract
+
+         subclass Forall
+            property declare : Var*
+            property formula : Rule
+
+         subclass Clause abstract
+   
+            subclass Implies
+               property if: Formula
+               property then: Formula
+
+            subclass Atomic
+
+   #
+   # Condition Language
+   #
+
+   subclass Formula abstract
+
+      subclass And
+         property formula : Formula*
+
+      subclass Or
+         property formula : Formula*
+      
+      subclass Exists
+         property declare : Var*
+         property formula : Rule
+
+      subclass Atomic abstract
+
+         subclass Atom
+         
+            property op : Const
+
+            subclass Atom_Ordered
+               property args : list of Term
+
+            subclass Atom_Named
+               property slot : list of NamedTerm*
+
+         subclass Member
+            property instance: Term
+            property class: Term
+      
+         subclass Subclass
+            property sub: Term
+            property super: Term
+      
+         subclass Equal
+            property left: Term
+            property right: Term
+      
+         subclass Frame
+            property object : Term
+            property slot : KeyValuePair*
+           
+      subclass Term abstract
+
+         subclass Const
+            property type : xs:anyURI
+            property text : xs:string
+
+         subclass Var 
+            property text : xs:string
+            
+         subclass Expr
+         
+            property op : Const
+
+            subclass OrderedExpr abstract
+               property args : list of Term
+
+            subclass NamedArgsExpr abstract
+              property slot : list of NamedTerm*
+
+         subclass List
+            property items: list of Term
+            property rest: Term
+
+         class External
+            property content : Expr
+
+class Import
+   property location : xs:anyURI
+   property profile : xs:anyURI?
+
+class KeyValuePair
+   property key: Term
+   property value: Term
+
+class NamedTerm
+   property name: xs:string
+   property value: Term
+
+
+# we allow metadata on the Const in the <id>, which
+# the BLD Schema does not...
+
