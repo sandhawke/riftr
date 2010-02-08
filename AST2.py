@@ -486,6 +486,12 @@ class BaseDataValue (object):
         assert n == self and n is not self
         return n
 
+    def value_fits(self, other_type):
+        if self.datatype == other_type:
+            return True
+        # @@@@ try promotion and demotion-with-testing
+        return False
+
 def obtainDataValue(lexrep, datatype):
     """
 

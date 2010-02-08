@@ -15,6 +15,8 @@ General code for handle RIF's Abstract Syntax Notation (asn07).
   -- write rng syntax
   -- write xml schema
 
+** The whole notion of Grammars here is unnecessary, I think.
+
 
 ISSUE:
      call "List of Foo" as "ordered Foo*" ?  or List(Foo) !
@@ -111,8 +113,8 @@ def kleeneOp(s):
 class Slot:
     """A slot models the relationship between a Property and a Class.
 
-    It has a cls, a valueType (which must be an absyn.Class or
-    absyn.Datatype), a propertyIRI, a minCardinality, optional
+    It has a cls, a valueType (which must be an pattern.Class or
+    pattern.Datatype), a propertyIRI, a minCardinality, optional
     maxCardinality, and isList.  [ the isList flag could be done under
     valueType ]
 
@@ -164,7 +166,7 @@ class Class (ValueType):
        Uses "done" to avoid loops."""
        if self in done:
           return
-       print "sU"+prefix+str(self)
+       #print "sU"+prefix+str(self)
        done.add(self)
        for cls in self._subclasses:
           cls.setUsers(done, prefix+" s ")
@@ -259,9 +261,15 @@ class Class (ValueType):
             for sub in cls.allSubclasses():
                 yield sub
 
+    def allSuperclasses(self):
+        yield self
+        for cls in self._superclasses:
+            for sub in cls.allSuperclasses():
+                yield sub
+
     def getLeafSubclasses(self):
         """
-        >>> import absyn
+        >>> import pattern
         >>> c1 = Class(iri="c1")
         >>> c2 = Class(iri="c2")
         >>> c3 = Class(iri="c3")
@@ -462,8 +470,8 @@ class Grammar:
         which are expected to call us again recursively.   Loops are
         detected in here (we don't fromText the same source twice).
 
-        >>> import absyn
-        >>> g = absyn.Grammar()
+        >>> import pattern
+        >>> g = pattern.Grammar()
         >>> g.load("test/books.asn")
         >>> for cls in g._classes: print cls.iri
         http://www.w3.org/2007/01/ss-example#Book
@@ -629,8 +637,8 @@ class Grammar:
         """
         Write out this Grammar in OWL....
         
-        >>> import absyn
-        >>> g = absyn.Grammar()
+        >>> import pattern
+        >>> g = pattern.Grammar()
         >>> g.load("test/foo.asn")
         >>> g.exportAsOWL("/tmp/foo.owl")
 
@@ -665,8 +673,8 @@ class Grammar:
 
         THIS HAS SOME RIF-SPECIFIC HACKS RIGHT NOW
         
-        >>> import absyn
-        >>> g = absyn.Grammar()
+        >>> import pattern
+        >>> g = pattern.Grammar()
         >>> g.load("test/bld.asn")
         >>> g.exportAsRNC("/tmp/bld.rnc")
 
@@ -743,8 +751,8 @@ class Grammar:
 
         THIS ONLY WORKS FOR THE RIF NAMESPACE AT THE MOMENT.
         
-        >> import absyn
-        >> g = absyn.Grammar()
+        >> import pattern
+        >> g = pattern.Grammar()
         >> g.load("test/bld.asn")
         >> g.exportAsISEBNF("/tmp/bld.bnf")
 
@@ -961,8 +969,8 @@ class BNF_Writer (Writer):
          else:
             self.out(prefix)
          
-         self.out("\n#  BRANCH:", str(branch), "  users=", str(branch.users), "\n")
-            #self.out("\n#     of class ", str(cls))
+         #self.out("\n#  BRANCH:", str(branch), "  users=", str(branch.users), "\n")
+         #self.out("\n#     of class ", str(cls))
          #other_users = [x for x in branch.users if x != cls]
          if branch == cls or (branch.isLeaf() and not branch.users):
             self.out("'")
@@ -1040,8 +1048,8 @@ if __name__ == "__main__":
 
     g=Grammar()
     g.load("test/bld.asn")
-    for c in g._classes[0].reachable():
-       print c
+    #for c in g._classes[0].reachable():
+    #   print c
        
     #with open("/tmp/bld.bnf", "w") as out:
     #   BNF_Writer(out).serialize(g._classes[0])

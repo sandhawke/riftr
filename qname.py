@@ -83,7 +83,7 @@ class Map:
     True
     
 
-    Part 2 -- inheritance from"defaults".  Each map has a list of
+    Part 2 -- inheritance from "defaults".  Each map has a list of
     defaults.  If you set some default, bindings get inherited from
     those defaults.
 
@@ -122,7 +122,7 @@ class Map:
         self._old_shorts = {}
         self.short_base = short_base      # see setattr
         self._highestKnownUsed = { short_base: 1 }
-        self.defaults = defaults or []    # see setattr
+        self.defaults = defaults or []
 
     def __setattr__(self, name, new_value):
         if (name.startswith("_") or

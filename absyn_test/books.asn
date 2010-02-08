@@ -1,11 +1,11 @@
 default namespace = "http://www.w3.org/2007/01/ss-example#"
 
 class Book
-   property title : xsd:string
-   property author : Person*
-   property firstPublished: xsd:datetime?
+   property title : xs:string
+   property author : Person+
+   property firstPublished: xs:datetime?
 
 class Person
-   property name: xsd:string
-   property born: xsd:datetime?
-   property died: xsd:datetime?
+   property name: xs:string
+   property born: xs:datetime?
+   property died: xs:datetime?

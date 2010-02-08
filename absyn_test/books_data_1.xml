@@ -1,0 +1,12 @@
+<Book xmlns="http://www.w3.org/2007/01/ss-example#"
+      xmlns:xs="http://www.w3.org/2001/XMLSchema#">
+  <title>The Sun Also Rises</title>
+  <xauthor>
+    <Person>
+      <name>Ernest Hemingway</name>
+      <born type="xs:datetime">1899-07-21</born>
+      <died type="xs:datetime">1961-07-02</died>
+    </Person>
+  </xauthor>
+  <firstPublished type="xs:datetime">1926-07</firstPublished>
+</Book>
