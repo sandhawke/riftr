@@ -30,6 +30,7 @@ import rdflib
 import rdflib.Collection
 from sys import stderr
 import sys
+import itertools
 
 import qname
 
@@ -239,11 +240,25 @@ class Class (ValueType):
     @property
     def unabstract(self):
        """Return self or first superclass which is not abstract"""
-       for cls in [self] + self.superclasses_up:
+       for cls in itertools.chain(self.allSubclasses(),
+                                  self.allSuperclasses()):
           if not cls.abstract:
              return cls
+       #for cls in [self] + self.superclasses_up:
+       #   if not cls.abstract:
+       #      return cls
        raise Exception, "No unabstract class in hierarchy! "+str(self)
 
+    def bloodline(self):
+       """Return all the subclasses and all the superclasses, 
+       moving up from the leaves, paired with a number indicating
+       how far down (up) they are from us."""
+       result = [x for x in self.allSubclassesRanked(0)]
+       result[0:1] = []  # remove self, so we don't get it twice
+       result.extend([x for x in self.allSuperclassesRanked(0)])
+       result.sort(reverse=True)
+       return result
+       
     def addSuperclass(self, other):
         if other in self._superclasses:
             return
@@ -266,6 +281,18 @@ class Class (ValueType):
         for cls in self._superclasses:
             for sub in cls.allSuperclasses():
                 yield sub
+
+    def allSubclassesRanked(self, rank):
+        yield rank, self
+        for cls in self._subclasses:
+            for item in cls.allSubclassesRanked(rank+1):
+                yield item
+
+    def allSuperclassesRanked(self, rank):
+        yield rank, self
+        for cls in self._superclasses:
+            for item in cls.allSuperclassesRanked(rank-1):
+                yield item
 
     def getLeafSubclasses(self):
         """

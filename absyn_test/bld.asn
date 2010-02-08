@@ -84,16 +84,18 @@ class Annotatable abstract
       
          subclass Frame
             property object : Term
-            property slot : KeyValuePair*
+            #property slot : KeyValuePair*
+            property slot : list of Term
            
       subclass Term abstract
 
          subclass Const
-            property type : xs:anyURI
-            property text : xs:string
+            property value : any   # ???
+            #property type : xs:anyURI
+            #property text : xs:string  
 
          subclass Var 
-            property text : xs:string
+            property name : xs:string  #   or "text"?
             
          subclass Expr
          

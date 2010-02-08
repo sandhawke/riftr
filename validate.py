@@ -12,7 +12,7 @@ import AST2
 
 from debugtools import debug
 import debugtools
-debugtools.tags.add("val")
+#debugtools.tags.add("val")
 
 xsns = "http://www.w3.org/2001/XMLSchema"
 rdfns = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -43,12 +43,28 @@ class Checker (object):
 
       if isinstance(pat, pattern.Class):
          if not isinstance(node, AST2.Instance):
-            self.fail(path, "expecting a node (note data value)")
+            self.fail(path, "expecting a node (not %s)" %node)
+            debug("val)")    
+            return
+         npat = None
+         debug("val(", "checking bloodline")
+         for (rank, p) in pat.bloodline():
+            debug("val", rank, self.name(p.iri))
+            # we should actually be matching on slots, I think, but
+            # name is good enough for now....
+            if p.iri == node.primary_type:
+               npat = p
+               debug("val", "that's it!")
+               break
+         debug("val)")
+         if npat is None:
+            self.fail(path, "expecting a %s got a %s" %
+                      (self.name(pat.iri), self.name(node.primary_type)))
             debug("val)")    
             return
          self.good += 1
-         debug("val(", "doing slots", [self.name(x.propertyIRI) for x in pat.slots])
-         for slot in pat.slots:
+         debug("val(", "doing slots", [self.name(x.propertyIRI) for x in npat.slots])
+         for slot in npat.slots:
             ppath = path+"."+self.name(slot.propertyIRI)
             cardinality = 0
             for value in getattr(node, slot.propertyIRI).values:
@@ -59,29 +75,22 @@ class Checker (object):
                   pppath = ppath
                cardinality += 1
                if slot.isList:
-                  if not isintance(value, AST2.Sequence):
+                  if not isinstance(value, AST2.Sequence):
                      fail(pppath, "expecting list value")
                      continue
                   posn = 0
-                  for item in value:
+                  for item in value.items:
                      self.check(item, slot.valueType, pppath+"[%d]"%posn)
                      posn += 1
                else:
                   self.check(value, slot.valueType, pppath)
             if slot.minCardinality is not None:
                if cardinality < slot.minCardinality:
-                  self.fail(ppath, "below minCardinality")
+                  self.fail(ppath, "below minOccur (%d found)" % cardinality)
             if slot.maxCardinality is not None:
                if cardinality > slot.maxCardinality:
-                  self.fail(ppath, "above maxOccurs")
+                  self.fail(ppath, "above maxOccur (%d found)" % cardinality)
          debug("val)", "done with slots")
-         for s in pat.allSuperclasses():
-            node.type = s.iri
-            # maybe pick the lowest non-abstract one as the Primary?
-            # maybe make this part optional?
-            #  [ it's a bit like the PSVI, changing the AST2 in 
-            #    validating it. ]
-
       elif isinstance(pat, pattern.Datatype):
          if not isinstance(node, AST2.BaseDataValue):
             self.fail(path, "expecting a data value (not node)")
@@ -123,7 +132,11 @@ def test(xml_file, asn_file):
    with open(xml_file) as xml_stream:
       root_node = xml_in_etree.Plugin().parse(xml_stream.read())
 
+   with open(",validate.bnf", "w") as out:
+      pattern.BNF_Writer(output_stream=out).serialize(root_pattern)
+
    c = Checker()
+   c.nsmap.bind("", "http://www.w3.org/2007/rif#")
    c.check(root_node, root_pattern)
    print c.good,"good nodes", c.bad, "errors"
 
