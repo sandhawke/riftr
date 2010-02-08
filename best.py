@@ -12,6 +12,15 @@ case we'd want a graph...)
 
     VERY ROUGH SKETCH, now add inference....
 
+       * while backward chaining is good, I think we want
+         to keep the results....
+
+         (do it all in prolog?)
+
+      * selection of rules / rulesets includes product of impact.
+
+           just have a cost of the rule and do iterative deepening?
+
 """
 
 

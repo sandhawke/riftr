@@ -2,19 +2,19 @@
 :- ensure_loaded(library(lists)).
 
 run_query(FromFile, ToFile) :-
-   ensure_loaded(FromFile),
-   open(ToFile, write, Fd),
-   forall(
-      query(Vars),
-      ( 
-         forall(
-            member(Var, Vars),
-            format(Fd, '~q~n', [Var])
-         ),
-         format(Fd, 'end marker~n', [])
-      )
-   ),
-   close(Fd).
+	ensure_loaded(FromFile),
+	open(ToFile, write, Fd),
+	forall(
+	       query(Vars),
+	       ( 
+		 forall(
+			member(Var, Vars),
+			format(Fd, '~q~n', [Var])
+		       ),
+		 format(Fd, 'end marker~n', [])
+	       )
+	      ),
+	close(Fd).
 
 % map data values toward root of datatype tree
 promote(data(X,XT), data(X,XT)).
@@ -53,16 +53,16 @@ supertype(                                xs_token, xs_NMTOKEN).
 %%    map back and forth between data/2 terms and prolog numbers.
 %%
 data_number(D, I) :-
-  ground(D), !,
-  once(promote(D, data(A, xs_decimal))),
-  atom_number(A, I).
+	ground(D), !,
+	once(promote(D, data(A, xs_decimal))),
+	atom_number(A, I).
 data_number(D, I) :-
-  ground(I), !,
-  atom_number(A, I),
-  (  integer(I)
-  -> D=data(A,xs_integer)
-  ;  D=data(A,xs_decimal)
-  ).
+	ground(I), !,
+	atom_number(A, I),
+	(  integer(I)
+	-> D=data(A,xs_integer)
+	;  D=data(A,xs_decimal)
+	).
 
 
 
@@ -79,16 +79,16 @@ builtin_is_list([]).
 builtin_is_list([_|_]).
 
 builtin_list_contains(List, Item) :-
-  memberchk(Item, List).
+	memberchk(Item, List).
 
 % my approach to handling functions in prolog. NOT a RIF Builtin
 builtin_eval(Result, Expr) :-
-  Expr =.. [Functor | Args],
-  New =.. [Functor, Result, Args],   % keep args in list, for var-args
-  New.
+	Expr =.. [Functor | Args],
+	New =.. [Functor, Result, Args], % keep args in list, for var-args
+	New.
 
 builtin_make_list(Result, Args) :-
-  Result = Args.
+	Result = Args.
 
 builtin_count(Result, [List]) :-
   length(List, X),
