@@ -253,9 +253,9 @@ class Map:
                         return short+joining_character+local
                 raise BlankQName, uri
 
-    def uri(self, qname):
+    def uri(self, qname, joining_character=":"):
         try:
-            (short, local) = qname.split(':', 2)
+            (short, local) = qname.split(joining_character, 2)
         except ValueError:
             short = ""
             local = qname
