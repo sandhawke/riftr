@@ -12,7 +12,7 @@ import sys
 import xml.etree.cElementTree as etree
 import xml.parsers.expat
 
-import AST2
+import datanode
 import plugin
 import error
 
@@ -21,10 +21,11 @@ from xmlns import RIF, split, iri_from_tag
 rifrdfns = "http://www.w3.org/2007/rifr#"
 rifxmlns = "http://www.w3.org/2007/rif#"
 
-AST2.default_namespace = rifxmlns
-
-
 class Parser (object):
+
+    def __init__(self):
+        self.ast = datanode.NodeFactory()
+        self.ast.nsmap.bind("", rifxmlns)
 
     # The XML syntax for RIF is "striped": as you recurse into the
     # element, the tags are name-of-class, name-of-property, name-of-class,
@@ -34,16 +35,16 @@ class Parser (object):
     def decode_instance(self, element):
         """Given an xml element which represents an instance of a
         syntactic element (such as <Document> or <Atom> or <Var>),
-        return an AST2.Instance with the same data.
+        return an datanode.Instance with the same data.
         """
-        instance = AST2.Instance(iri_from_tag(element.tag))
+        instance = self.ast.Instance(iri_from_tag(element.tag))
 
         if element.tag == RIF.List:
             # rif:List just directly contains more instances; we treat it
             # as if it had an implicit inner element:  <items ordered="yes">
             #
             # and yes, it is forbidden from having <id> or <meta> (!!?!)
-            instance.items = AST2.Sequence()
+            instance.items = self.ast.Sequence()
             text = element.text or ""
             for child in element.getchildren():
                 assert_white(text)
@@ -59,9 +60,9 @@ class Parser (object):
             self.decode_property(child, instance)
 
         if element.tag == RIF.Var:
-            instance.name = AST2.StringValue(text)
+            instance.name = self.ast.StringValue(text)
         elif element.tag == RIF.Const:
-            instance.value = AST2.DataValue(text, element.get("type"))
+            instance.value = self.ast.DataValue(text, element.get("type"))
         else:
             assert_white(text)
 
@@ -69,7 +70,7 @@ class Parser (object):
 
     def decode_property(self, element, instance):
         """Given an xml element which represents a property (such as
-        <id> or <declare> or <op>, and an AST2.Instance, set the
+        <id> or <declare> or <op>, and an self.ast.Instance, set the
         appropriate property value on that instance.
         """
 
@@ -82,14 +83,14 @@ class Parser (object):
                 values.append(self.decode_instance(child))
 
             if element.get("ordered") == "yes":
-                value = AST2.Sequence(values)
+                value = self.ast.Sequence(values)
             else:
                 if len(values) == 1:
                     value = values[0]
                 else:
                     raise RuntimeError, "Multiple instances inside a property"
         else:
-            value = AST2.PlainLiteral(element.text+"@")
+            value = self.ast.PlainLiteral(element.text+"@")
 
         prop = iri_from_tag(element.tag)
         setattr(instance, prop, value)

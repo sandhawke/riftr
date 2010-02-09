@@ -5,30 +5,32 @@
 """
 
 import sys
-import serializer2
+
+import nodecentric
+import nodewriter
 import plugin
 from cStringIO import StringIO
 
-import AST2
 import xml_in
 
-XS = "http://www.w3.org/2001/XMLSchema#"
+XS = nodecentric.XS
+xmlns = "http://www.w3.org/XML/1998/namespace"
 rifns = xml_in.RIFNS
 rifrns = "http://www.w3.org/2007/rifr#"
-rdfns = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+rdfns = nodecentric.RDF
 
 rank = {
     rifns+"id": "01",
     rifns+"meta": "02",
     }
 
-class Serializer(serializer2.General):
+class Writer(nodewriter.General):
 
     def default_do(self, obj):
 
         need_close = 0
 
-        if isinstance(obj, AST2.Instance):
+        if isinstance(obj, nodecentric.Instance):
             if self.current_element is None and self.add_root:
                 self.xml_begin(rdfns+"RDF")
                 need_close += 1
@@ -53,7 +55,7 @@ class Serializer(serializer2.General):
                                 )
             for prop in properties:
                 for value in getattr(obj, prop).values:
-                    if prop == AST2.RDF_TYPE and value.lexrep == classname:
+                    if prop == nodecentric.RDF_TYPE: # @@@ and value.lexrep == classname:
                         continue
                     prop = prop.replace(rifns, rifrns)
                     self.xml_begin(prop)
@@ -67,16 +69,17 @@ class Serializer(serializer2.General):
             msg = "Don't know how to serialize a "+str(type(obj))+ ": "+repr(obj)
             self.xml_begin("ERROR", {(None, "msg"): msg})
             self.xml_end()
+            #print >>sys.stderr, msg
             raise RuntimeError(msg)
-
-    def do_PlainLiteral(self, obj):
-        (text, lang) = obj.lexrep.rsplit("@",1)
-        assert lang == ""
-        self.xml_set_text(text)
 
     def do_BaseDataValue(self, obj):  
         if obj.datatype == rifns+"iri":
             self.current_element.setAttributeNS(rdfns, "resource", obj.lexrep)
+        elif obj.datatype == rdfns+"PlainLiteral":
+            (text, lang) = obj.lexrep.rsplit("@",1)
+            if lang:
+                self.current_element.setAttribute("xml:lang", lang)
+            self.xml_set_text(text)
         else:
             self.current_element.setAttributeNS(rdfns, "datatype", obj.datatype)
             self.xml_set_text(obj.lexrep)
@@ -86,10 +89,10 @@ class Serializer(serializer2.General):
         for item in obj.items:
             self.do(item)
 
-_default_serializer = Serializer()
+_default_writer = Writer()
 
 def do(obj):
-    _default_serializer.do(obj)
+    _default_writer.do(obj)
 
 class Plugin (plugin.OutputPlugin):
    """RIF in RDF/XML out."""
@@ -112,7 +115,7 @@ class Plugin (plugin.OutputPlugin):
        # should plugin.Plugin do this for us, somehow?
        for option in self.options:
            kwargs.setdefault(option.name, option.default)
-       self.ser = Serializer(**kwargs)
+       self.ser = Writer(**kwargs)
 
    def serialize(self, doc, output_stream):
        self.ser.stream = output_stream
