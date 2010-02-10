@@ -146,15 +146,15 @@ class Prolog(object):
         """
         safe_text = replace_exprs(text, caller_locals, caller_globals)
         self.popen.stdin.write(safe_text)
+        print "PROLOG < "+safe_text
         
     def assertz(self, text, caller_locals=None, caller_globals=None):
         self.reset()
-        self.say("assertz(")
-        self.say(text, caller_locals, caller_globals)
-        self.say(").\n")
+        safe_text = replace_exprs(text, caller_locals, caller_globals)
+        self.popen.stdin.write("assertz("+safe_text+").\n")
         r = self.response().strip()
         if r == "true.":
-            #print "asserted."
+            print "asserted "+`safe_text`
             pass
         else:
             raise RuntimeError('assertz not confirmed, got '+`r`)
@@ -186,7 +186,7 @@ class Prolog(object):
         while True:
             for ending in endings:
                 if buf.endswith(ending):
-                    #print 'response='+`buf`
+                    print 'PROLOG > '+`buf`
                     return buf
             #print "buffer missing proper endings, ",`endings`
             time.sleep(0.01)

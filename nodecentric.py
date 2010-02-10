@@ -96,8 +96,7 @@ class NodeFactory(object):
     def Instance(self, primary_type=None, **kwargs):
         result = self.rawInstance()
         # have to do it this way because __setattr__ is overridden
-        object.__setattr__(result, "nsmap", self.nsmap)
-        object.__setattr__(result, "factory", self)
+        object.__setattr__(result, "_factory", self)
         if primary_type is not None:
             #setattr(result, RDF_TYPE, self.DataValue(primary_type, XS+"anyURI"))
             setattr(result, RDF_TYPE, self.StringValue(primary_type))
@@ -165,11 +164,11 @@ class Multi(object):
     __slots__ = ["nsmap", "factory"]
 
     @property
-    def value_list(self):
+    def values_list(self):
         return [x for x in self.values]
 
     def __repr__(self):
-        return "Multi(values="+`self.value_list`+")"
+        return "Multi(values="+`self.values_list`+")"
 
     def __len__(self):
         return len(self.values_list)
@@ -223,10 +222,10 @@ class Multi(object):
 
 class Instance(object):
 
-    __slots__ = [ "nsmap", "factory", ]    
+    __slots__ = [ "_factory", ]    
 
     def has_type(self, type):
-        for v in getattr(self.RDF_TYPE):
+        for v in getattr(self, RDF_TYPE):
             if isinstance(v, DataValue) and v.lexrep == type:
                 return True
         return False
@@ -235,8 +234,16 @@ class Instance(object):
     def properties(self):
         raise SubclassShouldProvideThis
 
+    def _q(self, name):
+        if ":" in name:
+            return name
+        # as low-level as we can go, since self._factory isnt working
+        f = object.__getattribute__(self, "_factory")
+        nsmap = f.nsmap
+        return nsmap.uri(name, joining_character="_")
+
     @property
-    def primary_type(self):
+    def _primary_type(self):
         try:
             return getattr(self, RDF_TYPE).first.lexrep
         except IndexError:
@@ -304,24 +311,11 @@ class Instance(object):
 
         values[:] = result
 
-    def __setattr__(self, prop, value):
-        ### @@@@
-        if prop[0] is "_":
-            raise AttributeError
-        assert not isinstance(value, Multi)
-        assert isinstance(prop, basestring)   # unicode?   IRI.
-        prop = q(prop)
-        debug('ast2', 'adding',prop,"=",value)
-        self.dict.setdefault(prop, self.factory.Multi(self.nsmap)).add(value)
+    #def __setattr__(self, prop, value):
+    #    raise SubclassShouldProvideThis
 
-    def __getattr__(self, prop):
-        ### @@@@
-        if prop[0] is "_":
-            raise AttributeError
-
-        prop = q(prop)
-        debug('ast2-get', 'returning attr for', prop)
-        return self.dict.setdefault(prop, self.factory.Multi(self.nsmap))
+    #def __getattr__(self, prop):
+    #    raise SubclassShouldProvideThis
     
     def __getstate__(self):
         raise SubclassShouldProvideThis
@@ -342,12 +336,14 @@ class Instance(object):
         return True
 
     def __str__(self):
-        return "Instance("+(self.primary_type or "None")+", ...)"
+        return "Instance("+(self._primary_type or "None")+", ...)"
 
     def __repr__(self):
-        s = "Instance("+(self.primary_type or "None")+", "
-        for (prop, value) in self.dict.items():
-            s += `prop`+"="+`value`+", "
+        s = "Instance("+(self._primary_type or "None")+", "
+        for prop in self.properties:
+            m = getattr(self, prop)
+            for value in m.values:
+                s += `prop`+"="+`value`+", "
         s += ")"
         return s
 
@@ -362,7 +358,7 @@ class Instance(object):
         schema; I think we have one floating around somewhere.
 
         """
-        (ns, local) = ns_split(self.primary_type)
+        (ns, local) = ns_split(self._primary_type)
         cls = getattr(map.class_map[ns], local)
         lvas = list_valued_attributes(cls)
         args = {}
@@ -395,11 +391,11 @@ class Instance(object):
             print "Value type mismatch", self.__class__, other.__class__
             return False
 
-        if self.primary_type != other.primary_type:
-            print "Primary Type Difference", self.primary_type, "<>", other.primary_type
+        if self._primary_type != other._primary_type:
+            print "Primary Type Difference", self._primary_type, "<>", other._primary_type
             return False
 
-        print prefix, self.primary_type
+        print prefix, self._primary_type
         for p in self.properties:
             if p not in other.dict:
                 print "Only self has ", p

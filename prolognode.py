@@ -2,23 +2,30 @@
 #      -*-mode: python -*-    -*- coding: utf-8 -*-
 """
 
-Used to be called AST2, this is a simple dict/list backing for nodecentric.
+Prolog-backed version of the nodecentric API.
 
-The data values get a little complicated, though.
+This version stores it all in the prolog engine, but it might make
+sense to keep a copy in python of what we've already inferred, for
+performance.
 
 """
-
-import decimal
 
 import debugtools 
 from debugtools import debug
 import nodecentric as nc
 from nodecentric import XS, RDF
+from swi_prolog import Prolog
+import decimal
 
 class NodeFactory(nc.NodeFactory):
+
+    def __init__(self, *args, **kwargs):
+        nc.NodeFactory.__init__(self, *args, **kwargs)
+        self.id_count = 0
+        self.engine = Prolog()
     
     def rawInstance(self):
-        return Instance()
+        return Instance(self)
 
     def rawSequence(self):
         return Sequence()
@@ -29,140 +36,79 @@ class NodeFactory(nc.NodeFactory):
     def DataValue(self, value, datatype=None):
         return obtainDataValue(value, datatype)
 
-class ValueHolder (object) :
-    """For quads/provenance"""
-    __slots__ = ["value", "graph"]
-    def __init__(self, value, graph=None):
-        self.value=value
-        self.graph=graph
-
 class Multi(nc.Multi) :
-    """
 
-    >>> m = NodeFactory().Multi()
-    >>> m.add(1)
-    True
-    >>> m.add(1)
-    False
-    >>> m
-    Multi(values=[1])
-    >>> m.the
-    1
-    >>> m.add(2)
-    True
-    >>> m
-    Multi(values=[1, 2])
-    >>> m.any
-    1
-    >>> m.the
-    Traceback (most recent call last):
-    ...
-    RuntimeError: Too many values for "the"
-
-
-    """
-    
-    __slots__ = ["value_holders", "nsmap"]
-
-    def __init__(self):
-        self.value_holders = []
+    __slots__ = ["subj", "prop"]
 
     @property
     def values(self):
-        for vh in self.value_holders:
-            yield vh.value
+        for r in self.factory.engine.query("rdf({self.subj},{self.prop},X)",
+                                           locals()):
+            yield r["X"]
     
     def add(self, new, graph_if_adding=None):
         """if this value is in the merged graph, just return false;
         If it's not, then add it to the graph_if_adding graph.
         """
-        debug('ast2-multi-add', 'multi add', new)
-        assert not isinstance(new, Multi)
-
         if not (new in self.values):
-            self.value_holders.append(ValueHolder(new, graph_if_adding))
+            self.factory.engine.assertz("rdf_fact({self.subj},{self.prop},{new})", locals())
             return True
         else:
             return False
 
-    def __len__(self):
-        return len(self.value_holders)
-
 class Instance(nc.Instance):
-    """
 
-    Note the property values are often IRIs.   Just use
-    setattr/getattr instead of python's "obj.attr" notation.
+    __slots__ = [ "_ident" ]    
 
-    Or use the ulqname form, qnames using underscores.
+    def __init__(self, factory):
+        # the factory is also an attribute, but it's not 
+        # set until later, so we're passed it here.
+        ident = "inst_"+str(factory.id_count)
+        factory.id_count += 1
+        object.__setattr__(self, "_ident", ident)
 
-    Should we maybe primary_type look like a value of RDF_TYPE?  Eh, I
-    dunno....
+    # Uhhhh, why isn't this happening automatically?
+    @property
+    def _primary_type(self):
+        try:
+            return getattr(self, nc.RDF_TYPE).first.lexrep
+        except IndexError:
+            return None
 
-    """
-    __slots__ = [ "_dict" ]    
-
-    def __init__(self):
-        object.__setattr__(self, "_dict", {})
 
     @property
     def properties(self):
-        return self._dict.keys()
-
-    def list_map(self, values, func, collapse_dups, args, kwargs):
-        '''call func on each item in this array of instances and
-        return a new array of the resulting instances; used by map_in_place'''
-
-        result = []
-        for value in values:
-
-            if isinstance(value, Sequence):
-                self.list_map(value.items, func, False, args, kwargs)
-                result.append(value)
-            elif isinstance(value, Instance):
-                new = value.map_replace(func, *args, **kwargs)
-                # new = func(value, *args, **kwargs)
-                if collapse_dups:
-                    if new in result:
-                        pass
-                    else:
-                        result.append(new)
-                else:
-                    result.append(new)
-            elif isinstance(value, BaseDataValue):
-                result.append(value)
-            else:
-                raise RuntimeError('bad AST tree:'+`value`)
-
-        values[:] = result
+        done = set()
+        for r in self._factory.engine.query("rdf({self._ident},X,_)",
+                                           locals()):
+            prop = r["X"]
+            if prop in done:
+                continue
+            done.add(prop)
+            yield prop
 
     def __setattr__(self, prop, value):
         if prop[0] is "_":
-            raise AttributeError
+            raise AttributeError, "Instance.__setattr__ called on internal attribute %s.  Ooops." % `prop`
+
         assert not isinstance(value, Multi)
         assert isinstance(prop, basestring)   # unicode?   IRI.
         prop = self._q(prop)
         debug('ast2', 'adding',prop,"=",value)
-        self._dict.setdefault(prop, self._factory.Multi()).add(value)
+        self._factory.engine.assertz("rdf({self._ident}, {prop}, {value})",
+                                    locals())
 
     def __getattr__(self, prop):
         if prop[0] is "_":
-            raise AttributeError
+            raise AttributeError, "Instance.__getattr__ called on internal attribute %s.  Ooops." % `prop`
 
         prop = self._q(prop)
         debug('ast2-get', 'returning attr for', prop)
-        return self._dict.setdefault(prop, self._factory.Multi())
+        m = self._factory.Multi()
+        m.subj = self._ident
+        m.prop = prop
+        return m
     
-    def __getstate__(self):
-        return (self._factory, self._dict)
-
-    def __setstate__(self, state):
-        object.__setattr__(self, "_factory", state[0])
-        object.__setattr__(self, "_dict", state[2])
-
-
-
-
 
 
 class Sequence(nc.Sequence):
@@ -170,6 +116,7 @@ class Sequence(nc.Sequence):
     __slots__ = [ "items" ]
 
     def __init__(self):
+        nc.Sequence.__init__(self)
         self.items = []
 
     def deepcopy(self):
@@ -477,8 +424,9 @@ def string(s):
 def test1():
     
     f = NodeFactory()
-    i = f.Instance("rif_Document", rif_a=5)
-    j = f.Instance("rif_Test", rif_a=i)
+    # f.nsmap.bind("", "http://www.example.com#")
+    i = f.Instance("rif_Document")
+    j = f.Instance("rif_Test") #, rif_a=i)
     print `j`
 
         
