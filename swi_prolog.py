@@ -155,7 +155,7 @@ class Prolog(object):
         self.say(text+".\n", caller_globals, caller_locals)
         self.querying = True
         while True:
-            line = self.response()
+            line = self.response(endings=[" ", ".\n\n"])
             if line.endswith(".\n\n"):
                 self.querying = False
                 yield parse_bindings(line[:-3])
@@ -166,35 +166,51 @@ class Prolog(object):
     def reset(self):
         if self.querying:
             self.popen.stdin.write("\n")
-        self.ping()
-        self.ping()
+        final = self.response([""])
+        #print "reset got:", `final`
+        self.querying = False
+        #self.ping()  # not really necessary, of course...
 
-    def response(self):
-        bytes = nonblocking_read(self.popen.stdout)
-        #print "read bytes", `bytes`
-        return bytes
+    def response(self, endings=["\n"]):
+        buf = nonblocking_read(self.popen.stdout)
+        while True:
+            for ending in endings:
+                if buf.endswith(ending):
+                    #print 'response='+`buf`
+                    return buf
+            #print "buffer missing proper endings, ",`endings`
+            time.sleep(0.01)
+            more = nonblocking_read(self.popen.stdout)
+            if more == "":
+                #print "waiting for more..., have:",`buf`
+                pass
+            else:
+                #print "got more: ", `more`
+                buf += more
 
-    def ping(self):
-        t = time.time()
-        txt = "hello_world_"+str(t)+"_"+str(self.count)
-        self.count += 1
-        self.say("format('~q~n', [{txt}]).\n", globals(), locals())
-        r = self.response().strip()
-        t1 = time.time()
-        (l1, l2) = r.split("\n", 1)
-        if atom_unquote(l1) == txt:
-            #print "ping response in %0.2fms" % ((t1-t)*1000)
-            pass
-        else:
-            raise RuntimeError("bad ping: expected %s got %s" % (`txt`, `l1`))
+    def ping(self, count=1):
+        for i in range(0,count):
+            t = time.time()
+            txt = "hello_world_"+str(t)+"_"+str(self.count)
+            self.count += 1
+            self.say("format('~q~n', [{txt}]).\n", globals(), locals())
+            r = self.response(["\ntrue.\n\n"])
+            t1 = time.time()
+            (l1, l2) = r.split("\n", 1)
+            if atom_unquote(l1) == txt:
+                #print "ping response in %0.2fms" % ((t1-t)*1000)
+                pass
+            else:
+                raise RuntimeError("bad ping: expected %s got %s" % (`txt`, `l1`))
         
 
 def test():
     p = Prolog()
 
-    p.ping()
-    p.ping()
-    p.ping()
+    print "pinging..."
+    p.ping(5000)
+    print "5000 pings done."
+
 
     p.assertz("p(1,1)")
     p.assertz("p(1,2)")
@@ -205,28 +221,30 @@ def test():
     for r in p.query("p(X,Y)"):
         print `r`
 
-    print "interupted..."
-    for r in p.query("p(X,Y)"):
-        break
-    p.assertz("p(5,5)")
+    print "adding 100 rows..."
+    for i in range(0,100):
+        p.assertz("p(9,%d)" % i)
+
+    print "adding 100 rows, interrupting a query..."
+    for i in range(0,100):
+        for r in p.query("p(X,Y)"):
+            break
+        p.assertz("p(5,%d)" % i)
 
     p.ping()
     print "table:"
     for r in p.query("p(X,Y)"):
         print `r`
 
-    p.ping()
-    p.ping()
-    p.ping()
+    p.ping(100)
 
-
-    x = r'''stuff: '"\ '''
-    p.assertz('f({x})', globals(), locals())
-    l=list(p.query('f(Item)'))
-    print `l`
-    print `x`
-    # some extra level of quoting is coming into play....
-    print l[0]['Item'] == x
+    #x = r'''stuff: '"\ '''
+    #p.assertz('f({x})', globals(), locals())
+    #l=list(p.query('f(Item)'))
+    #print `l`
+    #print `x`
+    ## some extra level of quoting is coming into play....
+    #print l[0]['Item'] == x
 
 if __name__=="__main__":
     import doctest, sys
