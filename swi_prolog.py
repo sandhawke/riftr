@@ -10,20 +10,21 @@
    'X = 3.'
 
    >>> list(p.query('between(1,4,X)'))
-   [{'X': '1'}, {'X': '2'}, {'X': '3'}, {'X': '4'}]
+   [{'X': u'1'}, {'X': u'2'}, {'X': u'3'}, {'X': u'4'}]
+
 
    >>> p.assertz('f(a)')
    >>> p.assertz('f(b)')
    >>> x = 'value needing quoting'
-   >>> p.assertz('f({x})', globals(), locals())
+   >>> p.assertz('f({x})', locals())
    >>> list(p.query('f(Item)'))
-   [{'Item': 'a'}, {'Item': 'b'}, {'Item': 'value needing quoting'}]
+   [{'Item': u'a'}, {'Item': u'b'}, {'Item': u'value needing quoting'}]
 
+   This pretty much works.
 
-   This almost works, but it sometimes gets out of sync, has a few
-   quoting problems, and but I expect it's vastly slower than
-   pyswip[1], which I forgot about until I'd written 80% of this.
-   Maybe it'll be nice to have both options?
+   I expect it's significantly slower than pyswip[1], which I forgot
+   about until I was deeply into this, this afternoon.  Maybe it'll be
+   nice to have both options?
 
    [1] http://code.google.com/p/pyswip/
 
@@ -49,26 +50,34 @@ import error
 #
 
 safe_atom = re.compile("[a-z][a-zA-Z_0-9]*$")
+
+bs = '\\'    
+apos = "'"
+
 def atom_quote(s):
     if isinstance(s, unicode):
         s = s.encode('utf-8')
     m = safe_atom.match(s)
     if m is None:
         # it seems like we don't actually need to escape anything else...
-        s = "'"+s.replace('\\', '\\\\').replace(r"'", r"\'")+"'"
+        s = apos+s.replace(bs, bs+bs).replace(apos, bs+apos)+apos
     return s
 
 def atom_unquote(s):
     if s[0] == "'":
         s = s[1:-1]
-        s = s.replace("\'", "'")
-        s = s.replace("\\\\", "\\")
-    return s
+        s = s.replace(bs+apos, apos)
+        s = s.replace(bs+bs, bs)
+    u = s.decode('utf-8')
+    return u
 
 def parse_bindings(s):
     result = {}
     for line in s.split(',\n'):
-        (var, value) = line.split(" = ", 1)
+        try:
+            (var, value) = line.split(" = ", 1)
+        except ValueError:
+            raise RuntimeError("Cant split on = : "+`line`+", "+`s`)
         value = atom_unquote(value.strip())
         result[var] = value
     return result
@@ -78,15 +87,15 @@ def t(x):
     return x
 
 expr_pattern = re.compile("\{([^}]*)\}")
-def replace_exprs(text, caller_globals=None, caller_locals=None):
-    if caller_globals is None:
-        caller_globals = globals()
+def replace_exprs(text, caller_locals=None, caller_globals=None):
     if caller_locals is None:
         caller_locals = {}
+    if caller_globals is None:
+        caller_globals = globals()
     return re.sub(expr_pattern, 
                   lambda match: atom_quote(unicode(t(eval(match.group(1), 
-                                                        caller_globals, 
-                                                        caller_locals)))),
+                                                        caller_locals, 
+                                                        caller_globals)))),
                   text
                   )
 
@@ -127,7 +136,7 @@ class Prolog(object):
         self.popen.kill()
         self.popen = None
 
-    def say(self, text, caller_globals=None, caller_locals=None):
+    def say(self, text, caller_locals=None, caller_globals=None):
         """
 
            x>>> p = Prolog()
@@ -135,13 +144,13 @@ class Prolog(object):
            x>>> p.response()
 
         """
-        safe_text = replace_exprs(text, caller_globals, caller_locals)
+        safe_text = replace_exprs(text, caller_locals, caller_globals)
         self.popen.stdin.write(safe_text)
         
-    def assertz(self, text, caller_globals=None, caller_locals=None):
+    def assertz(self, text, caller_locals=None, caller_globals=None):
         self.reset()
         self.say("assertz(")
-        self.say(text, caller_globals, caller_locals)
+        self.say(text, caller_locals, caller_globals)
         self.say(").\n")
         r = self.response().strip()
         if r == "true.":
@@ -150,15 +159,16 @@ class Prolog(object):
         else:
             raise RuntimeError('assertz not confirmed, got '+`r`)
 
-    def query(self, text, caller_globals=None, caller_locals=None):
+    def query(self, text, caller_locals=None, caller_globals=None):
         self.reset()
-        self.say(text+".\n", caller_globals, caller_locals)
+        self.say(text+".\n", caller_locals, caller_globals)
         self.querying = True
         while True:
             line = self.response(endings=[" ", ".\n\n"])
             if line.endswith(".\n\n"):
                 self.querying = False
-                yield parse_bindings(line[:-3])
+                if line != "false.\n\n":
+                    yield parse_bindings(line[:-3])
                 return
             yield parse_bindings(line)
             self.popen.stdin.write(";\n")
@@ -193,7 +203,7 @@ class Prolog(object):
             t = time.time()
             txt = "hello_world_"+str(t)+"_"+str(self.count)
             self.count += 1
-            self.say("format('~q~n', [{txt}]).\n", globals(), locals())
+            self.say("format('~q~n', [{txt}]).\n", locals(), globals())
             r = self.response(["\ntrue.\n\n"])
             t1 = time.time()
             (l1, l2) = r.split("\n", 1)
@@ -221,33 +231,49 @@ def test():
     for r in p.query("p(X,Y)"):
         print `r`
 
-    print "adding 100 rows..."
-    for i in range(0,100):
+    print "adding 10 rows..."
+    for i in range(0,10):
         p.assertz("p(9,%d)" % i)
 
-    print "adding 100 rows, interrupting a query..."
-    for i in range(0,100):
+    print "adding 10 rows, interrupting a query..."
+    for i in range(0,10):
         for r in p.query("p(X,Y)"):
             break
         p.assertz("p(5,%d)" % i)
 
     p.ping()
     print "table:"
-    for r in p.query("p(X,Y)"):
+    for r in p.query("p(X,Y), X>Y"):
         print `r`
 
     p.ping(100)
 
     #x = r'''stuff: '"\ '''
-    #p.assertz('f({x})', globals(), locals())
+    #p.assertz('f({x})', locals(), globals())
     #l=list(p.query('f(Item)'))
     #print `l`
     #print `x`
     ## some extra level of quoting is coming into play....
     #print l[0]['Item'] == x
 
+def test_quoting():
+    for a in (
+        r""" foo '' "" '""' \\ \x \a \b \n \n \' """,
+        r"""foo''""'""'\\\x\a\b\n\n\'\"""",
+        r"""foo''""'""'\\\x\a\b\n\n\'\\""",
+        r"""foo''""'""'\\\x\a\b\n\n\'\\""",
+        u"漢字", '"', "'", '\\', '\\\\', '""', "''",
+        ):
+        if a != atom_unquote(atom_quote(a)):
+            print "a:",`a`,len(a)
+            print "a:", `atom_unquote(atom_quote(a))`
+            print "  atom_quote(a): ", `atom_quote(a)`
+
+
 if __name__=="__main__":
     import doctest, sys
     doctest.testmod(sys.modules[__name__])
 
+    test_quoting()
     test()
+    
