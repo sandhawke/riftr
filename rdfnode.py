@@ -2,78 +2,101 @@
 #      -*-mode: python -*-    -*- coding: utf-8 -*-
 """
 
-Used to be called AST2, this is a simple dict/list backing for nodecentric.
+Another nodecentric implementation, like datanode, but this one is
+backed by an rdflib Graph.
 
-The data values get a little complicated, though.
+This turns out to be messier than I had hoped.  List handling ugh!
 
 """
 
 import decimal
+
+from rdflib.Graph import ConjunctiveGraph
+from rdflib import URIRef, BNode, Literal
 
 import debugtools 
 from debugtools import debug
 import nodecentric as nc
 from nodecentric import XS, RDF
 
+RDF_FIRST = RDF+"first"
+RDF_REST = RDF+"rest"
+RDF_NIL = RDF+"nil"
+
 class NodeFactory(nc.NodeFactory):
-    
+
+    def __init__(self, graph=None):
+        nc.NodeFactory.__init__(self)
+        self.graph = graph or ConjunctiveGraph()
+
     def rawInstance(self):
         return Instance()
 
     def rawSequence(self):
         return Sequence()
 
-    def rawMulti(self):
-        return Multi()
+    def rawMulti(self, **kwargs):
+        return Multi(**kwargs)
 
     def DataValue(self, value, datatype=None):
-        return obtainDataValue(value, datatype)
-
-class ValueHolder (object) :
-    """For quads/provenance"""
-    __slots__ = ["value", "graph"]
-    def __init__(self, value, graph=None):
-        self.value=value
-        self.graph=graph
+        return DataValue(value, datatype)
 
 class Multi(nc.Multi) :
     """
+    
+    For us, here, a Multi is a (S,P) pair.  You really should tell us
+    what the (S and P) are before adding values, but maybe we'll do
+    placeholders if necessary?
 
-    >>> m = NodeFactory().Multi()
-    >>> m.add(1)
-    True
-    >>> m.add(1)
-    False
-    >>> m
-    Multi(values=[1])
-    >>> m.the
-    1
-    >>> m.add(2)
-    True
-    >>> m
-    Multi(values=[1, 2])
-    >>> m.any
-    1
-    >>> m.the
-    Traceback (most recent call last):
-    ...
-    RuntimeError: Too many values for "the"
+    >>> nf = NodeFactory()
+    >>> m = nf.Multi()
+
+    x>>> m.add(1)
+    xTrue
+    x>>> m.add(1)
+    xFalse
+    x>>> m
+    xMulti(values=[1])
+    x>>> m.the
+    x1
+    x>>> m.add(2)
+    xTrue
+    >x>> m
+    xMulti(values=[1, 2])
+    x>>> m.any
+    x1
+    x>>> m.the
+    xTraceback (most recent call last):
+    x...
+    xRuntimeError: Too many values for "the"
 
 
     """
     
-    __slots__ = ["value_holders", "nsmap"]
+    __slots__ = ["subj", "prop"]
 
-    def __init__(self):
-        self.value_holders = []
+    def __init__(self, subj=None, prop=None):
+        self.subj = subj
+        self.prop = prop
 
     @property
     def values(self):
-        for vh in self.value_holders:
-            yield vh.value
+        if self.subj is None:
+            return
+        for v in self.factory.graph.objects(self.subj, self.prop):
+            if v == RDF_NIL:
+                s = Sequence(attached=True, empty=True)
+                s.factory = self.factory
+                yield s
+            elif (v, RDF_FIRST, None) in self.factory.graph:
+                s = Sequence(attached=True, empty=False,_node=v)
+                s.factory = self.factory
+                yield s
+            else:
+                yield v
 
     def clear(self):
-        self.value_holders = []
+        self.factory.graph.remove(  (self.subj, self.prop, None)  )
 
     def add(self, new, graph_if_adding=None):
         """if this value is in the merged graph, just return false;
@@ -81,84 +104,166 @@ class Multi(nc.Multi) :
         """
         debug('ast2-multi-add', 'multi add', new)
         assert not isinstance(new, Multi)
+        assert self.subj is not None
 
-        if not (new in self.values):
-            self.value_holders.append(ValueHolder(new, graph_if_adding))
+        if isinstance(new, Sequence):
+            new = new.attach(self.factory.graph)
+
+        triple = (self.subj, self.prop, new) 
+
+        if triple not in self.factory.graph:
+            self.factory.graph.add(triple)
             return True
         else:
             return False
 
-    def __len__(self):
-        return len(self.value_holders)
-
 class Instance(nc.Instance):
     """
 
-    Note the property values are often IRIs.   Just use
-    setattr/getattr instead of python's "obj.attr" notation.
-
-    Or use the ulqname form, qnames using underscores.
+    How do we get the ID for non-BNodes???   Can we get it later
+    and do a full replace?    set _id ??!?!
 
     """
-    __slots__ = [ "_dict" ]    
+    __slots__ = [ "_subj" ]    
 
     def __init__(self):
-        object.__setattr__(self, "_dict", {})
+        object.__setattr__(self, "_subj", BNode())
 
     @property
     def properties(self):
-        return self._dict.keys()
+        return self._factory.graph.predicates(self._subj)
 
     def _getpv(self, prop):
-        if prop[0] is "_":
-            raise RuntimeError, "Looping into __getattr__ for "+prop
         prop = self._q(prop)
-        return self._dict.setdefault(prop, self._factory.Multi())
+        return self._factory.Multi(subj=self._subj, prop=URIRef(prop))
+    
 
-    def __getstate__(self):
-        return (self._factory, self._dict)
-
-    def __setstate__(self, state):
-        object.__setattr__(self, "_factory", state[0])
-        object.__setattr__(self, "_dict", state[2])
 
 
 
 class Sequence(nc.Sequence):
+    """
+    
+    Multis and Lists do NOT go together well.  If you have this:
+        <a> <b> ( 1 2 )
+    and you want to add this graph:
+        <a> <b> ( 1 2 3 )
+    so that you end up with:
+        <a> <b> ( 1 2 )
+        <a> <b> ( 1 2 3 )
+    you're going to have a hard time.  You can't just start with an
+    empty list, then append 1, 2, and 3, because at the point where
+    you have just 1 and 2 in it, you have:
+        <a> <b> ( 1 2 )
+    and then when you add 3, ... how do you know to make two lists
+    again?  Maybe bnode identifies can help, but not in the case where
+    the existing list is empty (rdf:nil).
 
-    __slots__ = [ "items" ]
+    Solutions:
+       1. never combine multis and lists (but the old RIF syntax does,
+          for slots [ironically])
+       2. never modify a list in place -- assert or retract the triple.
+          (this seems like a big hassle, and breaks nodecentric's API)
 
-    def __init__(self):
-        self.items = []
+    I guess we'll encourage people to create and modify their
+    instances first, and use nodeIDs once they have contents.  Forbid
+    updating the empty list in place.
 
-    def deepcopy(self):
-        n = Sequence()
-        for v in self.items:
-            n.items.append(v.deepcopy())
-        assert n == self and n is not self
-        return n
+    >>> nf = NodeFactory()
+    >>> nf.nsmap.bind('', "http://example.com/")
+    >>> s = nf.Sequence()
+    >>> s.append(nf.StringValue("hello"))
+    >>> s.append(nf.StringValue("world"))
+    >>> [x.lexrep for x in s.items]
+    ['hello', 'world']
 
+    >>> p = nf.Instance()
+    >>> p.motto = s
+    >>> [x.lexrep for x in p.motto.the.items]
+    ['hello', 'world']
+
+    >>> p.motto.the.append(nf.StringValue("you're"))
+    >>> p.motto.the.append(nf.StringValue("cool"))
+    >>> [x.lexrep for x in p.motto.the.items]
+    ['hello', 'world', "you're", 'cool']
+
+
+
+
+    """
+
+    def __init__(self, attached=False, empty=True, _node=None):
+        self._items = []    # before attached
+        self.attached = attached
+        self.empty = empty
+        self._node = _node
+    
     def append(self, new):
-        self.items.append(new)
+        assert isinstance(new, nc.Value)
+        if self.attached:
+            if self.empty:
+                raise RuntimeError, "Sorry, but you can't append to an empty list, once its be set as a value, due to limitation in the RDF model.  Crazy, I know.   You'll have to retract it and add it again yourself, if that's what you want."
 
-    def extend(self, new):
-        if isinstance(new, Sequence):
-            new = new.items
-        self.items.extend(new)
+            # set self._last; perhaps we should cache it.
+            [x for x in self.items]
 
-    def __add__(self, other):
-        return Sequence(items=(self.items + other.items))
+            self.factory.graph.remove( (self._last, RDF_REST, RDF_NIL) )
+            old_last = self._last
+            self._last = BNode()
+            self.factory.graph.add(    (old_last, RDF_REST, self._last) )
+            self.factory.graph.add(    (self._last, RDF_FIRST, new) )
+            self.factory.graph.add(    (self._last, RDF_REST, RDF_NIL) )
+        else:
+            self._items.append(new)
 
-    def __eq__(self, other):
-        if not isinstance(other, Sequence):
-            return False
-        if len(self.items) != len(other.items) :
-            return False
-        for i in range(0, len(self.items)):
-            if not self.items[i] == other.items[i]:
-                return False
-        return True
-                
+    def attach(self, graph):
+        #
+        #  kind of funny, looking back that I wrote this using the rdflib
+        #  api instead of nodecentric....
+        #
+        if self.attached:
+            raise RuntimeError
+        self.attached = True
+        if len(self._items) == 0:
+            self.empty = True
+            return RDF_NIL
+        self._last = BNode()
+        current = self._last
+        self.factory.graph.add(    (current, RDF_FIRST, self._items[-1]) )
+        self.factory.graph.add(    (current, RDF_REST, RDF_NIL) )
+        next = current
+        for item in reversed(self._items[:-1]):
+            current = BNode()
+            self.factory.graph.add(    (current, RDF_FIRST, item) )
+            self.factory.graph.add(    (current, RDF_REST, next) )
+            next = current
+        self._node = current
+        return current
+        
+    @property
+    def items(self):
+        if not self.attached:
+            for item in self._items:
+                yield item
+        else:
+            current = self._node
+            while current != RDF_NIL:
+                x = only(self.factory.graph.objects(current, RDF_FIRST))
+                yield x
+                self._last = current
+                current = only(self.factory.graph.objects(current, RDF_REST))
+
+def only(items):
+    value = None
+    for i in items:
+        if value is None:
+            value = i
+        else:
+            raise RuntimeException
+    if value is None:
+        raise RuntimeException
+    return value
+
 datatypes = {}
 
 class BaseDataValue(nc.DataValue):
@@ -444,7 +549,8 @@ def test1():
 
         
 if __name__ == "__main__":
-    import doctest, sys
-    doctest.testmod(sys.modules[__name__])
+    import doctest
+    doctest.testmod()
 
-    test1()
+    # test1()
+    

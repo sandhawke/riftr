@@ -60,8 +60,8 @@ import decimal
 import qname
 from debugtools import debug
 
-XS = "http://www.w3.org/2001/XMLSchema#"
-RDF = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+XS = qname.common.xs
+RDF = qname.common.rdf
 RDF_TYPE = RDF+"type"
 
 ################################################################
@@ -69,9 +69,11 @@ RDF_TYPE = RDF+"type"
 #   Base Classes -- common stuff shared by various instantiations
 #
 #   (I know, this feels more like Java/C++ that Python, but in this
-#   case I this it's pretty elegant.)
+#   case I think it's pretty elegant.)
 #
 
+class Value (object) :
+    pass
 
 class SubclassShouldProvideThis(Exception):
     pass
@@ -79,7 +81,8 @@ class SubclassShouldProvideThis(Exception):
 class NodeFactory(object):
     
     # Should we promise to keep track of the nodes we create?  Or
-    # do you need to remember the roots yourself?
+    # do you need to remember the roots yourself?   It's up to the
+    # concrete implementation you're using...
 
     def __init__(self, nsmap=None):
         if nsmap:
@@ -129,8 +132,8 @@ class NodeFactory(object):
         return self.DataValue(text, XS+"string")
 
     # generally, you these should be created internally by Instance
-    def Multi(self, values=[]):
-        result = self.rawMulti()
+    def Multi(self, values=[], **kwargs):
+        result = self.rawMulti(**kwargs)
         result.nsmap = self.nsmap
         result.factory = self
         for v in values:
@@ -163,6 +166,10 @@ class NodeFactory(object):
 class Multi(object):
     
     __slots__ = ["nsmap", "factory"]
+
+    @property
+    def is_Multi(self):
+        return True
 
     @property
     def values_list(self):
@@ -224,9 +231,13 @@ class Multi(object):
         raise IndexError
 
 
-class Instance(object):
+class Instance(Value):
 
     __slots__ = [ "_factory", ]    
+
+    @property
+    def is_Instance(self):
+        return True
 
     def has_type(self, type):
         for v in getattr(self, RDF_TYPE).values:
@@ -247,11 +258,74 @@ class Instance(object):
         return nsmap.uri(name, joining_character="_")
 
     def _primary_type(self):
-        # not a @property, because... that breaks stuff.
+        # not a @property, because... that breaks stuff????
+        # 
+        # I suggest just using _type.first.lexrep ones self, usually.
         try:
-            return getattr(self, RDF_TYPE).first.lexrep
+            return self._type.first.lexrep
         except IndexError:
             return None
+
+    def _getpv(self, prop):
+        raise SubclassShouldProvideThis
+
+    def _addpv(self, prop, value):
+        multi = self._getpv(prop)
+        multi.add(value)
+
+    def _setpv(self, prop, value):
+        multi = self._getpv(prop)
+        multi.clear()
+        multi.add(value)
+
+    def __getattr__(self, prop):
+        if prop[0] is "_":
+            if prop == "_type":
+                prop = RDF+"type"
+            else:
+                # try to catch when you didn't mean it to be dynamic
+                raise AttributeError
+        return self._getpv(prop)
+    
+    def __setattr__(self, prop, value):
+        if prop[0] is "_":
+            if prop == "_type":
+                prop = RDF+"type"
+            else:
+                # try to catch when you didn't mean it to be dynamic
+                raise AttributeError
+        return self._setpv(prop, value)
+    
+    def __getstate__(self):
+        raise SubclassShouldProvideThis
+
+    def __setstate__(self, state):
+        raise SubclassShouldProvideThis
+
+    def __eq__(self, other):
+        if not isinstance(other, Instance):
+            return False
+        k1 = sorted(self.properties)
+        k2 = sorted(other.properties)
+        if k1 != k2:
+            return False
+        for k in k1:
+            if not getattr(self, k) == getattr(other, k):
+                return False
+        return True
+
+    def __str__(self):
+        return "Instance("+(self._primary_type() or "None")+", ...)"
+
+    def __repr__(self):
+        s = "Instance("+(self._primary_type() or "None")+", "
+        for prop in self.properties:
+            m = getattr(self, prop)
+            for value in m.values:
+                s += `prop`+"="+`value`+", "
+        s += ")"
+        return s
+
 
     @property
     def child_instances(self):
@@ -321,43 +395,6 @@ class Instance(object):
 
         return result
 
-    #def __setattr__(self, prop, value):
-    #    raise SubclassShouldProvideThis
-
-    #def __getattr__(self, prop):
-    #    raise SubclassShouldProvideThis
-    
-    def __getstate__(self):
-        raise SubclassShouldProvideThis
-
-    def __setstate__(self, state):
-        raise SubclassShouldProvideThis
-
-    def __eq__(self, other):
-        if not isinstance(other, Instance):
-            return False
-        k1 = sorted(self.properties)
-        k2 = sorted(other.properties)
-        if k1 != k2:
-            return False
-        for k in k1:
-            if not getattr(self, k) == getattr(other, k):
-                return False
-        return True
-
-    def __str__(self):
-        return "Instance("+(self._primary_type() or "None")+", ...)"
-
-    def __repr__(self):
-        s = "Instance("+(self._primary_type() or "None")+", "
-        for prop in self.properties:
-            m = getattr(self, prop)
-            for value in m.values:
-                s += `prop`+"="+`value`+", "
-        s += ")"
-        return s
-
-
     def to_python(self, map):
         """
         
@@ -422,9 +459,13 @@ class Instance(object):
                 all_passed = False
         return all_passed
 
-class Sequence(object):
+class Sequence(Value):
 
-    __slots__ = [ "factory", "nsmap" ]
+    __slots__ = [ "factory" ]
+
+    @property
+    def is_Sequence(self):
+        return True
 
     def append(self, new):
         raise SubclassShouldProvideThis
@@ -447,10 +488,13 @@ class Sequence(object):
                 return False
         return True
 
-class DataValue(object):
+class DataValue(Value):
 
     __slots__ = []
 
+    @property
+    def is_DataValue(self):
+        return True
 
 if __name__ == "__main__":
     import doctest, sys
