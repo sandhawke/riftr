@@ -202,7 +202,7 @@ class Multi(object):
             n +=1 
             result = v
             if n > 1:
-                raise RuntimeError('Too many values for "the"')
+                raise RuntimeError('Too many values for "the", including: '+`self.values_list[0]`+' and '+`v`)
         if n == 0:
             raise RuntimeError('Too few values for "the"')
         return result
@@ -246,8 +246,8 @@ class Instance(object):
         nsmap = f.nsmap
         return nsmap.uri(name, joining_character="_")
 
-    @property
     def _primary_type(self):
+        # not a @property, because... that breaks stuff.
         try:
             return getattr(self, RDF_TYPE).first.lexrep
         except IndexError:
@@ -293,7 +293,10 @@ class Instance(object):
 
     def list_map(self, values, func, collapse_dups, args, kwargs):
         '''call func on each item in this array of instances and
-        return a new array of the resulting instances; used by map_in_place'''
+        return a new array of the resulting instances; used by map_in_place
+
+        Don't use it directly -- it's secretly destructive inside :-(
+        '''
 
         result = []
         for value in values:
@@ -343,10 +346,10 @@ class Instance(object):
         return True
 
     def __str__(self):
-        return "Instance("+(self._primary_type or "None")+", ...)"
+        return "Instance("+(self._primary_type() or "None")+", ...)"
 
     def __repr__(self):
-        s = "Instance("+(self._primary_type or "None")+", "
+        s = "Instance("+(self._primary_type() or "None")+", "
         for prop in self.properties:
             m = getattr(self, prop)
             for value in m.values:
@@ -365,7 +368,7 @@ class Instance(object):
         schema; I think we have one floating around somewhere.
 
         """
-        (ns, local) = ns_split(self._primary_type)
+        (ns, local) = ns_split(self._primary_type())
         cls = getattr(map.class_map[ns], local)
         lvas = list_valued_attributes(cls)
         args = {}
@@ -398,11 +401,11 @@ class Instance(object):
             print "Value type mismatch", self.__class__, other.__class__
             return False
 
-        if self._primary_type != other._primary_type:
-            print "Primary Type Difference", self._primary_type, "<>", other._primary_type
+        if self._primary_type() != other._primary_type():
+            print "Primary Type Difference", self._primary_type(), "<>", other._primary_type()
             return False
 
-        print prefix, self._primary_type
+        print prefix, self._primary_type()
         for p in self.properties:
             if p not in other.dict:
                 print "Only self has ", p

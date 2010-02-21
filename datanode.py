@@ -120,7 +120,10 @@ class Instance(nc.Instance):
 
     def __getattr__(self, prop):
         if prop[0] is "_":
-            raise AttributeError
+            #if prop == "_primary_type":
+            #    print "Doing a manual call on superclass _primary_type"
+            #    return nc.Instance._primary_type(self)
+            raise RuntimeError, "Looping into __getattr__ for "+prop
 
         prop = self._q(prop)
         debug('ast2-get', 'returning attr for', prop)

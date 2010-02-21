@@ -24,7 +24,7 @@ class Serializer(nodewriter.General):
     def default_do(self, obj):
 
         if isinstance(obj, nodecentric.Instance):
-            classname = obj._primary_type
+            classname = obj._primary_type()
             self.xml_begin(classname)
             properties = obj.properties
             properties = sorted(properties,

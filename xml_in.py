@@ -29,7 +29,7 @@ from debugtools import debug
 import debugtools
 #debugtools.tags.add("ps_out")
 #debugtools.tags.add("reconstruct")
-debugtools.tags.add("xml_in")
+#debugtools.tags.add("xml_in")
 #debugtools.tags.add("ast2")
 
 RIFNS = u"http://www.w3.org/2007/rif#"

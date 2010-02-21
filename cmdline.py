@@ -28,6 +28,8 @@ import dump2_out
 import prolog_out
 import func_to_pred
 import unnest
+import frame_view
+import rdfxml_out
 
 # one of these messes up namespace handling in AST2
 # ...

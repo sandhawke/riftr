@@ -35,7 +35,7 @@ class Writer(nodewriter.General):
                 self.xml_begin(rdfns+"RDF")
                 need_close += 1
 
-            classname = obj.primary_type.replace(rifns, rifrns)
+            classname = obj._primary_type().replace(rifns, rifrns)
 
             if self.skip:
                 if ( self.current_element is None or 
