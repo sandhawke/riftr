@@ -6,18 +6,16 @@
 
 """
 
-import serializer2
+import nodewriter
 import plugin
 from cStringIO import StringIO
 
-import AST2
-
-class Serializer(serializer2.General):
+class Serializer(nodewriter.General):
 
     def default_do(self, obj):
         
-        if isinstance(obj, AST2.Instance):
-            self.out("primary_type=", obj.primary_type)
+        if getattr(obj, "is_Instance", False):
+            self.out("primary_type=", (obj._primary_type() or "None"))
             self.indent += 1
             for prop in obj.properties:
                 self.out("property: ", prop)
@@ -28,6 +26,14 @@ class Serializer(serializer2.General):
             self.indent -= 1
         else:
             self.out("unknown:"+repr(obj))
+
+    def do_Sequence(self, obj):
+        self.out("[ ")
+        for item in obj.items:
+            self.do(item)
+            self.out(" ")
+        self.out("]")
+
 
 class Plugin (plugin.OutputPlugin):
    """A variant, made up, presentation syntax"""
