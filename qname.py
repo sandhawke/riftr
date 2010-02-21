@@ -45,10 +45,11 @@ class Map:
     prefix), or the other way around.
     
     >>> print map
-    qname.Map({})
+    qname.Map({}, {})
     >>> map.bind('rdf', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#')
     >>> print map
-    qname.Map({'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'})
+    qname.Map({'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'}, {'http://www.w3.org/1999/02/22-rdf-syntax-ns#': 'rdf'})
+
     >>> map.getLong('rdf')
     'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
 
@@ -132,33 +133,33 @@ class Map:
         else:
             self.bind(name, new_value)
 
-    def bind(self, short, long):
+    def bind(self, short, _long):
         try:
             old = self._long[short]
-            if self._long[short] == long:
+            if self._long[short] == _long:
                 return   # already bound
             raise DuplicateShortName, (
-                "Shortname '%s' cannot be bound to '%s' since it is already bound to '%s'" % (short, long, old))
+                "Shortname '%s' cannot be bound to '%s' since it is already bound to '%s'" % (short, _long, old))
         except KeyError:
             pass
-        self._long[short] = long
+        self._long[short] = _long
         # if we already have a shortname for this longname, remember it
         # but use this latest one.
         if long in self._short:
-            self._old_shorts.setdefault(long, []).append(self._short[long])
-        self._short[long] = short
+            self._old_shorts.setdefault(_long, []).append(self._short[_long])
+        self._short[_long] = short
 
-    def getShort(self, long, make=True):
+    def getShort(self, _long, make=True):
         try:
-            return self._short[long]
+            return self._short[_long]
         except KeyError:
             pass
         if make:
-            short = self.newShort(long)
-            self.bind(short, long)
+            short = self.newShort(_long)
+            self.bind(short, _long)
             return short
         else:
-            raise KeyError, long
+            raise KeyError, _long
 
     def getLong(self, short):
         try:
@@ -180,7 +181,7 @@ class Map:
         except KeyError:
             raise AttributeError, name
 
-    def newShort(self, long):
+    def newShort(self, _long):
         """
         >>> import qname
         >>> map = qname.Map()
@@ -210,7 +211,7 @@ class Map:
         
         """
 
-        base = self.newShortBase(long)
+        base = self.newShortBase(_long)
         if base:
             if base not in self._long:
                 return base
@@ -225,30 +226,30 @@ class Map:
             highest += 1
             assert(highest < 100000)
 
-    def newShortBase(self, long):
+    def newShortBase(self, _long):
         candidate = None
         for source in self.defaults:
             try:
-                candidate = source.getShort(long, make=False)
+                candidate = source.getShort(_long, make=False)
             except KeyError:
                 pass
         if not candidate:
             try:
-                candidate = guessShort(long)
+                candidate = guessShort(_long)
             except KeyError:
                 pass
         return candidate
 
     def qname(self, uri, joining_character=":"):
-        (long, local) = uri_split(uri)
-        short = self.getShort(long)
+        (_long, local) = uri_split(uri)
+        short = self.getShort(_long)
         if short:
             return short+joining_character+local
         else:
             if local:
                 return local
             else:
-                for short in self._old_shorts.get(long, []):
+                for short in self._old_shorts.get(_long, []):
                     if short:
                         return short+joining_character+local
                 raise BlankQName, uri
@@ -259,8 +260,8 @@ class Map:
         except ValueError:
             short = ""
             local = qname
-        long = self.getLong(short)
-        return long+local
+        _long = self.getLong(short)
+        return _long+local
 
     def __str__(self):
         return "qname.Map("+str(self._long)+", "+str(self._short)+")"
@@ -301,7 +302,7 @@ def uri_split(uri):
 
 nsPattern = re.compile(r"""^\w+://[\w.]*(?:[^a-zA-Z_]*([a-zA-Z_]+\w*))*[^a-zA-Z_]*$""")
 
-def guessShort(long):
+def guessShort(_long):
     """
     Return the last part of the URI which looks like a word.
 
@@ -311,28 +312,33 @@ def guessShort(long):
     >>> guessShort('http://www.w3.org/2002/07/owl#')
     'owl'
 
-    >>> guessShort('http://www.w3.org/2000/01/rdf-schema')
+    >>> guessShort('http://www.w3.org/999999/01/rdf-schema')
     'schema'
 
-    >>> guessShort('http://www.w3.org/2000/01/rdf-schema#')
+    >>> guessShort('http://www.w3.org/999999/01/rdf-schema#')
     'schema'
 
     >>> guessShort('http://purl.org/dc/elements/1.1/')
-    'elements'
+    'dc'
 
     >>> guessShort('http://purl.org/dc/elements2/1.1/')
     'elements2'
     
     """
-    m = nsPattern.match(long)
+    # the the standard guesses, first
+    try:
+        return common._short[_long]
+    except KeyError:
+        pass
+    m = nsPattern.match(_long)
     if m:
         text = m.groups()[0]
         if text in common._long:
-            # don't guess something like "rdf"
-            raise KeyError, long
+            # don't guess something like "rdf", since it wasn't the right ns
+            raise KeyError, _long
         return text
     else:
-        raise KeyError, long
+        raise KeyError, _long
     
 
 
@@ -350,5 +356,5 @@ common.func = 'http://www.w3.org/2007/rif-builtin-function#'
 common.pred = 'http://www.w3.org/2007/rif-builtin-predicate#'
 
 if __name__ == "__main__":
-    import doctest, sys
-    doctest.testmod(sys.modules[__name__])
+    import doctest
+    doctest.testmod()
