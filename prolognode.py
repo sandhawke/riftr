@@ -8,6 +8,20 @@ This version stores it all in the prolog engine, but it might make
 sense to keep a copy in python of what we've already inferred, for
 performance.
 
+I think for treating lists as objects, we'll need an id on a triple,
+which we might have wanted anyway.   OR we could put it into the
+list structure, as the first item, or in a pair:
+
+    rdf(s,p,o,list(id, [items]))
+
+that way, we can find that particular list again.   The translations
+of rules get a little harder, but not that bad, I think.   Similar
+to data(lexrep [,type/lang]).
+
+or maybe we just use rdf:first and rdf:rest?
+
+if we use the rdf library, those are probably quite fast.
+
 """
 
 import debugtools 
