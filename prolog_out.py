@@ -20,7 +20,7 @@ import subprocess
 
 from debugtools import debug
 import qname
-import AST2
+
 import xml_in
 import escape
 import query
@@ -454,7 +454,7 @@ def run_query(kb, query, msg):
     rifeval = AST2.Instance('Const', 
                             value=AST2.DataValue(rif_bip+'eval',
                                                  rifns+'iri'))
-    kb_pform = func_to_pred.Plugin(calc_pred=rifeval).transform(kb)
+    kb_pform = func_to_pred.Plugin(calc_pred=rifeval,kb.factory).transform(kb)
     query_pform = func_to_pred.Plugin(calc_pred=rifeval).transform(query)
     Plugin(nsmap=nsmap, supress_nsmap=True).serialize(kb_pform, to_pl)
     Plugin(nsmap=nsmap).serialize(query_pform, to_pl)

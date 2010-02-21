@@ -4,6 +4,10 @@
 
 Prolog-backed version of the nodecentric API.
 
+   ... this is kind of silly; we should be using the semweb package,
+       and we might as well just use an rdfnode module to generate that.
+
+
 This version stores it all in the prolog engine, but it might make
 sense to keep a copy in python of what we've already inferred, for
 performance.

@@ -5,11 +5,11 @@
 """
 
 import sys
-import serializer2
+import nodewriter
+import nodecentric
 import plugin
 from cStringIO import StringIO
 
-import AST2
 import xml_in
 
 rifns = xml_in.RIFNS
@@ -19,12 +19,12 @@ rank = {
     rifns+"meta": "02",
     }
 
-class Serializer(serializer2.General):
+class Serializer(nodewriter.General):
 
     def default_do(self, obj):
 
-        if isinstance(obj, AST2.Instance):
-            classname = obj.primary_type
+        if isinstance(obj, nodecentric.Instance):
+            classname = obj._primary_type
             self.xml_begin(classname)
             properties = obj.properties
             properties = sorted(properties,
@@ -32,7 +32,7 @@ class Serializer(serializer2.General):
                                 )
             for prop in properties:
                 for value in getattr(obj, prop).values:
-                    if prop == AST2.RDF_TYPE and value.lexrep == classname:
+                    if prop == nodecentric.RDF_TYPE and value.lexrep == classname:
                         continue
                     self.xml_begin(prop)
                     self.do(value)

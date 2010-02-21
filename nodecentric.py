@@ -58,6 +58,7 @@ This API will be different things to different people:
 import decimal 
 
 import qname
+from debugtools import debug
 
 XS = "http://www.w3.org/2001/XMLSchema#"
 RDF = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -165,6 +166,9 @@ class Multi(object):
 
     @property
     def values_list(self):
+        """When a generator (.values) isn't good enough, and you want
+        a real list.  Should we make it so assignment to this changes
+        the values...?"""
         return [x for x in self.values]
 
     def __repr__(self):
@@ -225,7 +229,7 @@ class Instance(object):
     __slots__ = [ "_factory", ]    
 
     def has_type(self, type):
-        for v in getattr(self, RDF_TYPE):
+        for v in getattr(self, RDF_TYPE).values:
             if isinstance(v, DataValue) and v.lexrep == type:
                 return True
         return False
@@ -279,7 +283,10 @@ class Instance(object):
         debug('ast2-map(', 'begin')
         for prop in self.properties:
             multi = getattr(self, prop)
-            self.list_map(multi.values, func, True, args, kwargs)
+            values = self.list_map(multi.values, func, True, args, kwargs)
+            multi.clear()
+            for value in values:
+                multi.add(value)
         new_self = func(self, *args, **kwargs)
         debug('ast2-map)')
         return new_self
@@ -304,12 +311,12 @@ class Instance(object):
                         result.append(new)
                 else:
                     result.append(new)
-            elif isinstance(value, BaseDataValue):
+            elif isinstance(value, DataValue):
                 result.append(value)
             else:
                 raise RuntimeError('bad AST tree:'+`value`)
 
-        values[:] = result
+        return result
 
     #def __setattr__(self, prop, value):
     #    raise SubclassShouldProvideThis
@@ -326,12 +333,12 @@ class Instance(object):
     def __eq__(self, other):
         if not isinstance(other, Instance):
             return False
-        k1 = sorted(self.dict.keys())
-        k2 = sorted(other.dict.keys())
+        k1 = sorted(self.properties)
+        k2 = sorted(other.properties)
         if k1 != k2:
             return False
         for k in k1:
-            if not self.dict[k] == other.dict[k]:
+            if not getattr(self, k) == getattr(other, k):
                 return False
         return True
 

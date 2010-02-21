@@ -2,9 +2,16 @@
 #      -*-mode: python -*-    -*- coding: utf-8 -*-
 """
 
-Parse the RIF XML Syntax to AST2
+Parse the RIF XML Syntax to self.ast
 
 This seems massively complicated; revisit it...???
+
+
+BUG:  Doesn't handle the current <List> Syntax used in the test
+      suite, but that syntax was changed at a recent meeting....
+      So...   okay.
+      
+      mps syntax?
 
 """
 
@@ -12,7 +19,7 @@ import sys
 import xml.dom.minidom
 import xml.parsers.expat
 
-import AST2
+from datanode import NodeFactory
 import rif
 import plugin
 import error
@@ -22,7 +29,7 @@ from debugtools import debug
 import debugtools
 #debugtools.tags.add("ps_out")
 #debugtools.tags.add("reconstruct")
-#debugtools.tags.add("xml_in")
+debugtools.tags.add("xml_in")
 #debugtools.tags.add("ast2")
 
 RIFNS = u"http://www.w3.org/2007/rif#"
@@ -42,9 +49,10 @@ def ns_join(ns, term):
 
 class Parser:
 
-    def __init__(self, schema):
+    def __init__(self, schema, factory=None):
         self.root = None
         self.schema = schema    # we might use the schema...?
+        self.ast = factory or NodeFactory()
 
     def value_of_element(self, node):
         assert node.nodeType == node.ELEMENT_NODE
@@ -57,9 +65,9 @@ class Parser:
             datatype = node.getAttribute('type')
             lexrep = xx.nodeContents(node)    # this is so wrong.... markup should cause an error!
             
-            # WAS:  v = AST2.DataValue(lexrep, datatype)
-            v  = AST2.Instance(ns_join(ns, local))
-            vv = AST2.DataValue(lexrep, datatype)
+            # WAS:  v = self.ast.DataValue(lexrep, datatype)
+            v  = self.ast.Instance(ns_join(ns, local))
+            vv = self.ast.DataValue(lexrep, datatype)
             setattr(v, RIFNS+'value', vv)
             
             debug('xml_in)', "It's a data value:", v)
@@ -67,12 +75,12 @@ class Parser:
 
         if (ns == RIFNS and local == u"Var"):
             name = xx.nodeContents(node)
-            v = AST2.Instance(ns_join(ns, local))
-            setattr(v, RIFNS+'name', AST2.string(name))
+            v = self.ast.Instance(ns_join(ns, local))
+            setattr(v, RIFNS+'name', self.ast.StringValue(name))
             debug('xml_in)', "It's a variable:", v)
             return v
 
-        ins = AST2.Instance(ns_join(ns, local))
+        ins = self.ast.Instance(ns_join(ns, local))
         debug('xml_in', "instance=", str(ins))
 
         # xml-attributes as property values
@@ -92,7 +100,7 @@ class Parser:
             if prop == 'http://www.w3.org/2000/xmlns/#xmlns':
                 # I guess we could/should remember the shortnames?
                 continue
-            setattr(ins, prop, AST2.string(xmlattr.value))
+            setattr(ins, prop, self.ast.StringValue(xmlattr.value))
 
         # child elements as property values        
         for child in node.childNodes:
@@ -101,7 +109,7 @@ class Parser:
                 debug('xml_in', "property", prop)
                 if child.getAttribute("ordered") == "yes":
                     debug('xml_in', 'ordered')
-                    s = AST2.Sequence()
+                    s = self.ast.Sequence()
                     for value in self.values_inside_element(child):
                         s.append(value)
                     setattr(ins, prop, s)
@@ -124,7 +132,7 @@ class Parser:
         # it's EITHER just text, OR it's a sequence of elements (with whitespace ignored)
         try:
             text = xx.nodeText(node)
-            result = AST2.string(text)
+            result = self.ast.StringValue(text)
             debug('xml_in', "value_inside:", result)
             yield result
             debug('xml_in)')
@@ -142,7 +150,7 @@ class Parser:
             elif child.nodeType == child.TEXT_NODE:
                 # uh oh... multiple non-white text node children???
                 # that means there's markup in this, I think.....
-                result = AST2.string(child.data)
+                result = self.ast.StringValue(child.data)
                 debug('xml_in', 'dubious mixed content', result)
                 yield result
             else:

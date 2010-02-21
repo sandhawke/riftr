@@ -10,7 +10,7 @@ Not RIF specific.
 
 TODO:
    move XML stuff to a subclass
-       xmlserializer
+       xmlwriter
 
 """
 
@@ -91,7 +91,8 @@ class General (object):
                 typenames.append("Sequence")
             elif isinstance(obj, nodecentric.Instance):
                 # use schema.py to find superclasses?
-                pt = obj.primary_type
+                # ... WHICH TYPE to use???
+                pt = getattr(obj, nodecentric.RDF_TYPE).the.lexrep
                 assert isinstance(pt, basestring)
                 try:
                     (dummy, pt) = pt.split("#")

@@ -12,7 +12,7 @@ Is this really easier than XSLT?   Hrm...   It's pretty messy...
 import plugin
 
 from debugtools import debug
-import AST2
+from datanode import NodeFactory
 import qname
 
 rifns = qname.common.rif
@@ -29,9 +29,10 @@ calculate/assign predicate.   Needed for Prolog.
        ]
 
 
-   def __init__(self, calc_pred=None):
+   def __init__(self, calc_pred=None, factory=None):
+       self.factory = factory or NodeFactory()
        self.calc_pred = (calc_pred or 
-                         AST2.obtainDataValue(qname.common.uri(calc_pred),
+                         self.factory.obtainDataValue(qname.common.uri(calc_pred),
                                               rifns+"iri"))
        self.v_count = 0
 
@@ -44,8 +45,8 @@ calculate/assign predicate.   Needed for Prolog.
        '''Replace any atoms containing external-exprs with with an And
        of the atom re-written and a call to calc'''
 
-       if not (atom.has_primary_type(rifns+"Atom") or
-               atom.has_primary_type(rifns+"Equal")):
+       if not (atom.has_type(rifns+"Atom") or
+               atom.has_type(rifns+"Equal")):
            return atom
 
        debug('f2p(', 'found an atom')
@@ -53,11 +54,11 @@ calculate/assign predicate.   Needed for Prolog.
        atom.map_replace(lambda x: self.replace_external(x, harvest))
        
        if harvest:
-           parent = AST2.Instance(rifns+"And")
+           parent = self.factory.Instance(rifns+"And")
            for (var, expr) in harvest:
-               calc = AST2.Instance(rifns+"Atom")
+               calc = self.factory.Instance(rifns+"Atom")
                setattr(calc, rifns+"op", self.calc_pred)
-               setattr(calc, rifns+"args", AST2.Sequence(items=[var, expr]))
+               setattr(calc, rifns+"args", self.factory.Sequence(items=[var, expr]))
                setattr(parent, rifns+"formula", calc)
            setattr(parent, rifns+"formula", atom)
            debug('f2p)', 'replaced it')
@@ -70,16 +71,16 @@ calculate/assign predicate.   Needed for Prolog.
        '''If the instance is a rif.External, then replace it with a new variable
        and append them both to harvest'''
 
-       debug('f2p', 'looking for external, found a', external.primary_type)
-       if not external.has_primary_type(rifns+"External"):
+       debug('f2p', 'looking for external, found a', external._primary_type)
+       if not external.has_type(rifns+"External"):
            return external
 
        debug('f2p', 'got external!', external)
-       var = AST2.Instance(rifns+"Var")
+       var = self.factory.Instance(rifns+"Var")
        # TODO: put the variable name up in quantifier!!! (and make sure
        # it's unique...)
        # (we'll have to do that with a trick like 'harvest' on Forall, I guess)
-       setattr(var, rifns+"name", AST2.string("genvar%d" % self.v_count))
+       setattr(var, rifns+"name", self.factory.string("genvar%d" % self.v_count))
        self.v_count += 1
        harvest.append( (var, getattr(external, rifns+"content").the) )
        debug('f2p(', 'found an external; replaced with', var)

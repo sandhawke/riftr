@@ -71,7 +71,10 @@ class Multi(nc.Multi) :
     def values(self):
         for vh in self.value_holders:
             yield vh.value
-    
+
+    def clear(self):
+        self.value_holders = []
+
     def add(self, new, graph_if_adding=None):
         """if this value is in the merged graph, just return false;
         If it's not, then add it to the graph_if_adding graph.
@@ -96,9 +99,6 @@ class Instance(nc.Instance):
 
     Or use the ulqname form, qnames using underscores.
 
-    Should we maybe primary_type look like a value of RDF_TYPE?  Eh, I
-    dunno....
-
     """
     __slots__ = [ "_dict" ]    
 
@@ -108,33 +108,6 @@ class Instance(nc.Instance):
     @property
     def properties(self):
         return self._dict.keys()
-
-    def list_map(self, values, func, collapse_dups, args, kwargs):
-        '''call func on each item in this array of instances and
-        return a new array of the resulting instances; used by map_in_place'''
-
-        result = []
-        for value in values:
-
-            if isinstance(value, Sequence):
-                self.list_map(value.items, func, False, args, kwargs)
-                result.append(value)
-            elif isinstance(value, Instance):
-                new = value.map_replace(func, *args, **kwargs)
-                # new = func(value, *args, **kwargs)
-                if collapse_dups:
-                    if new in result:
-                        pass
-                    else:
-                        result.append(new)
-                else:
-                    result.append(new)
-            elif isinstance(value, BaseDataValue):
-                result.append(value)
-            else:
-                raise RuntimeError('bad AST tree:'+`value`)
-
-        values[:] = result
 
     def __setattr__(self, prop, value):
         if prop[0] is "_":
@@ -204,7 +177,8 @@ datatypes = {}
 
 class BaseDataValue(nc.DataValue):
     """
-    This is what gets instiated.   Don't count on what you get Being a "DataValue".
+    This is what gets instantiated.  Don't count on what you get Being
+    a "DataValue".   (why not...?)
 
     """
 
@@ -245,7 +219,7 @@ def obtainDataValue(lexrep, datatype):
     """
 
     This is a fairly sketchy implementation, but I think the interface
-    is about right.  My big question is whether to use something like
+    is about right. My big question is whether to use something like
     __new__ to give a subtype...
 
     >>> d = DataValue("003", XS+"int")
@@ -398,7 +372,7 @@ datatypes[XS+"string"] = [StringValue]
 
 class PlainLiteral (BaseDataValue) :
     
-    __slots__ = ['value', 'datatype']   # keep dt around...???
+    __slots__ = ['value']
 
     @property
     def serialize_as_type(self):
@@ -406,17 +380,18 @@ class PlainLiteral (BaseDataValue) :
 
     def __init__(self, lexrep, datatype=None):
         self.lexrep = lexrep
-        if datatype is None:
-            datatype = RDF+"PlainLiteral"
-        else:
-            if datatype != RDF+"PlainLiteral":
+        if datatype is not None and datatype != RDF+"PlainLiteral":
                 raise ValueError
-        self.datatype = datatype
 
     def to_python(self, map=None):
         return self.lexrep
 
-datatypes[RDF+"string"] = [PlainLiteral]
+    @property
+    def datatype(self):
+        return RDF+"PlainLiteral"
+
+datatypes[RDF+"PlainLiteral"] = [PlainLiteral]
+# datatypes[RDF+"string"] = [PlainLiteral]
 
 class UnimplementedDataValue (BaseDataValue) :
 
