@@ -149,15 +149,6 @@ class Sequence(nc.Sequence):
     def __add__(self, other):
         return Sequence(items=(self.items + other.items))
 
-    def __eq__(self, other):
-        if not isinstance(other, Sequence):
-            return False
-        if len(self.items) != len(other.items) :
-            return False
-        for i in range(0, len(self.items)):
-            if not self.items[i] == other.items[i]:
-                return False
-        return True
                 
 datatypes = {}
 
@@ -177,18 +168,6 @@ class BaseDataValue(nc.DataValue):
 
     def to_python(self, map=None):
         raise RuntimeError("Don't know how to convert to python datatype: "+`self.datatype`)
-
-    def __eq__(self, other):
-        return (isinstance(other, BaseDataValue) and
-                self.datatype == other.datatype and
-                self.lexrep == other.lexrep)
-                   
-    def __cmp__(self, other):
-        c1 = cmp(self.datatype, other.datatype)
-        if c1 == 0:
-            return cmp(self.lexrep, other.lexrep)
-        else:
-            return c1
 
     def deepcopy(self):
         n = obtainDataValue(self.lexrep, self.datatype)

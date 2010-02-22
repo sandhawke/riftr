@@ -30,6 +30,7 @@ import func_to_pred
 import unnest
 import frame_view
 import rdfxml_out
+import rdflib_plugins
 
 # one of these messes up namespace handling in AST2
 # ...

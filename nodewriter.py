@@ -92,7 +92,10 @@ class General (object):
             elif isinstance(obj, nodecentric.Instance):
                 # use schema.py to find superclasses?
                 # ... WHICH TYPE to use???
-                pt = getattr(obj, nodecentric.RDF_TYPE).the.lexrep
+                try:
+                    pt = getattr(obj, nodecentric.RDF_TYPE).the.lexrep
+                except:
+                    pt = "Resource"
                 assert isinstance(pt, basestring)
                 try:
                     (dummy, pt) = pt.split("#")

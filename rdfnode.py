@@ -7,6 +7,9 @@ backed by an rdflib Graph.
 
 This turns out to be messier than I had hoped.  List handling ugh!
 
+
+when you a add something, use its ._node
+
 """
 
 import decimal
@@ -19,9 +22,9 @@ from debugtools import debug
 import nodecentric as nc
 from nodecentric import XS, RDF
 
-RDF_FIRST = RDF+"first"
-RDF_REST = RDF+"rest"
-RDF_NIL = RDF+"nil"
+RDF_FIRST = URIRef(RDF+"first")
+RDF_REST = URIRef(RDF+"rest")
+RDF_NIL = URIRef(RDF+"nil")
 
 class NodeFactory(nc.NodeFactory):
 
@@ -29,8 +32,8 @@ class NodeFactory(nc.NodeFactory):
         nc.NodeFactory.__init__(self)
         self.graph = graph or ConjunctiveGraph()
 
-    def rawInstance(self):
-        return Instance()
+    def rawInstance(self, **kwargs):
+        return Instance(**kwargs)
 
     def rawSequence(self):
         return Sequence()
@@ -40,6 +43,27 @@ class NodeFactory(nc.NodeFactory):
 
     def DataValue(self, value, datatype=None):
         return DataValue(value, datatype)
+
+    def wrap(self, x):
+        # we're skipping lots of the nodecentric/base constructors here.
+
+        if unicode(x) == RDF_NIL:
+            s = Sequence(attached=True, empty=True)
+            s.factory = self
+            return s
+        if isinstance(x, URIRef):
+            s = Instance(id=unicode(x))
+            object.__setattr__(s, "_factory", self)
+            return s
+        if isinstance(x, Literal):
+            return self.DataValue(str(x), str(x.datatype))
+        if isinstance(x, BNode):
+            if (x, RDF_FIRST, None) in self.graph:
+                s = Sequence(attached=True, empty=False,_node=x)
+                s.factory = self
+                return s
+            else:
+                return self.Instance()
 
 class Multi(nc.Multi) :
     """
@@ -84,16 +108,7 @@ class Multi(nc.Multi) :
         if self.subj is None:
             return
         for v in self.factory.graph.objects(self.subj, self.prop):
-            if v == RDF_NIL:
-                s = Sequence(attached=True, empty=True)
-                s.factory = self.factory
-                yield s
-            elif (v, RDF_FIRST, None) in self.factory.graph:
-                s = Sequence(attached=True, empty=False,_node=v)
-                s.factory = self.factory
-                yield s
-            else:
-                yield v
+            yield self.factory.wrap(v)
 
     def clear(self):
         self.factory.graph.remove(  (self.subj, self.prop, None)  )
@@ -109,7 +124,7 @@ class Multi(nc.Multi) :
         if isinstance(new, Sequence):
             new = new.attach(self.factory.graph)
 
-        triple = (self.subj, self.prop, new) 
+        triple = (self.subj, self.prop, new._node) 
 
         if triple not in self.factory.graph:
             self.factory.graph.add(triple)
@@ -124,18 +139,22 @@ class Instance(nc.Instance):
     and do a full replace?    set _id ??!?!
 
     """
-    __slots__ = [ "_subj" ]    
+    __slots__ = [ "_node" ]    
 
-    def __init__(self):
-        object.__setattr__(self, "_subj", BNode())
+    def __init__(self, id=None, **kwargs_ignored_here):
+        if id is None:
+            object.__setattr__(self, "_node", BNode())
+        else:
+            object.__setattr__(self, "_node", URIRef(id))
 
     @property
     def properties(self):
-        return self._factory.graph.predicates(self._subj)
+        for x in self._factory.graph.predicates(self._node):
+            yield str(x)
 
     def _getpv(self, prop):
         prop = self._q(prop)
-        return self._factory.Multi(subj=self._subj, prop=URIRef(prop))
+        return self._factory.Multi(subj=self._node, prop=URIRef(prop))
     
 
 
@@ -211,7 +230,7 @@ class Sequence(nc.Sequence):
             old_last = self._last
             self._last = BNode()
             self.factory.graph.add(    (old_last, RDF_REST, self._last) )
-            self.factory.graph.add(    (self._last, RDF_FIRST, new) )
+            self.factory.graph.add(    (self._last, RDF_FIRST, new._node) )
             self.factory.graph.add(    (self._last, RDF_REST, RDF_NIL) )
         else:
             self._items.append(new)
@@ -229,16 +248,16 @@ class Sequence(nc.Sequence):
             return RDF_NIL
         self._last = BNode()
         current = self._last
-        self.factory.graph.add(    (current, RDF_FIRST, self._items[-1]) )
+        self.factory.graph.add(    (current, RDF_FIRST, self._items[-1]._node) )
         self.factory.graph.add(    (current, RDF_REST, RDF_NIL) )
         next = current
         for item in reversed(self._items[:-1]):
             current = BNode()
-            self.factory.graph.add(    (current, RDF_FIRST, item) )
+            self.factory.graph.add(    (current, RDF_FIRST, item._node) )
             self.factory.graph.add(    (current, RDF_REST, next) )
             next = current
         self._node = current
-        return current
+        return self
         
     @property
     def items(self):
@@ -249,7 +268,7 @@ class Sequence(nc.Sequence):
             current = self._node
             while current != RDF_NIL:
                 x = only(self.factory.graph.objects(current, RDF_FIRST))
-                yield x
+                yield self.factory.wrap(x)
                 self._last = current
                 current = only(self.factory.graph.objects(current, RDF_REST))
 
@@ -259,19 +278,33 @@ def only(items):
         if value is None:
             value = i
         else:
-            raise RuntimeException
+            raise RuntimeError
     if value is None:
-        raise RuntimeException
+        raise RuntimeError
     return value
 
 datatypes = {}
 
-class BaseDataValue(nc.DataValue):
+class DataValue(nc.DataValue):
     """
-    This is what gets instantiated.  Don't count on what you get Being
-    a "DataValue".   (why not...?)
+
+    I tried to do it with multiple inheritance, but we have slightly
+    different semantics for "datatype", in that I use PlainLiterals
+    (for some crazy reason).
 
     """
+    
+    def __init__(self, lexrep, datatype):
+        self.lexrep = lexrep
+        self.datatype = datatype
+        if datatype == RDF+"PlainLiteral":
+            (text, lang) = lexrep.rsplit("@", 1)
+            if lang == "":
+                self._node = Literal(text)
+            else:
+                self._node = Literal(text, language=lang)
+        else:
+            self._node = Literal(lexrep, datatype=datatype)
 
     @property
     def serialize_as_type(self):
@@ -280,277 +313,17 @@ class BaseDataValue(nc.DataValue):
     def __repr__(self):
         return "DataValue("+`self.lexrep`+", "+`self.datatype`+")"
 
-    def to_python(self, map=None):
-        raise RuntimeError("Don't know how to convert to python datatype: "+`self.datatype`)
-
-    def __eq__(self, other):
-        return (isinstance(other, BaseDataValue) and
-                self.datatype == other.datatype and
-                self.lexrep == other.lexrep)
-                   
-    def __cmp__(self, other):
-        c1 = cmp(self.datatype, other.datatype)
-        if c1 == 0:
-            return cmp(self.lexrep, other.lexrep)
-        else:
-            return c1
-
-    def deepcopy(self):
-        n = obtainDataValue(self.lexrep, self.datatype)
-        assert n == self and n is not self
-        return n
-
-    def value_fits(self, other_type):
-        if self.datatype == other_type:
-            return True
-        # @@@@ try promotion and demotion-with-testing
-        return False
-
-def obtainDataValue(lexrep, datatype):
-    """
-
-    This is a fairly sketchy implementation, but I think the interface
-    is about right. My big question is whether to use something like
-    __new__ to give a subtype...
-
-    >>> d = DataValue("003", XS+"int")
-    >>> d
-    DataValue('3', 'http://www.w3.org/2001/XMLSchema#int')
-    >>> d.to_python() is 3
-    True
-    >>> DataValue("hello", XS+"string").to_python() is "hello"
-    True
-
-    """
-    dts = datatypes.get(datatype, [])
-    for dt in dts+[UnimplementedDataValue]:
-        try:
-            d = dt(lexrep, datatype)
-            return d
-        except ValueError:
-            pass
-    raise RuntimeError('not reached')
-
-
-class DataValue (BaseDataValue) :
-    """
-    I don't know yet if this is nice, or a stupid hack....
-    """
-
-    __slots__ = []
-
-    def __new__(self, lexrep, datatype):
-        return obtainDataValue(lexrep, datatype)
-
-class DecimalValue (BaseDataValue) :
-    """ 
-    Uses a reasonable internal representation, but remembers the name
-    you used for the type -- maybe it doesn't have to.
-
-    >>> d = DataValue("043423423423324234.234234234230", XS+"decimal")
-    >>> d
-    DataValue('43423423423324234.234234234230', 'http://www.w3.org/2001/XMLSchema#decimal')
-    >>> type(d.to_python())
-    <class 'decimal.Decimal'>
-
-    >>> d = DataValue("043423423423324234", XS+"decimal")
-    >>> d
-    DataValue('43423423423324234', 'http://www.w3.org/2001/XMLSchema#decimal')
-    >>> type(d.to_python())
-    <type 'long'>
-
-    >>> d = DataValue("10", XS+"decimal")
-    >>> d
-    DataValue('10', 'http://www.w3.org/2001/XMLSchema#decimal')
-    >>> type(d.to_python())
-    <type 'int'>
-
-    >>> d = DataValue("10", XS+"byte")
-    >>> d
-    DataValue('10', 'http://www.w3.org/2001/XMLSchema#byte')
-    >>> type(d.to_python())
-    <type 'int'>
-
-
-    """
-
-    __slots__ = ['value', 'datatype']   # keep dt around...???
-
-    def __init__(self, lexrep, datatype):
-        self.value = decimal.Decimal(lexrep, decimal.ExtendedContext)
-        self.datatype = datatype
-
-    def to_python(self, map=None):
-        return self.value
-
-    @property
-    def lexrep(self):
-        return str(self.value)
-
-class IntValue (BaseDataValue) :
-    """
-
-    Several tests/demos in Decimal
-
-    DOES NOT ENFORCE the sub-type -- just tries to store it.   
-    >>> d = DataValue("-4", XS+"nonNegativeInteger")
-    >>> d
-    DataValue('-4', 'http://www.w3.org/2001/XMLSchema#nonNegativeInteger')
-    >>> type(d.to_python())
-    <type 'int'>
-
-    """
-
-    @property
-    def serialize_as_type(self):
-        return "IntValue"
-
-    __slots__ = ['value', 'datatype']   # keep dt around...???
-
-    def __init__(self, lexrep, datatype):
-        self.value = int(lexrep)  
-        self.datatype = datatype
-
-    def to_python(self, map=None):
-        return self.value
-
-    @property
-    def lexrep(self):
-        return str(self.value)
-
-datatypes[XS+"decimal"] = [IntValue, DecimalValue]
-datatypes[XS+"integer"] = [IntValue]
-datatypes[XS+"long"] = [IntValue]
-datatypes[XS+"nonPositiveInteger"] = [IntValue]
-datatypes[XS+"nonNegativeInteger"] = [IntValue]
-datatypes[XS+"int"] = [IntValue]
-datatypes[XS+"short"] = [IntValue]
-datatypes[XS+"byte"] = [IntValue]
-
-
-
-class StringValue (BaseDataValue) :
-    """
-
-    >>> d = DataValue("hello", XS+"string")
-    >>> d
-    DataValue('hello', 'http://www.w3.org/2001/XMLSchema#string')
-    >>> d.to_python() is "hello"
-    True
-
-
-    """
-
-    __slots__ = ['value', 'datatype']   # keep dt around, for subtypes
-
-    @property
-    def serialize_as_type(self):
-        return "StringValue"
-
-    def __init__(self, lexrep, datatype=None):
-        self.lexrep = lexrep
-        if datatype is None:
-            datatype = XS+"string"
-        else:
-            if datatype != XS+"string":
-                raise ValueError
-        self.datatype = datatype
-
-    def to_python(self, map=None):
-        return self.lexrep
-
-datatypes[XS+"string"] = [StringValue]
-
-class PlainLiteral (BaseDataValue) :
-    
-    __slots__ = ['value']
-
-    @property
-    def serialize_as_type(self):
-        return "PlainLiteral"
-
-    def __init__(self, lexrep, datatype=None):
-        self.lexrep = lexrep
-        if datatype is not None and datatype != RDF+"PlainLiteral":
-                raise ValueError
-
-    def to_python(self, map=None):
-        return self.lexrep
-
-    @property
-    def datatype(self):
-        return RDF+"PlainLiteral"
-
-datatypes[RDF+"PlainLiteral"] = [PlainLiteral]
-# datatypes[RDF+"string"] = [PlainLiteral]
-
-class UnimplementedDataValue (BaseDataValue) :
-
-    __slots__ = ['lexrep', 'datatype'] 
-
-    def __init__(self, lexrep, datatype):
-        self.lexrep = lexrep
-        self.datatype = datatype
-
-
-
-
-
-    
-
-class Python_Map (object):
-    """
-    I've written various versions of this, eg in webdata.py called
-    "reconstruct"
-
-    """
-
-    def __init__(self, class_map, prop_map):
-        """
-        class_map is a mapping from namespaces to modules
-        prop_map is a mapping from namespaces to some text
-             you want prepended to the names of attributes
-             (maybe "" if you're not afraid of collisions)
-        sv_props is a collection of single-valued properties,
-             it those that are guaranteed to only have one
-             value, and so the python attribute can be just
-             given that value, instead of given a list of values.
-
-        getattr(class_map[ns], local) is the class to use
-
-        prop_map[ns]+local is the name of the class attribute
-
-        and maybe we use introspection to see if we should pass everything
-           to the constructor, or nothing and then use setattr?
-
-        and what about multi-values?   we can pass a list for Multi,
-        we can pass a list for Sequence, but ... both???   What if it's a
-        Multi of Sequences?   (that can happen.)  What do we pass THEN?
-        Maybe the class tells us:
-            ast_multi_as_list = [ "p1", "p2", "p3" ]
-        """
-        self.class_map = class_map
-        self.prop_map = prop_map
-        
-    def from_python(self, object):
-        raise RuntimeError()
-
-
-
-def string(s):
-    return StringValue(s, XS+"string")
-
 def test1():
     
     f = NodeFactory()
     i = f.Instance("rif_Document", rif_a=5)
     j = f.Instance("rif_Test", rif_a=i)
-    print `j`
+    #  print `j`
 
         
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
 
-    # test1()
+    #test1()
     

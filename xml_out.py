@@ -9,8 +9,10 @@ import nodewriter
 import nodecentric
 import plugin
 from cStringIO import StringIO
+import qname
 
 import xml_in
+RDF = qname.common.rdf
 
 rifns = xml_in.RIFNS
 
@@ -24,7 +26,7 @@ class Serializer(nodewriter.General):
     def default_do(self, obj):
 
         if isinstance(obj, nodecentric.Instance):
-            classname = obj._primary_type()
+            classname = obj._primary_type() or RDF+"Resource"
             self.xml_begin(classname)
             properties = obj.properties
             properties = sorted(properties,
@@ -47,7 +49,10 @@ class Serializer(nodewriter.General):
     def do_Var(self, obj):
         self.xml_begin(rifns+'Var')
         # @@@ <id> and <meta>
+        #try:
         self.xml_set_text(getattr(obj, rifns+"name").the.lexrep)
+        #except:
+        #    pass  # @@@@@@  FOR NOW!
         self.xml_end()
 
     def do_StringValue(self, obj):

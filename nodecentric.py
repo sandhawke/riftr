@@ -55,6 +55,7 @@ This API will be different things to different people:
 
 """
 
+import sys
 import decimal 
 
 import qname
@@ -90,7 +91,7 @@ class NodeFactory(object):
         else:
             self.nsmap = qname.Map([qname.common])
 
-    def rawInstance(self):
+    def rawInstance(self, **kwargs):
         raise SubclassShouldProvideThis
     def rawSequence(self):
         raise SubclassShouldProvideThis
@@ -98,7 +99,7 @@ class NodeFactory(object):
         raise SubclassShouldProvideThis
 
     def Instance(self, primary_type=None, **kwargs):
-        result = self.rawInstance()
+        result = self.rawInstance(**kwargs)
         # have to do it this way because __setattr__ is overridden
         object.__setattr__(result, "_factory", self)
         if primary_type is not None:
@@ -146,11 +147,14 @@ class NodeFactory(object):
 
         if isinstance(item, Instance):
             n = self.Instance()
-            for p,v in item.items():
-                n.add(p,self.deepcopy(v))
+            for p in item.properties:
+                m = getattr(n, p)
+                for v in getattr(item, p).values:
+                    vv = self.deepcopy(v)
+                    m.add(vv)
         elif isinstance(item, Sequence):
             n = self.Sequence()
-            for i in item:
+            for i in item.items:
                 n.append(self.deepcopy(i))
         elif isinstance(item, DataValue):
             n = self.DataValue(item.lexrep, item.datatype)
@@ -159,7 +163,22 @@ class NodeFactory(object):
         else:
             raise RuntimeError("dont know how to copy "+repr(item))
 
-        assert n == self and n is not self
+        assert isinstance(n, Value)
+        assert n is not item
+        if item == n:
+            pass # print >>sys.stderr, "\nDeepcopy DID work:\n     ", `item`, "\n     ", `n`, "\n"
+        else:
+            print >>sys.stderr, "\nDeepcopy did NOT work:\n     ", `item`, "\n     ", `n`, "\n"
+            if n == item:
+                raise RuntimeError
+        if item == item:
+            pass # print >>sys.stderr, "\nItem Self eq:    ", `item`
+        else:
+            print >>sys.stderr, "\nItem Self NOT eq:    ", `item`
+        if n == n:
+            pass # print >>sys.stderr, "\nNew Self eq:    ", `n`
+        else:
+            print >>sys.stderr, "\nNew Self NOT eq:    ", `n`
         return n
 
 
@@ -185,6 +204,7 @@ class Multi(object):
         return len(self.values_list)
 
     def __eq__(self, other):
+        #print >>sys.stderr, "multi eq running", self
         if not isinstance(other, Multi):
             return False
 
@@ -303,6 +323,7 @@ class Instance(Value):
         raise SubclassShouldProvideThis
 
     def __eq__(self, other):
+        #print >>sys.stderr, "instance eq running", self
         if not isinstance(other, Instance):
             return False
         k1 = sorted(self.properties)
@@ -479,14 +500,25 @@ class Sequence(Value):
         return self.factory.Sequence(items=(self.items + other.items))
 
     def __eq__(self, other):
+        #print >>sys.stderr, "sequence eq running", self
         if not isinstance(other, Sequence):
             return False
-        if len(self.items) != len(other.items) :
+        self_items = [x for x in self.items]
+        other_items = [x for x in other.items]
+        if len(self_items) != len(other_items) :
             return False
-        for i in range(0, len(self.items)):
-            if not self.items[i] == other.items[i]:
+        for i in range(0, len(self_items)):
+            if not self_items[i] == other_items[i]:
                 return False
         return True
+
+    def __repr__(self):
+        s = "[ "
+        for i in self.items:
+            s += repr(i)
+            s += " "
+        s += "]"
+        return s
 
 class DataValue(Value):
 
@@ -495,6 +527,16 @@ class DataValue(Value):
     @property
     def is_DataValue(self):
         return True
+
+    def __eq__(self, other):
+        #print >>sys.stderr, "datavalue eq running", `self.lexrep`, `self.datatype`
+        #print >>sys.stderr, "                    ", `other.lexrep`, `other.datatype`
+        #lr_same = self.lexrep == other.lexrep
+        #print >>sys.stderr, "lr_same? ", lr_same
+        #dt_same = self.datatype == other.datatype
+        #print >>sys.stderr, "dt_same? ", dt_same
+        #same = lr_same and dt_same
+        return self.lexrep == other.lexrep and self.datatype == other.datatype
 
 if __name__ == "__main__":
     import doctest, sys
