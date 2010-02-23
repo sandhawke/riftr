@@ -112,10 +112,10 @@ class Parser:
                     s = self.ast.Sequence()
                     for value in self.values_inside_element(child):
                         s.append(value)
-                    setattr(ins, prop, s)
+                    getattr(ins, prop).add(s)
                 else:
                     for value in self.values_inside_element(child):
-                        setattr(ins, prop, value)
+                        getattr(ins, prop).add(value)
  
             elif xx.white(child):
                 pass

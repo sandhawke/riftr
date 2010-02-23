@@ -4,6 +4,9 @@
 
 Transform to/from frameview
 
+I think they want the SAME namespace, so we can handle the future days....
+(I mean, how would you map something ELSE?)
+
 """
 
 import sys
@@ -17,7 +20,7 @@ import error
 from xmlns import RIF, split, iri_from_tag
 
 rifxmlns = "http://www.w3.org/2007/rif#"
-rifrdfns = "http://www.w3.org/2007/rifr#"
+rifrdfns = rifxmlns
 
 class Property (object):
     def __init__(self, **kwargs):
@@ -38,7 +41,7 @@ rifrprops = { }
 
 def add_prop(ptag, xtag, typ, rtag=None, cls=None):
     xname = rifxmlns+xtag
-    rname = rifrdfns+xtag
+    rname = rifrdfns+(rtag or xtag)
     parent = rifxmlns+ptag
     prop = Property(xname=xname,
                     rname=rname,
@@ -57,7 +60,7 @@ def add_prop(ptag, xtag, typ, rtag=None, cls=None):
 # (note that "id" & "meta" are handled differently)
 #
 add_prop("Document", "directive", "multi")
-add_prop("Document", "payload", "optional")
+add_prop("Document", "payload", "optional")   # annoying to make this a list, isn't it....
 add_prop("Group", "sentence", "multi")
 add_prop("Forall", "declare", "multi", "univar")
 add_prop("Forall", "formula", "required", "formula")
@@ -111,6 +114,7 @@ def to_frame_view(node):
             for pair in getattr(node, prop.xname).values:
                 (key, value) = pair.items
                 pair_node = node._factory.Instance()
+                setattr(pair_node, RDF_TYPE, node._factory.StringValue(rifrdfns+"Pair"))
                 setattr(pair_node, rifrdfns+"slotKey", key)
                 setattr(pair_node, rifrdfns+"slotValue", value)
                 items.append(pair_node)
@@ -121,12 +125,7 @@ def to_frame_view(node):
     if len(classes) == 1:
         setattr(new, RDF_TYPE, node._factory.StringValue(classes.pop()))
     elif len(classes) == 0:
-        # setattr(new, RDF_TYPE, node.rdf_type.the)    WRONG NAMESPACE
-        otype = node.rdf_type.the.lexrep
-        ntype = otype.replace(rifxmlns, rifrdfns)
-        print otype, ntype
-        assert otype != ntype
-        setattr(new, RDF_TYPE, node._factory.StringValue(ntype))
+        setattr(new, RDF_TYPE, node.rdf_type.the)
     else:
         raise RuntimeError, "Conflicting classes: "+`classes`
 

@@ -51,7 +51,7 @@ class General (object):
         self.root = None
         self.current_element = None
         self.nsmap = qname.Map()
-        self.nsmap.defaults = [qname.common]
+        #self.nsmap.defaults = [qname.common]
 
     def build_domap(self):
         self.domap = { }

@@ -181,6 +181,7 @@ class NodeFactory(object):
             print >>sys.stderr, "\nNew Self NOT eq:    ", `n`
         return n
 
+        
 
 class Multi(object):
     
@@ -295,6 +296,9 @@ class Instance(Value):
 
     def _setpv(self, prop, value):
         multi = self._getpv(prop)
+        if len(multi) > 0:
+            raise RuntimeError, "Are you sure you want to use set to clear?"
+            # when the old code is gone, maybe we can remove this....
         multi.clear()
         multi.add(value)
 
@@ -537,6 +541,53 @@ class DataValue(Value):
         #print >>sys.stderr, "dt_same? ", dt_same
         #same = lr_same and dt_same
         return self.lexrep == other.lexrep and self.datatype == other.datatype
+
+def as_dict_list(item, nsmap, skip_type=False):
+    """Assuming we have only single-valued properties, return a
+    version of this instance as a dict/list (json-style) data
+    structure"""
+
+    if isinstance(item, Instance):
+        n = { }
+        for p in item.properties:
+            if skip_type and p == RDF_TYPE:
+                continue
+            m = getattr(item, p)
+            v = m.the   # only works on svp
+            vv = as_dict_list(v, nsmap, skip_type)
+            n[nsmap.qname(p, "_")] = vv
+    elif isinstance(item, Sequence):
+        n = [ ]
+        for i in item.items:
+            n.append(as_dict_list(i, nsmap, skip_type))
+    elif isinstance(item, DataValue):
+        if item.datatype == "http://www.w3.org/2001/XMLSchema#string":
+            n = item.lexrep
+        elif item.datatype == "http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral":
+            (text, lang) = item.lexrep.rsplit("@", 1)
+            if lang:
+                n = { "language" : lang,
+                      "text" : text }
+            else:
+                n = text
+        elif ( item.datatype == "http://www.w3.org/2001/XMLSchema#integer" or
+               item.datatype == "http://www.w3.org/2001/XMLSchema#int" ):
+            # ... more ... @@@
+            n = int(item.lexrep)
+        elif ( item.datatype == "http://www.w3.org/2001/XMLSchema#decimal" or
+               item.datatype == "http://www.w3.org/2001/XMLSchema#double") :
+            # ... more ...  @@@
+            n = float(item.lexrep)
+        else:
+            n = { "type" : item.datatype,
+                  "value" : item.lexrep }
+    elif isinstance(item, Multi):
+        raise RuntimeError("don't try to copy a Multi; they're internal")
+    else:
+        raise RuntimeError("dont know how to copy "+repr(item))
+
+    return n
+
 
 if __name__ == "__main__":
     import doctest, sys

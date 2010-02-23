@@ -121,6 +121,7 @@ class Map:
         self._long = {}
         self._short = {}
         self._old_shorts = {}
+        self._count = {}
         self.short_base = short_base      # see setattr
         self._highestKnownUsed = { short_base: 1 }
         self.defaults = defaults or []
@@ -240,8 +241,21 @@ class Map:
                 pass
         return candidate
 
+    @property
+    def most_common(self):
+        best_count = 0
+        best_s = None
+        for s, count in self._count.items():
+            if count > best_count:
+                best_count = count
+                best_s = s
+        if best_s is None:
+            raise ValueError
+        return best_s
+
     def qname(self, uri, joining_character=":"):
         (_long, local) = uri_split(uri)
+        self._count[_long] = self._count.get(_long, 0) + 1
         short = self.getShort(_long)
         if short:
             return short+joining_character+local
@@ -311,6 +325,15 @@ def guessShort(_long):
     
     >>> guessShort('http://www.w3.org/2002/07/owl#')
     'owl'
+
+    >>> guessShort('http://www.w3.org/2007/rif#')
+    'rif'
+
+    >>> guessShort('http://www.w3.org/2001/01/rdf-schema')
+    'schema'
+
+    >>> guessShort('http://www.w3.org/2000/01/rdf-schema#')
+    'rdfs'
 
     >>> guessShort('http://www.w3.org/999999/01/rdf-schema')
     'schema'

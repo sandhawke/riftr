@@ -60,7 +60,7 @@ class Parser (object):
             self.decode_property(child, instance)
 
         if element.tag == RIF.Var:
-            instance.name = self.ast.StringValue(text)
+            instance.name = self.ast.PlainLiteral(text+"@")
         elif element.tag == RIF.Const:
             instance.value = self.ast.DataValue(text, element.get("type"))
         else:
@@ -93,7 +93,7 @@ class Parser (object):
             value = self.ast.PlainLiteral(element.text+"@")
 
         prop = iri_from_tag(element.tag)
-        setattr(instance, prop, value)
+        getattr(instance, prop).add(value)
 
 
 def assert_white(text):
