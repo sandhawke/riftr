@@ -157,14 +157,22 @@ def register(p):
     if p.id not in [x.id for x in registry]:
         registry.append(p)
 
-def import_all(dir = "plugins"):
+def import_all():
     """note that dir is BOTH a directory name and a module name"""
     import sys
 
-    # BUG ... need to manage path / dir for when we're not in the right place...
-
+    # obviously this is a hack for now...    What's the right way to learn
+    # the directory that holds the plugins directory?   I don't want the
+    # directory itself, because I *think* we might get name conflicts if we
+    # import them directly.  (I'm fuzzy about how that works.  Can you
+    # import "x" from one path and "x" from another path, and have them both
+    # around with the same name?   sys.modules suggests no.
+    pdir = "/home/sandro/riftr"
+    sys.path.append(pdir)
+    
+    dir = "plugins"
     ids = {}
-    for filename in os.listdir("./"+dir):
+    for filename in os.listdir(pdir + "/" + dir):
         if filename.endswith(".py") and not filename[0] == "_":
             local = filename[0:-3]
             module_name = dir + "." + local
@@ -192,6 +200,8 @@ def import_all(dir = "plugins"):
                 #    print issubclass(entry, Plugin)
                 #    print issubclass(entry, InputPlugin)
 
+
+    sys.path.pop(-1)
 
 ################################################################
 
