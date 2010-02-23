@@ -16,6 +16,7 @@ TODO:
 
 import sys
 from cStringIO import StringIO
+from xml.sax import saxutils # for escape
 
 from debugtools import debug
 import debugtools
@@ -34,12 +35,15 @@ def utf8(s):
 
 class General (object):
 
-    def __init__(self, stream=sys.stdout, indent_factor=4, **kwargs):
+    def __init__(self, stream=sys.stdout, indent_factor=4, html_mode=False,
+                 **kwargs):
         self.stream = stream
         self.indent_factor = int(indent_factor)
         self.__dict__.update(kwargs)
 
         self.build_domap()
+
+        self.html_mode = html_mode
 
         self.internal = False
         self.indent = 0
@@ -177,6 +181,19 @@ class General (object):
                 - first group item in place; any that need
                   a new line, they line up below it.
 
+        TODO: HTML MODE
+           
+           allow a cls=.... argument which is the HTML class of this
+           text, which goes into a span, if we're writing this out as
+           HTML.   (for color'd syntaxed)
+
+           allow href=...  and id=.... as well.
+
+           If it is HTML, then we also want to be doing char escapes,
+           but everything else (adding line number, pre, whatever, can
+           be done later, in string processing.   DONT try to use markup
+           to do indenting or line-breaking; assume we're using <pre>.
+
         """
 
         if self.at_lend:
@@ -185,12 +202,27 @@ class General (object):
             indent = kwargs.get("indent", self.indent)
             self.stream.write(self.newline)
             self.indent = old_indent
+        
+        post = ""
+        if self.html_mode:
+            cls = kwargs.get("cls", "")
+            href = kwargs.get("href", "")
+            id = kwargs.get("id", "")
+            if cls:
+                self.stream.write("<span class=%s>" % saxutils.quoteattr(cls))
+                post = "</span>"
+            if href:
+                self.stream.write("<a href=%s>" % saxutils.quoteattr(href))
+                post = "</a>" + post
+            if id:
+                self.stream.write("<span id=%s>" % saxutils.quoteattr(id))
+                post = "</span>" + post
 
         for arg in args:
             lines = arg.split("\n")
             for line in lines[:-1]:
-                self.out(line)
-            self.stream.write(utf8(lines[-1]))
+                self.out(self.esc(line))
+            self.stream.write(utf8(self.esc(lines[-1])))
             if lines[-1]:
                 self.at_left_margin = False
             
@@ -201,6 +233,11 @@ class General (object):
         else:
             self.lend()
 
+    def esc(self, text):
+        if self.html_mode:
+            return saxutils.escape(text)
+        else:
+            return text
 
     def outk(self, *args):
         """Short for out(..., keep=1)"""
@@ -336,7 +373,7 @@ class General (object):
                 tagName = local
 
         k = { "keep": 0 }
-        k = { "keep": 1, "if_keep": "" }
+        k = { "keep": 1, "if_keep": "" }   # trying this out...
         if element.children or element.text:
             self.out("<"+tagName+attr_text+">", **k)
             if element.text is not None:
