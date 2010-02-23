@@ -1,40 +1,27 @@
 #!/usr/bin/env python2.5
 #      -*-mode: python -*-    -*- coding: utf-8 -*-
 """
+
 This module provides a fairly general plugin interface.  Each plugin
-has a name, some documentation, zero of more configuration options,
-and a run() method.  What we factor out here, mostly, is the user
-interface for those configuration options.  We provide both a unix
-command line interface and a web forms interface.
+has an id, some documentation, zero of more configuration options, and
+one or more functions, such as "parse" or "transform".  What we factor
+out here, mostly, is the user interface for those configuration
+options.  We provide both a unix command line interface and a web
+forms interface.
 
 (This really belongs in a toolkit; it has nothing to do with riftr,
 except that's where I first used it.)
 
-
-
-
-
-TODO: 
-
-     -- use a plugins directory, so they don't need to be enumerated
-        somewhere?
-
-          ==> or just an all_plugins.py module which has all the details
-              about all the "on" ones.
-             
-          ==> or just like now; have them register themselves, and control
-              which ones are active via "import".
-
-     -- html for options.
-
 Every plugin should:
 
-   1.  import this module (plugin)
+   1.  Be a class defined in a .py file in the plugins subdirectory
 
-   2.  create an plugin class which is subclass of one of the below
-       plugin subclasses (InputPlugin, OutputPlugin, etc) and give it:
+   2.  Be a subclass of plugin.Plugin; maybe also of InputPlugin,
+       OutputPlugin, etc.
 
-        plugin.id
+   3.  Have some class attributes:
+
+        id
 
                 Some short unique identifier-syntax string
 
@@ -43,19 +30,19 @@ Every plugin should:
 
                 If there's only one plugin in a module, it's
                 reasonable to use __name__, so the plugin id is the
-                module name.   Unless it was imported with a path.  :-(
+                module name.
 
-        plugin.__doc__
+        __doc__
 
                 The documentation for that plugin -- ie what we print
                 out to describe it
 
-        plugin.spec  (optional)
+        spec  (optional)
 
                 A string with the URL of the spec for the implemented
                 language.
 
-        plugin.options
+        options
 
                 A list of options which this plugin supports.  They'll
                 turn into keyword parameters to the plugin, when it is
@@ -63,16 +50,13 @@ Every plugin should:
 
                 Each item in the list is a plugin.Option 
 
-        plugin.parse(str)
-        plugin.serialize(node)
-        plugin.transform(node)
-        plugin.analyze(node)
+        parse(str)
+        serialize(node)
+        transform(node)
+        analyze(node)
 
-                implement to appropriate one of these functions        
+                implement the appropriate one of these functions        
 
-   3.  Toward the end of your module, call:   
-
-           plugin.register(your_plugin_class)
 
 
 Design Note:
@@ -83,11 +67,12 @@ Design Note:
    turn into attributes of the instance and/or arguments.
 
    (Maybe there should be some flag about whether you want them passed
-   in, or want us to set them, then call init2?)
-
+   in, or want us to set them, after init and before calling your
+   execution method.   pass_options_to_init ? )
 
 """
 
+import os
 import optparse
 from debugtools import debug
 from cStringIO import StringIO
@@ -135,10 +120,6 @@ class InputPlugin (Plugin):
         stream.close()
         return self.parse(input_text)
 
-    @classmethod
-    def action_word(cls):
-        return "input"
-
 class OutputPlugin (Plugin):
     """Must have a serialize() method"""
 
@@ -150,29 +131,17 @@ class OutputPlugin (Plugin):
         self.serialize(root_node, buffer)
         return buffer.getvalue()
 
-    @classmethod
-    def action_word(cls):
-        return "output"
-
 class TransformPlugin (Plugin):
     """Must have a transform() method"""
 
     def transform(self, root_node):
         raise RuntimeError("Not implemented")
 
-    @classmethod
-    def action_word(cls):
-        return "transform"
-
 class AnalysisPlugin (Plugin):
     """Must have a transform() method"""
 
     def analyze(self, root_node):
         raise RuntimeError("Not implemented")
-
-    @classmethod
-    def action_word(cls):
-        return "analysis"
 
 
 
@@ -183,11 +152,50 @@ def register(p):
     assert p.__doc__
     assert p.id
     if isinstance(p, Plugin):
+        # we had some old code that did this...
         raise RuntimeError("Plugin %s passed instance instead of class")
-    registry.append(p)
+    if p.id not in [x.id for x in registry]:
+        registry.append(p)
+
+def import_all(dir = "plugins"):
+    """note that dir is BOTH a directory name and a module name"""
+    import sys
+
+    # BUG ... need to manage path / dir for when we're not in the right place...
+
+    ids = {}
+    for filename in os.listdir("./"+dir):
+        if filename.endswith(".py") and not filename[0] == "_":
+            local = filename[0:-3]
+            module_name = dir + "." + local
+            #print 
+            #print module_name
+            m = __import__(module_name)
+            mm = getattr(m, local)
+            #print "=> ", mm
+            for (name, entry) in mm.__dict__.items():
+                if getattr(entry, "__doc__", False) and getattr(entry, "id", False):
+                    if entry.id.startswith(dir+"."):
+                        # because they used "__name__"
+                        entry.id = entry.id[len(dir+"."):]
+                    if entry.id in ids:
+                        raise RuntimeError, ("Duplicate id: %s used in %s and %s" %
+                                             entry.id, ids[entry.id], filename)
+                    ids[entry.id] = filename
+                    #print "registering", name, entry
+                    register(entry)
+                
+                # I wonder why issubclass doesn't work for me like this.
+                #if type(entry).__name__ in [ "classobj", "type" ]:
+                #    print "is type/class", name, entry
+                #    print issubclass(entry, object)
+                #    print issubclass(entry, Plugin)
+                #    print issubclass(entry, InputPlugin)
 
 
 ################################################################
+
+# OPTIONS PROCESSING
 
 ################################################################
 
@@ -208,7 +216,7 @@ def add_to_OptionParser(parser):
                         output_plugin=None)
     
     for plugin in registry:
-        #print plugin.id
+        #print "add to option parse", plugin.id
         group = optparse.OptionGroup(parser,
                                      "For %s plugin (modify settings BEFORE calling plugin)" % (plugin.id))
 
@@ -257,10 +265,14 @@ def combined(options):
     return Collection(getattr(options, "plugins", []))
 
 def get_plugins(actions, options):
-    return [p for p in getattr(options, "plugins") if (p.action_word() in actions)]
+    for p in options.plugins:
+        for action in actions:
+            if hasattr(p, action):
+                yield p
+                break
 
 def get_one_plugin(actions, options):
-    p = get_plugins(actions, options)
+    p = [x for x in get_plugins(actions, options)]
     if len(p) < 1:
         raise RuntimeError("No %s plugin selected." % actions )
     if len(p) > 1:

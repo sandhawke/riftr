@@ -144,7 +144,7 @@ def select_processor(div, state, method, field_name):
                 desc.append(h.span('  (See ', h.a('language specification', 
                                                 href=p.spec), ")"))
 
-            if args .getfirst(field_name) == p.id:
+            if cgi_args.getfirst(field_name) == p.id:
                 button = h.input(type="radio",
                             name=field_name,
                             checked='YES',
@@ -163,7 +163,7 @@ def select_processor(div, state, method, field_name):
                                         value=name)
 
             div << h.p(button, desc, examples)
-            div << render_options_panel(p, state)
+            #div << render_options_panel(p, state)
 
 def load_example_texts():
     
@@ -222,12 +222,15 @@ def select_middle(div, args):
     line = h.p("[NOT WORKING RIGHT NOW].  Select plugins to instantiate: ")
     div << line
     for p in plugin.registry:
-        if p.action_word() in ["transform", "analysis"]:
+        if hasattr(p, "transform") or hasattr(p,"analyze"):
             line << h.span(p.id)   # javascript so click makes a new block for it appear below....
             line << " "
             any = True
     if not any:
         line << "(none available)."
+
+class Block (object):
+    pass
 
 class State (object):
     """Mixes the CGI/Query arguments with the plugin default values,
@@ -243,7 +246,7 @@ class State (object):
         for p in plugin.registry:
             for option in getattr(p, 'options', []):
                 key = p.id + "__" + option.name
-                values = args.getlist(key)
+                values = cgi_args.getlist(key)
                 if values:
                     self.set(p, option, values[0])
                 else:
@@ -259,7 +262,7 @@ class State (object):
         try:
             o = getattr(self, component.id)
         except AttributeError:
-            o = object()
+            o = Block()
             setattr(self, component.id, o)
         setattr(o, option.name, value)
 
@@ -337,9 +340,11 @@ def ensure_safety(uri):
             raise ValueError
 
 def cgiMain():
+    global cgi_args 
 
     load_example_texts()
     args = cgi.FieldStorage()
+    cgi_args = args
     state = State(args)
     handle_example_input(args)
     main_page(args)

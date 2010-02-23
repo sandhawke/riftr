@@ -1,12 +1,14 @@
 
 import plugin
 
-class Red:
+class Red (plugin.Plugin):
+    "Red..."
     id = "red"
-class Blue:
+class Blue (plugin.Plugin):
     "The color of my true love's eyes"
     id = "blue"
-class Green:
+class Green (plugin.Plugin):
+    "Green..."
     id = "green"
 
 class P (plugin.InputPlugin) :
@@ -22,6 +24,4 @@ class P (plugin.InputPlugin) :
 
     def __init__(self, **kwargs):
         print "test_1 instantiated with", repr(kwargs)
-
-plugin.register(P)
 

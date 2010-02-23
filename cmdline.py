@@ -21,16 +21,7 @@ from debugtools import debug
 import rif
 import error
 import plugin
-###import xml_in
-import xml_in_etree
-import xml_out
-import dump_out
-import prolog_out
-import func_to_pred
-import unnest
-import frame_view
-import rdfxml_out
-import rdflib_plugins
+
 
 # one of these messes up namespace handling in AST2
 # ...
@@ -47,6 +38,8 @@ import rdflib_plugins
 ###import plugins.test_1
 
 def run():
+
+    plugin.import_all()
 
     parser = OptionParser(usage="%prog [options] input-location",
                           version=__version__)
@@ -93,7 +86,7 @@ def run():
 
     debug('cmdline', 'read %d bytes' % len(input_text))
 
-    iproc = plugin.get_one_plugin(["input"], options)
+    iproc = plugin.get_one_plugin(["parse"], options)
             
     try:
         doc = iproc.parse(input_text)
@@ -104,21 +97,18 @@ def run():
         print >>sys.stderr, err
         return
 
+    for p in plugin.get_plugins(["transform"], options):
+        doc = p.transform(doc)
 
-    for p in plugin.get_plugins(["transform","analysis"], options):
-        if isinstance(p, plugin.TransformPlugin):
-            doc = p.transform(doc)
-        elif isinstance(p, plugin.AnalysisPlugin):
-            report = p.analyze(doc)
-            print "\nReport from %s plugin:" % p.id
-            print report
-            print
-        else:
-            raise RuntimeError
+    for p in plugin.get_plugins(["analyze"], options):
+        report = p.analyze(doc)
+        print "\nReport from %s plugin:" % p.id
+        print report
+        print
 
     out_stream = sys.stdout
 
-    oproc = plugin.get_one_plugin(["output"], options)
+    oproc = plugin.get_one_plugin(["serialize"], options)
 
     debug('cmdline', 'Output processor=', oproc)
     oproc.serialize(doc, out_stream)
