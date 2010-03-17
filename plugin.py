@@ -52,7 +52,7 @@ Every plugin should:
 
         parse(str)
         serialize(node)
-        transform(node)
+        transform(node)   --- allowed to modify in place???
         analyze(node)
 
                 implement the appropriate one of these functions        

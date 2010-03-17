@@ -56,20 +56,24 @@ bad_xml = [
     #'OpenLists-premise.rif', # no ordered on args
 ]
 
+def filename(test, suffix):
+    return tc_dir+test+"/"+test+suffix
+
+def premise(test):
+    return filename(test, "-premise.rif")
+
+def conclusion(test):
+    return filename(test, "-conclusion.rif")
 
 def PET_filenames():
     for test in read_list('Type=PositiveEntailmentTest'):
-        yield (test, 
-               tc_dir+test+"/"+test+"-premise.rif",
-               tc_dir+test+"/"+test+"-conclusion.rif")
+        yield (test, premise(test), conclusion(test))
 
 def Core_PET_filenames():
     core = set(read_list('Dialect=Core'))
     for test in read_list('Type=PositiveEntailmentTest'):
         if test in core:
-            yield (test, 
-                   tc_dir+test+"/"+test+"-premise.rif",
-                   tc_dir+test+"/"+test+"-conclusion.rif")
+            yield (test, premise(test), conclusion(test))
 
 def load(filename):
     parser = xml_in_etree.Plugin()
