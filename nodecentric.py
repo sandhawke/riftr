@@ -261,6 +261,7 @@ class Instance(Value):
         return True
 
     def has_type(self, type):
+        type = self._q(type)
         for v in getattr(self, RDF_TYPE).values:
             if isinstance(v, DataValue) and v.lexrep == type:
                 return True
@@ -542,10 +543,35 @@ class DataValue(Value):
         #same = lr_same and dt_same
         return self.lexrep == other.lexrep and self.datatype == other.datatype
 
+    @property
+    def as_string(self):
+        if self.datatype == "http://www.w3.org/2001/XMLSchema#string":
+            return self.lexrep
+        elif self.datatype == "http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral":
+            (text, lang) = self.lexrep.rsplit("@", 1)
+            if lang:
+                raise ValueError("has language tag")
+            else:
+                return text
+        raise ValueError("not an xs:string or plainliteral")
+
 def as_dict_list(item, nsmap, skip_type=False):
     """Assuming we have only single-valued properties, return a
     version of this instance as a dict/list (json-style) data
-    structure"""
+    structure
+
+    We should have a version that uses a subclass of object().  For
+    SVP trees, it would be like nodecentric except without the need
+    for .the and .items.  Maybe we can get rid of the need for .items.
+    
+    Maybe we could get rid of the need for .the by declaring a node
+    (and everything under it) to be SVP.
+
+    Really, why do we ever want MVP?  RDF wants that, but we don't, do
+    we?  When we construct SVP out of RDF, then we pick the 'best'
+    value, or something.
+
+    """
 
     if isinstance(item, Instance):
         n = { }
