@@ -22,9 +22,7 @@ import os
 import rdflib 
 from rdflib import RDF
 
-import xml_in
-import xml_in_etree
-import xml_out
+import plugins.xml_in_etree
 import error
 
 test_dir = '/home/sandro/5/rules/test/'
@@ -76,7 +74,7 @@ def Core_PET_filenames():
             yield (test, premise(test), conclusion(test))
 
 def load(filename):
-    parser = xml_in_etree.Plugin()
+    parser = plugins.xml_in_etree.Plugin()
     with open(filename) as f:
         text = f.read()
 

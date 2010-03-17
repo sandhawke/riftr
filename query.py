@@ -7,15 +7,15 @@
 
 import datanode
 
+rifns = "http://www.w3.org/2007/rif#"
 def from_conclusion(node):
     """Turn a test-case conclusion into a proper Query,
     with no variables.
     """
-    ast = datanode.NodeFactory()
-    ast.nsmap.bind("", "http://www.w3.org/2007/rif#")
-    q = ast.Instance("Query")
-    q.variables = ast.Sequence()
-    q.pattern = node
+    ast = node._factory
+    q = ast.Instance(rifns+"Query")
+    setattr(q, rifns+"variables", ast.Sequence())
+    setattr(q, rifns+"pattern", node)
     return q
 
 

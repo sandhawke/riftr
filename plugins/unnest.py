@@ -10,7 +10,6 @@ Rewrite an AST so that nest And's are just one And
 import plugin
 
 from debugtools import debug
-import AST2
 import qname
 
 rifns = qname.common.rif

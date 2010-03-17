@@ -29,6 +29,7 @@ import query
 import test_cases
 import error
 import func_to_pred
+import do_import
 
 rifns = xml_in.RIFNS
 rif_bif = 'http://www.w3.org/2007/rif-builtin-function#'
@@ -361,14 +362,14 @@ class Serializer(nodewriter.General):
 
     def do_Frame(self, obj):
         subj = obj.object.the
-        if obj.slot.values:
-            for slot in obj.slot.values[:-1]:
+        if obj.slot.values_list:
+            for slot in obj.slot.values_list[:-1]:
                 self.single_frame(subj, slot)
                 if self.assertional:
                     self.out(".")                
                 else:
                     self.out(",")
-            self.single_frame(subj, obj.slot.values[-1])
+            self.single_frame(subj, obj.slot.values_list[-1])
 
     def single_frame(self, subj, slot):
             p = slot.items[0]
@@ -451,13 +452,13 @@ def run_query(kb, query, msg):
 
     nsmap = qname.Map()
     nsmap.defaults = [qname.common]
-    nsmap.bind("", "http://www.w3.org/2007/rif#")
+    #nsmap.bind("", "http://www.w3.org/2007/rif#")
 
     to_pl.write("% "+msg)
-    ast = datanode.NodeFactory()
+    ast = kb._factory
     rifeval = ast.Instance('rif_Const')
     rifeval.rif_value = ast.DataValue(rif_bip+'eval', rifns+'iri')
-    kb_pform = func_to_pred.Plugin(calc_pred=rifeval,factory=kb.factory).transform(kb)
+    kb_pform = func_to_pred.Plugin(calc_pred=rifeval).transform(kb)
     query_pform = func_to_pred.Plugin(calc_pred=rifeval).transform(query)
     Plugin(nsmap=nsmap, supress_nsmap=True).serialize(kb_pform, to_pl)
     Plugin(nsmap=nsmap).serialize(query_pform, to_pl)
@@ -517,14 +518,25 @@ def test2():
 
     pass_count = 0
     fail_count = 0
-    n=1
+    test_count = 0
     for test, prem, conc in test_cases.Core_PET_AST():
 
-        print '\n\n\n\n\nTest %d: %s' % (n, test)
-        n+=1
+        test_count += 1
+        print '\n\n\n\n\nTest %d: %s' % (test_count, test)
         pattern = query.from_conclusion(conc)
 
-        #prem.factory.nsmap.bind("", "http://www.w3.org/2007/rif#")
+        try:
+            prem2 = do_import.Plugin().transform(prem)
+        except do_import.RDFLibParseError, e:
+            error.notify(e)
+            continue
+
+        if prem is prem2:
+            pass
+        else:
+            print "Did IMPORT processing"
+            prem = prem2
+
         try:
             result = run_query(prem, pattern, msg="From test "+test)
         except error.Error, e:
@@ -543,7 +555,7 @@ def test2():
             print "Failed.   Files are:\n  %s\n  %s" % filenames
             fail_count += 1
 
-    print "\n\nPassed %d of %d (failed %d).\n" % (pass_count, n-1, fail_count)
+    print "\n\nPassed %d of %d (failed %d).\n" % (pass_count, test_count-1, fail_count)
 
 class SysTestPlugin (plugin.Plugin):
    """Run the RIF Test Suite through the prolog subsystem."""

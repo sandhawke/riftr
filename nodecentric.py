@@ -378,7 +378,12 @@ class Instance(Value):
         with whatever Instance func returns.  Works from the leaves
         up, operating on children before their parents.  If func
         returns None, that list-item or property value is simply
-        removed'''
+        removed
+
+        This is DESTRUCTIVE.  It modifies-in-place.   But it also
+        might return a different value, so you must use the returned
+        value.
+        '''
 
         debug('ast2-map(', 'begin')
         for prop in self.properties:

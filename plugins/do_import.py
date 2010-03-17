@@ -24,6 +24,9 @@ from datanode import NodeFactory
 rifns = qname.common.rif
 rdfns = qname.common.rdf
 
+class RDFLibParseError (Exception):
+   pass
+
 class Plugin (plugin.TransformPlugin):
    """Rewrite to perform imports
    """
@@ -43,13 +46,21 @@ class Plugin (plugin.TransformPlugin):
 
       doc = self.ast.deepcopy(instance)
 
+      did_import = False
       for d in doc.directive.values:
          if d.has_type("Import"):
             print "IMPORT"
             print "   location: ", d.location.the.as_string
             print "   profile: ", d.profile.the.as_string
-            self.graph.parse(d.location.the.as_string, format="n3")
+            try:
+               self.graph.parse(d.location.the.as_string, format="n3")
+            except Exception, e:
+               raise RDFLibParseError(e)
             self.profiles.add(d.profile.the.as_string)
+            did_import = True
+         
+      if not did_import:
+         return instance
 
       print "  imported %d triples" % len(self.graph)
 
