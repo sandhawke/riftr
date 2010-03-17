@@ -38,6 +38,8 @@ import func_to_pred
 import do_import
 
 rifns = xml_in.RIFNS
+rdfns = qname.common.rdf
+xs = qname.common.xs
 rif_bif = 'http://www.w3.org/2007/rif-builtin-function#'
 rif_bip = 'http://www.w3.org/2007/rif-builtin-predicate#'
 
@@ -111,6 +113,15 @@ class Serializer(nodewriter.General):
             self.iri(value.lexrep)
         elif value.datatype == rifns+"local":
             self.local(value.lexrep)
+        elif (value.datatype == rdfns+"PlainLiteral" and
+              value.lexrep.endswith("@")):
+            self.outk('data(')
+            self.outk(atom_quote(value.lexrep[:-1]))
+            self.outk(')')
+        elif value.datatype == xs+"string":
+            self.outk('data(')
+            self.outk(atom_quote(value.lexrep))
+            self.outk(')')
         else:
             self.outk('data(')
             self.outk(atom_quote(value.lexrep))
