@@ -7,6 +7,12 @@ Needs some (optional) stuff before it can be serious
 
    -- iterative deepening
 
+really three plugins; should be cleanly split:
+    prolog_out
+    prolog_engine  (an analysis plugin?  a query plugin?)
+    test_prolog
+
+should use swi_prolog.py of course, too.   [predates it]
 
 """
 
@@ -152,9 +158,10 @@ class Serializer(nodewriter.General):
         
     def do_Document(self, obj):
         self.out("\n% very rough machine-translated Document by riftr\n\n")
-        for v in obj.directive.values:
-            self.do(v)
-        if obj.payload.values:
+        # SKIP directives; someone upstream should have handled them
+        #for v in obj.directive.values:
+        #    self.do(v)
+        if obj.payload.values_list:
             self.do(obj.payload.the)
         self.irimap()
         self.flush_metadata()
@@ -516,10 +523,10 @@ def test2():
     
     error.sink = sys.stdout
 
-    pass_count = 0
-    fail_count = 0
+    passed = []
+    failed = []
     test_count = 0
-    for test, prem, conc in test_cases.Core_PET_AST():
+    for test, prem, conc in test_cases.Core_or_BLD_PET_AST():
 
         test_count += 1
         print '\n\n\n\n\nTest %d: %s' % (test_count, test)
@@ -549,13 +556,15 @@ def test2():
                 print "Result %d: %s" % (n, r)
                 n += 1
             print "PASSED"
-            pass_count += 1
+            passed.append(test)
         else:
             global filenames
             print "Failed.   Files are:\n  %s\n  %s" % filenames
-            fail_count += 1
+            failed.append(test)
 
-    print "\n\nPassed %d of %d (failed %d).\n" % (pass_count, test_count-1, fail_count)
+    print "\n\nPassed %d of %d (failed %d).\n" % (len(passed), test_count-1, len(failed))
+    for p in passed:
+        print "   ",p
 
 class SysTestPlugin (plugin.Plugin):
    """Run the RIF Test Suite through the prolog subsystem."""

@@ -73,6 +73,13 @@ def Core_PET_filenames():
         if test in core:
             yield (test, premise(test), conclusion(test))
 
+def Core_or_BLD_PET_filenames():
+    core = set(read_list('Dialect=Core'))
+    bld = set(read_list('Dialect=BLD'))
+    for test in read_list('Type=PositiveEntailmentTest'):
+        if test in core or test in bld:
+            yield (test, premise(test), conclusion(test))
+
 def load(filename):
     parser = plugins.xml_in_etree.Plugin()
     with open(filename) as f:
@@ -93,8 +100,13 @@ def load(filename):
 
     return result
 
-def Core_PET_AST():
-    for test, prem, conc in Core_PET_filenames():
+def Core_or_BLD_PET_AST():
+    for test, prem, conc in Core_or_BLD_PET_filenames():
+
+        if test == "Unordered_Relations":
+            # can't parse NAU's
+            continue
+
         try:
             premise_node = load(prem)
             conclusion_node = load(conc)
