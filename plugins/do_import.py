@@ -7,6 +7,8 @@ just includes the imported stuff.   For each profile,
 include the necessary additional rulesets?
 
 
+ -- ONLY does rdf-profile imports of TURTLE documents (dumb)
+ -- Should factor out the RDF-to-Frames and Merge bits.
 
 """
 
@@ -137,28 +139,6 @@ class Plugin (plugin.TransformPlugin):
             for rest in self.graph.objects(node, RDF.rest):
                for rest2 in self.list_readings(rest):
                   yield (first,) + rest2
-
-tests = [
-   # these are the ImportsSupport tests
-   "IRI_from_RDF_Literal",
-   "RDF_Combination_Blank_Node",
-   "RDF_Combination_Constant_Equivalence_1",
-   "RDF_Combination_Constant_Equivalence_2",
-   "RDF_Combination_Constant_Equivalence_3",
-   "RDF_Combination_Constant_Equivalence_4",
-   "RDF_Combination_Constant_Equivalence_Graph_Entailment",
-   "RDF_Combination_Invalid_Constant_1",
-   "RDF_Combination_Invalid_Constant_2",
-   "RDF_Combination_Member_1",
-   "RDF_Combination_SubClass",
-   "RDF_Combination_SubClass_2",
-   "RDF_Combination_SubClass_3",
-   "RDF_Combination_SubClass_4",
-   "RDF_Combination_SubClass_5",
-   "RDF_Combination_SubClass_6",
-   "YoungParentDiscount_1",
-   "YoungParentDiscount_2",
-   ]
 
 
 class SysTestPlugin (plugin.Plugin):

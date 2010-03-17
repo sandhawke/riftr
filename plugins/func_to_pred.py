@@ -42,7 +42,7 @@ calculate/assign predicate.   Needed for Prolog.
        return instance
 
    def replace_atomic(self, atom):
-       '''Replace any atoms containing external-exprs with with an And
+       '''Replace any atoms containing external-exprs with an And
        of the atom re-written and a call to calc'''
 
        if not (atom.has_type(rifns+"Atom") or
@@ -60,6 +60,7 @@ calculate/assign predicate.   Needed for Prolog.
                setattr(calc, rifns+"op", self.calc_pred)
                setattr(calc, rifns+"args", self.factory.Sequence(items=[var, expr]))
                setattr(parent, rifns+"formula", calc)
+           getattr(parent, rifns+"formula").clear()
            setattr(parent, rifns+"formula", atom)
            debug('f2p)', 'replaced it')
            return parent
@@ -80,7 +81,7 @@ calculate/assign predicate.   Needed for Prolog.
        # TODO: put the variable name up in quantifier!!! (and make sure
        # it's unique...)
        # (we'll have to do that with a trick like 'harvest' on Forall, I guess)
-       setattr(var, rifns+"name", self.factory.string("genvar%d" % self.v_count))
+       setattr(var, rifns+"name", self.factory.StringValue("genvar%d" % self.v_count))
        self.v_count += 1
        harvest.append( (var, getattr(external, rifns+"content").the) )
        debug('f2p(', 'found an external; replaced with', var)

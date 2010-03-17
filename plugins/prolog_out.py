@@ -11,8 +11,6 @@ Needs some (optional) stuff before it can be serious
 """
 
 import sys
-import serializer2
-import plugin
 from cStringIO import StringIO
 import re
 import tempfile
@@ -21,6 +19,10 @@ import subprocess
 from debugtools import debug
 import qname
 
+import nodecentric
+import datanode
+import nodewriter
+import plugin
 import xml_in
 import escape
 import query
@@ -57,10 +59,10 @@ def atom_unquote(s):
         s = s.replace("\\\\", "\\")
     return s
 
-class Serializer(serializer2.General):
+class Serializer(nodewriter.General):
 
     def __init__(self, supress_nsmap=False, **kwargs):
-        serializer2.General.__init__(self, **kwargs)
+        nodewriter.General.__init__(self, **kwargs)
         self.assertional = True
         self.metadata = []
         self.if_keep = ""
@@ -76,10 +78,10 @@ class Serializer(serializer2.General):
 
     def default_do(self, obj):
 
-        if isinstance(obj, AST2.Instance):
+        if isinstance(obj, nodecentric.Instance):
             error.notify(error.NotImplemented("Not Implemented: "
-                                              +obj.primary_type))
-            self.out("not_implemented('%s')" % obj.primary_type)
+                                              +obj.rdf_type.any.as_string))
+            self.out("not_implemented('%s')" % obj.rdf_type.any.as_string)
         else:
             error.notify(error.NotImplemented("Not Implemented (obj): "+
                                               str(type(obj))))
@@ -133,7 +135,7 @@ class Serializer(serializer2.General):
             self.out('\n% This namespace table isnt actually used yet.')
             # self.out(':- discontiguous(ns/2).')
             for short in self.nsmap.shortNames():
-                self.out('ns('+short+', '+atom_quote(self.nsmap.getLong(short)), ").")
+                self.out('ns('+atom_quote(short)+', '+atom_quote(self.nsmap.getLong(short)), ").")
             self.out('\n')
 
     def local(self, text):
@@ -233,7 +235,7 @@ class Serializer(serializer2.General):
         self.assertional = was_assertional
 
     def do_And(self, obj):
-        values = obj.formula.values
+        values = obj.rif_formula.values_list
         if len(values) == 0:
             self.outk('fail')
         elif len(values) == 1:
@@ -264,7 +266,7 @@ class Serializer(serializer2.General):
 
         self.do(obj.op.the)
         # surprisingly, the <args> is optional in the XML Schema
-        if obj.args.values:
+        if obj.args.values_list:
             self.outk("(")
             self.do(obj.args.the)
             self.outk(")")
@@ -411,7 +413,7 @@ class Plugin (plugin.OutputPlugin):
        self.ser = Serializer(**kwargs)
 
    def serialize(self, doc, output_stream):
-       AST2.default_namespace = rifns
+       # nodecentric.default_namespace = rifns
        self.ser.stream = output_stream
        self.ser.do(doc)
   
@@ -449,11 +451,12 @@ def run_query(kb, query, msg):
 
     nsmap = qname.Map()
     nsmap.defaults = [qname.common]
+    nsmap.bind("", "http://www.w3.org/2007/rif#")
 
     to_pl.write("% "+msg)
-    rifeval = AST2.Instance('Const', 
-                            value=AST2.DataValue(rif_bip+'eval',
-                                                 rifns+'iri'))
+    ast = datanode.NodeFactory()
+    rifeval = ast.Instance('rif_Const')
+    rifeval.rif_value = ast.DataValue(rif_bip+'eval', rifns+'iri')
     kb_pform = func_to_pred.Plugin(calc_pred=rifeval,factory=kb.factory).transform(kb)
     query_pform = func_to_pred.Plugin(calc_pred=rifeval).transform(query)
     Plugin(nsmap=nsmap, supress_nsmap=True).serialize(kb_pform, to_pl)
@@ -521,6 +524,7 @@ def test2():
         n+=1
         pattern = query.from_conclusion(conc)
 
+        #prem.factory.nsmap.bind("", "http://www.w3.org/2007/rif#")
         try:
             result = run_query(prem, pattern, msg="From test "+test)
         except error.Error, e:
