@@ -25,7 +25,6 @@ import xml.etree.cElementTree as etree
 rifns = "http://www.w3.org/2007/rif#"
 xsdns = "http://www.w3.org/2001/XMLSchema#"
 
-# (prop_suffix, mode) = table_3[ (local, group_local) ]
 table_3 = {
     ("Document", "directive") : ("directives", 2),
     ("Group", "sentence") : ("parts", 2),
@@ -267,7 +266,7 @@ def describe(rifxml):
 
         #print "   group", group_tag, mode, prop
 
-        if mode == 0:
+        if mode == 0: # ORDERED=YES
             if len(group) > 1:
                 error("elements with ordered='yes' must not be repeated")
             values=[]
@@ -276,7 +275,7 @@ def describe(rifxml):
                 values.append(child_focus)
                 triples.extend(child_triples)
             value = RDFList(values)
-        elif mode == 1:
+        elif mode == 1:  # REQUIRED TO APPEAR EXACTLY ONCE
             if len(group) > 1:
                 error(group[0], "only elements in listed as Mode=2 in Table 3 may be repeated")
             if contains_markup(group[0]):
@@ -286,7 +285,7 @@ def describe(rifxml):
                 # eg <location>
                 child_triples = [  (focus, prop, PlainLiteral(group[0].text)) ]
             triples.extend(child_triples)
-        elif mode == 2:
+        elif mode == 2:  # OPTIONAL/REPEATED -- GATHERED INTO A LIST
             values=[]
             for occurance in group:
                 if contains_markup(occurance):
@@ -299,7 +298,7 @@ def describe(rifxml):
                 values.append(child_focus)
                 triples.extend(child_triples)
             value = RDFList(values)
-        elif mode == 3:
+        elif mode == 3:  # SLOTS -- TRANSFORMED AND GATHERED INTO LIST
             values=[]
             for occurance in group:
                 assert occurance.get("ordered") == "yes"
