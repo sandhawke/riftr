@@ -25,6 +25,19 @@ import xml.etree.cElementTree as etree
 rifns = "http://www.w3.org/2007/rif#"
 xsdns = "http://www.w3.org/2001/XMLSchema#"
 
+# (prop_suffix, mode) = table_3[ (local, group_local) ]
+table_3 = {
+    ("Document", "directive") : ("directives", 2),
+    ("Group", "sentence") : ("parts", 2),
+    ("Forall", "declare") : ("univars", 2),
+    ("And", "formula") : ("allTrue", 2),
+    ("Frame", "slot") : ("slots", 3),
+    ("Atom", "slot") : ("namedargs", 3),
+    ("Expr", "slot") : ("namedargs", 3),
+    ("Atom", "op") : ("predicate", 1),
+    ("Expr", "op") : ("function", 1),
+}
+
 #
 # Classes used to represent RDF.  We could use rdflib or something,
 # but we want this to be readable even if you don't know rdflib.
@@ -54,7 +67,7 @@ class LabeledNode(object):
     def as_turtle(self):
         return "<"+self.iri+">"
 
-class PlanLiteral(object):
+class PlainLiteral(object):
 
     def __init__(self, text, lang=None):
         self.text = text
@@ -73,7 +86,7 @@ class TypedLiteral(object):
         self.datatype = datatype
 
     def as_turtle(self):
-        return '"'+turtle_escape(self.lexrep)+'"^^<'+self.datatype+'"'
+        return '"'+turtle_escape(self.lexrep)+'"^^<'+self.datatype+'>'
 
 class RDFList(object):
     
@@ -81,7 +94,7 @@ class RDFList(object):
         self.items = items
 
     def as_turtle(self):
-        return " ( "+ " ".join([x.as_turtle() for x in items]) + " ) "
+        return " ( "+ " ".join([x.as_turtle() for x in self.items]) + " ) "
 
 #
 # General Utility Functions
@@ -125,6 +138,7 @@ def group_children(x):
             buffer = []
         buffer.append(p)
         prev = p.tag
+    yield buffer
 
 def the_child_of(x):
     children = [e for e in x.getchildren()]
@@ -135,6 +149,16 @@ def contains_markup(x):
     children = [e for e in x.getchildren()]
     assert len(x) == len(children)   # I'm unclear what len dooes
     return len(children) > 0
+
+def turtle_escape(s):
+    # http://www.w3.org/TeamSubmission/turtle/#sec-strings
+    s = s.replace("\\", "\\\\")
+    s = s.replace("\n", "\\n")
+    s = s.replace("\t", "\\t")
+    s = s.replace("\r", "\\r")
+    s = s.replace('"', '\\"')
+    return s
+    
 #
 # Parts of describe() that have been moved out into separate functions,
 # just for readability.
@@ -143,6 +167,8 @@ def contains_markup(x):
 rif = Namespace(rifns)
 
 def get_focus(rifxml):
+    # allow an override, eg for the document URI?   Should the document address
+    # be the IRI of the document node...?
     id_child = rifxml.find(rif.id)
     if id_child is not None:
         # oddly, the id is required to be a rif:iri.   A rif:local
@@ -212,9 +238,6 @@ def describe(rifxml):
         triples.append(new)
         return (focus, triples)
 
-    if local in ("Frame", "Atom", "Expr"):
-        raise Exception
-
     # Do the basic matching from Table 2
     for group in group_children(rifxml):
         group_tag = group[0].tag
@@ -225,6 +248,8 @@ def describe(rifxml):
         # mode 0 -- the child, when present, has the ordered=yes attribute
         # mode 1 -- the child is required to appear exactly once
         # mode 2 -- the child is optional, or it may be repeated
+        # mode 3 -- just for the <slot> element
+
         prop = group_ns+group_local
         if group[0].get("ordered") == "yes":
             mode = 0
@@ -232,15 +257,15 @@ def describe(rifxml):
             mode = 1
         if group_ns == rifns:
             try:
-                # Look in Table 3 for any elements which are Mode-2
-                # Also, Table 3 allows property names to be different from the tag
-                # Look up in Table 3 which child elements are mode-2; Table 3
-                # also allows property names to be different from the tag.
+                # Table 3 contains over-rides for property names and modes.
+                # It's the only way to get Mode 2 or Mode 3
                 (prop_suffix, mode) = table_3[ (local, group_local) ]
                 if prop_suffix:
                     prop = group_ns+prop_suffix
             except KeyError:
                 pass
+
+        #print "   group", group_tag, mode, prop
 
         if mode == 0:
             if len(group) > 1:
@@ -252,6 +277,8 @@ def describe(rifxml):
                 triples.extend(child_triples)
             value = RDFList(values)
         elif mode == 1:
+            if len(group) > 1:
+                error(group[0], "only elements in listed as Mode=2 in Table 3 may be repeated")
             if contains_markup(group[0]):
                 child = the_child_of(group[0])
                 (value, child_triples) = describe(child)
@@ -259,8 +286,7 @@ def describe(rifxml):
                 # eg <location>
                 child_triples = [  (focus, prop, PlainLiteral(group[0].text)) ]
             triples.extend(child_triples)
-        else:
-            assert mode==2
+        elif mode == 2:
             values=[]
             for occurance in group:
                 if contains_markup(occurance):
@@ -273,8 +299,37 @@ def describe(rifxml):
                 values.append(child_focus)
                 triples.extend(child_triples)
             value = RDFList(values)
+        elif mode == 3:
+            values=[]
+            for occurance in group:
+                assert occurance.get("ordered") == "yes"
+                node = BlankNode()
+                values.append(node)
+
+                if tag == rif.Expr or tag == rif.Atom:
+                    assert(len(occurance) == 2)
+                    assert(occurance[0].tag == rif.Name)
+                    name = occurance[0].text
+                    (v, vt) = describe(occurance[1])
+                    triples.extend(vt)
+                    triples.append(  (node, rifns+"argname", PlainLiteral(name))  )
+                    triples.append(  (node, rifns+"argvalue", v)  )
+                else:
+                    # in std dialects, tag == rif.Frame here
+                    assert(len(occurance) == 2)
+                    (k, kt) = describe(occurance[0])
+                    (v, vt) = describe(occurance[1])
+                    triples.extend(kt)
+                    triples.extend(vt)
+                    triples.append(  (node, rifns+"slotkey", k)  )
+                    triples.append(  (node, rifns+"slotvalue", v)  )
+
+            value = RDFList(values)
             
-        triples.append( (focus, prop, value)  )
+        else:
+            raise Exception
+                
+        triples.append(  (focus, prop, value)  )
 
     return (focus, triples)
 
@@ -299,7 +354,7 @@ def main():
     (focus, triples) = describe(doc)
     print "# RIF focus is", focus.as_turtle()
     for (s,p,o) in triples:
-        print s.as_turtle(), p, o.as_turtle(),"."
+        print s.as_turtle(), "<"+p+">", o.as_turtle(),"."
 
 
 if __name__ == "__main__":
