@@ -16,6 +16,14 @@ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 [1] http://www.w3.org/Consortium/Legal/2002/copyright-software-20021231
 
+TODO:
+
+   -- improve use of etree, using len and subscripting
+   -- allow default IRI for top-level in describe
+   -- allow document to come from web, filesystem-with-URL?
+   -- extract, driven by simplified schema?
+   -- run through test cases
+
 """
 
 import sys
@@ -30,6 +38,7 @@ table_3 = {
     ("Group", "sentence") : ("parts", 2),
     ("Forall", "declare") : ("univars", 2),
     ("And", "formula") : ("allTrue", 2),
+    ("Or", "formula") : ("anyTrue", 2),
     ("Frame", "slot") : ("slots", 3),
     ("Atom", "slot") : ("namedargs", 3),
     ("Expr", "slot") : ("namedargs", 3),
@@ -165,7 +174,7 @@ def turtle_escape(s):
 
 rif = Namespace(rifns)
 
-def get_focus(rifxml):
+def get_focus(rifxml, default_iri=None):
     # allow an override, eg for the document URI?   Should the document address
     # be the IRI of the document node...?
     id_child = rifxml.find(rif.id)
@@ -177,12 +186,14 @@ def get_focus(rifxml):
         t = id_const.get("type")
         if t == rifns+"iri":
             iri = id_const.text
-            focus = LabeledNode(iri)
+            return LabeledNode(iri)
         else:
             error("""<id> elements must contain a <Const type="rif:iri"> element""")
-    else:
-        focus = BlankNode()
-    return focus
+            
+    if default_iri:
+        return default_iri
+
+    return BlankNode()
 
 def extract_meta(rifxml):
     """Optionally for a <meta> element and convert the data in it into
@@ -198,14 +209,14 @@ def error(x, msg):
 # The main describe() function
 #
 
-def describe(rifxml):
+def describe(rifxml, default_iri=None):
     """Given a RIF XML document, or a part of an RIF XML document
     (where the element is a "class stripe"), return the pair <focus,
     triples>) where triples is a set of RDF triples (an RDF graph),
     and focus is the node in that graph which represents the top-level
     element in the provided XML."""
 
-    focus = get_focus(rifxml)
+    focus = get_focus(rifxml, default_iri)
     triples = []
     tag = rifxml.tag
     (ns,local) = ns_split(rifxml.tag)
@@ -281,10 +292,10 @@ def describe(rifxml):
             if contains_markup(group[0]):
                 child = the_child_of(group[0])
                 (value, child_triples) = describe(child)
+                triples.extend(child_triples)
             else:
                 # eg <location>
-                child_triples = [  (focus, prop, PlainLiteral(group[0].text)) ]
-            triples.extend(child_triples)
+                value = PlainLiteral(group[0].text)
         elif mode == 2:  # OPTIONAL/REPEATED -- GATHERED INTO A LIST
             values=[]
             for occurance in group:
@@ -346,14 +357,25 @@ def extract(graph, node):
 # Basic command-line driver functions
 #
 
-def main():
-    doc = etree.fromstring(sys.stdin.read())
+def from_file(filename):
+    with open(filename) as stream:
+        doc = etree.fromstring(stream.read())
     if doc.tag != rif.Document:
         error(doc, "Root element is not rif:Document.")
-    (focus, triples) = describe(doc)
+    (focus, triples) = describe(doc, LabeledNode("file:/"+filename))
+
     print "# RIF focus is", focus.as_turtle()
+    print "# %d triples" % len(triples)
     for (s,p,o) in triples:
         print s.as_turtle(), "<"+p+">", o.as_turtle(),"."
+
+def main():
+    if len(sys.argv) < 2:
+        print "Usage: filename"
+    else:
+        from_file(sys.argv[1])
+    
+    #doc = etree.fromstring(sys.stdin.read())
 
 
 if __name__ == "__main__":
